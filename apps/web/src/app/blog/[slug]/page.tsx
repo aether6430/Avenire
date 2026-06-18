@@ -1,16 +1,13 @@
 import { ArrowLeft, Calendar, Clock, Tag } from "@phosphor-icons/react/ssr";
-import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import Markdown from "react-markdown";
 import type { ElementType } from "react";
-import rehypeKatex from "rehype-katex";
-import remarkGfm from "remark-gfm";
-import remarkMath from "remark-math";
 import { Footer } from "@/components/marketing/footer";
 import { Navbar } from "@/components/marketing/navbar";
-import { getAllSlugs, getPostBySlug } from "@/lib/blog";
+import { getAllSlugs, getPostBySlug, getRelatedPosts } from "@/lib/blog";
 import { metadataBase } from "@/lib/page-metadata";
+import { ReadingProgressBar } from "./reading-progress";
+import { ShareActions } from "./share-actions";
 
 const ArrowLeftIcon = ArrowLeft as ElementType;
 const CalendarIcon = Calendar as ElementType;
@@ -105,7 +102,7 @@ function buildArticleSchema(slug: string) {
         "@type": "ImageObject",
         url: new URL(
           "/branding/avenire-logo-full.png",
-          metadataBase
+          metadataBase,
         ).toString(),
       },
       name: "Avenire",
@@ -122,76 +119,6 @@ function formatDate(iso: string) {
   });
 }
 
-const mdxComponents = {
-  h1: ({ children, ...props }: React.HTMLAttributes<HTMLHeadingElement>) => (
-    <h1
-      className="mt-10 mb-4 font-semibold text-3xl text-white tracking-tight"
-      {...props}
-    >
-      {children}
-    </h1>
-  ),
-  h2: ({ children, ...props }: React.HTMLAttributes<HTMLHeadingElement>) => (
-    <h2
-      className="mt-10 mb-3 font-semibold text-2xl text-white tracking-tight"
-      {...props}
-    >
-      {children}
-    </h2>
-  ),
-  h3: ({ children, ...props }: React.HTMLAttributes<HTMLHeadingElement>) => (
-    <h3 className="mt-8 mb-3 font-semibold text-white text-xl" {...props}>
-      {children}
-    </h3>
-  ),
-  p: (props: React.HTMLAttributes<HTMLParagraphElement>) => (
-    <p className="mb-5 text-white/70 leading-relaxed" {...props} />
-  ),
-  ul: (props: React.HTMLAttributes<HTMLUListElement>) => (
-    <ul className="my-4 ml-6 list-none space-y-2" {...props} />
-  ),
-  ol: (props: React.HTMLAttributes<HTMLOListElement>) => (
-    <ol className="my-4 ml-6 list-outside list-decimal space-y-2" {...props} />
-  ),
-  li: (props: React.HTMLAttributes<HTMLLIElement>) => (
-    <li
-      className="pl-1 text-white/70 leading-relaxed before:mr-2 before:text-brand before:content-['—']"
-      {...props}
-    />
-  ),
-  a: (props: React.AnchorHTMLAttributes<HTMLAnchorElement>) => (
-    <a
-      className="text-brand underline underline-offset-4 transition-colors hover:text-brand/80"
-      {...props}
-    />
-  ),
-  strong: (props: React.HTMLAttributes<HTMLElement>) => (
-    <strong className="font-semibold text-white" {...props} />
-  ),
-  em: (props: React.HTMLAttributes<HTMLElement>) => (
-    <em className="text-white/80 italic" {...props} />
-  ),
-  blockquote: (props: React.HTMLAttributes<HTMLQuoteElement>) => (
-    <blockquote
-      className="my-6 border-brand/50 border-l-2 pl-5 text-white/55 italic"
-      {...props}
-    />
-  ),
-  code: (props: React.HTMLAttributes<HTMLElement>) => (
-    <code
-      className="rounded bg-white/5 px-1.5 py-0.5 font-mono text-white/80 text-sm"
-      {...props}
-    />
-  ),
-  pre: (props: React.HTMLAttributes<HTMLPreElement>) => (
-    <pre
-      className="my-6 overflow-x-auto rounded-xl border border-divide bg-neutral-900/55 p-5 font-mono text-sm leading-relaxed"
-      {...props}
-    />
-  ),
-  hr: () => <hr className="my-10 border-divide" />,
-};
-
 export default async function BlogPostPage({
   params,
 }: {
@@ -205,6 +132,41 @@ export default async function BlogPostPage({
     notFound();
   }
 
+  // Get related posts
+  const relatedPosts = getRelatedPosts(slug, post.tags, post.category, 3);
+
+  // Dynamically import the MDX module for this slug.
+  let PostContent: React.ComponentType = () => null;
+  try {
+    const mod = await import(`@/content/blog/${slug}.mdx`);
+    PostContent = mod.default;
+  } catch (err: unknown) {
+    if (
+      typeof err === "object" &&
+      err !== null &&
+      "code" in err &&
+      (err as { code: string }).code !== "MODULE_NOT_FOUND"
+    ) {
+      throw err;
+    }
+    const { default: Markdown } = await import("react-markdown");
+    const rehypeKatex = (await import("rehype-katex")).default;
+    const remarkGfm = (await import("remark-gfm")).default;
+    const remarkMath = (await import("remark-math")).default;
+
+    PostContent = () => (
+      <Markdown
+        rehypePlugins={[rehypeKatex]}
+        remarkPlugins={[remarkGfm, remarkMath]}
+      >
+        {post.content}
+      </Markdown>
+    );
+  }
+
+  const pageUrl = `${metadataBase.origin}/blog/${slug}`;
+  const shareText = `${post.title} by Avenire`;
+
   return (
     <main className="avenire-marketing-scope dark min-h-screen bg-neutral-950 text-neutral-100">
       {articleSchema ? (
@@ -213,14 +175,22 @@ export default async function BlogPostPage({
           type="application/ld+json"
         />
       ) : null}
+
+      {/* Reading Progress Bar */}
+      <ReadingProgressBar />
+
       <Navbar />
 
-      <article className="px-4 pt-32 pb-24">
-        <div className="mx-auto max-w-[72rem] border-divide border-x border-y px-4 py-8 md:px-8">
-        <div className="mx-auto max-w-2xl">
+      {/* Hero header with gradient */}
+      <header className="relative overflow-hidden px-4 pt-32 pb-12 md:pb-16">
+        {/* Subtle background glow */}
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-brand/5 via-transparent to-transparent" />
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_left,_var(--tw-gradient-stops))] from-white/[0.02] via-transparent to-transparent" />
+
+        <div className="relative mx-auto max-w-[44rem]">
           {/* Back link */}
           <Link
-            className="group mb-10 inline-flex items-center gap-1.5 text-white/50 text-sm transition-colors hover:text-white"
+            className="group mb-8 inline-flex items-center gap-1.5 text-white/40 text-sm transition-colors hover:text-white/80"
             href="/blog"
           >
             <ArrowLeftIcon className="size-4 transition-transform group-hover:-translate-x-0.5" />
@@ -242,34 +212,21 @@ export default async function BlogPostPage({
             </div>
           )}
 
-          {post.coverImage && (
-            <div className="mb-8 overflow-hidden rounded-xl border border-divide">
-              <Image
-                alt={post.title}
-                className="h-auto w-full object-cover"
-                height={900}
-                priority
-                src={post.coverImage}
-                width={1600}
-              />
-            </div>
-          )}
-
           {/* Title */}
-          <h1 className="mb-4 font-semibold text-3xl text-white leading-tight tracking-tight md:text-4xl">
+          <h1 className="mb-4 font-semibold text-3xl text-white leading-tight tracking-tight md:text-4xl lg:text-5xl lg:leading-[1.15]">
             {post.title}
           </h1>
 
           {/* Description */}
           {post.description && (
-            <p className="mb-8 text-lg text-white/60 leading-relaxed">
+            <p className="mb-6 text-base text-white/55 leading-relaxed md:text-lg">
               {post.description}
             </p>
           )}
 
-          {/* Meta */}
-          <div className="mb-10 flex flex-wrap items-center gap-4 border-divide border-b pb-8 text-white/45 text-sm">
-            <span className="font-medium text-white/62">
+          {/* Meta row */}
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-white/40 text-sm">
+            <span className="font-medium text-white/60">
               {post.author}
             </span>
             <span className="flex items-center gap-1.5">
@@ -281,29 +238,95 @@ export default async function BlogPostPage({
               {post.readingTime}
             </span>
           </div>
+        </div>
+      </header>
 
+      {/* Cover image (full-bleed style) */}
+      {post.coverImage && (
+        <div className="px-4">
+          <div className="mx-auto max-w-[44rem]">
+            <div className="mb-12 overflow-hidden rounded-xl border border-divide">
+              <img
+                alt={post.title}
+                className="h-auto w-full object-cover"
+                src={post.coverImage}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Article content */}
+      <article className="px-4 pb-24">
+        <div className="mx-auto max-w-[44rem]">
           {/* MDX Content */}
-          <div className="prose-avenire">
-            <Markdown
-              components={mdxComponents}
-              rehypePlugins={[rehypeKatex]}
-              remarkPlugins={[remarkGfm, remarkMath]}
-            >
-              {post.content}
-            </Markdown>
+          <div className="prose-avenire text-[15px] leading-[1.75] text-white/75 md:text-base">
+            <PostContent />
           </div>
 
+          {/* Share Actions */}
+          <div className="mt-12 border-divide border-t pt-8">
+            <ShareActions url={pageUrl} title={shareText} />
+          </div>
+
+          {/* Related Articles */}
+          {relatedPosts.length > 0 && (
+            <div className="mt-12 border-divide border-t pt-10">
+              <h2 className="mb-6 font-semibold text-xl text-white tracking-tight">
+                Related Articles
+              </h2>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {relatedPosts.map((relatedPost) => (
+                  <Link
+                    className="group block"
+                    href={`/blog/${relatedPost.slug}`}
+                    key={relatedPost.slug}
+                  >
+                    <article className="flex h-full flex-col rounded-xl border border-divide bg-neutral-900/55 p-4 transition-all duration-300 hover:-translate-y-1 hover:border-brand/40 hover:shadow-black/10 hover:shadow-lg">
+                      {relatedPost.coverImage && (
+                        <div className="-mx-4 -mt-4 mb-3 overflow-hidden rounded-t-xl border-divide border-b">
+                          <div className="aspect-[16/9] overflow-hidden">
+                            <img
+                              alt={relatedPost.title}
+                              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+                              src={relatedPost.coverImage}
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="mb-2 flex flex-wrap gap-1.5">
+                        <span className="inline-flex items-center gap-1 rounded-full bg-brand/10 px-1.5 py-0.5 font-medium text-brand text-[10px]">
+                          {relatedPost.tags[0] ?? relatedPost.category}
+                        </span>
+                      </div>
+
+                      <h3 className="mb-2 flex-1 font-semibold text-white text-sm leading-snug transition-colors duration-200 group-hover:text-brand line-clamp-2">
+                        {relatedPost.title}
+                      </h3>
+
+                      <div className="mt-auto flex items-center gap-2 text-white/35 text-[11px]">
+                        <span>{formatDate(relatedPost.date)}</span>
+                        <span>•</span>
+                        <span>{relatedPost.readingTime}</span>
+                      </div>
+                    </article>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Footer navigation */}
-          <div className="mt-16 border-divide border-t pt-8">
+          <div className="mt-12 border-divide border-t pt-8">
             <Link
-              className="group inline-flex items-center gap-1.5 text-white/50 text-sm transition-colors hover:text-brand"
+              className="group inline-flex items-center gap-1.5 text-white/40 text-sm transition-colors hover:text-brand"
               href="/blog"
             >
               <ArrowLeftIcon className="size-4 transition-transform group-hover:-translate-x-0.5" />
               Back to all posts
             </Link>
           </div>
-        </div>
         </div>
       </article>
 

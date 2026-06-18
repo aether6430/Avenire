@@ -66,7 +66,6 @@ export const AgenticIntelligence = () => {
         </div>
         <div className="w-full">
           <Card className="relative w-full max-w-none overflow-hidden bg-neutral-900/60">
-            <div className="pointer-events-none absolute inset-0 h-full w-full bg-[repeating-linear-gradient(315deg,_var(--pattern-fg)_0,_var(--pattern-fg)_1px,_transparent_0,_transparent_50%)] bg-[size:12px_12px] opacity-50 mask-radial-from-10%"></div>
             <div className="flex items-center gap-2">
               <NativeIcon />
               <CardTitle>Native learning tools</CardTitle>

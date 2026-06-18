@@ -1,7 +1,10 @@
+import createMDX from "@next/mdx";
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   typedRoutes: true,
+  // Allow .mdx extensions for files
+  pageExtensions: ["js", "jsx", "md", "mdx", "ts", "tsx"],
   images: {
     remotePatterns: [
       {
@@ -33,4 +36,30 @@ const nextConfig: NextConfig = {
   productionBrowserSourceMaps: true,
 };
 
-export default nextConfig;
+const withMDX = createMDX({
+  // Add markdown plugins here, as desired.
+  // With Turbopack, plugins must be specified as strings (no function references).
+  // See: https://nextjs.org/docs/app/guides/mdx#using-plugins-with-turbopack
+  options: {
+    remarkPlugins: [
+      // Parse YAML frontmatter so MDX doesn't choke on `---` blocks
+      "remark-frontmatter",
+      // Extract frontmatter into a named export for MDX modules
+      ["remark-mdx-frontmatter", { name: "frontmatter" }],
+      // GitHub Flavored Markdown (tables, strikethrough, etc.)
+      "remark-gfm",
+      // Math syntax support (dollar-sign delimiters)
+      "remark-math",
+    ],
+    rehypePlugins: [
+      // KaTeX for rendering math expressions
+      [
+        "rehype-katex",
+        { strict: true, throwOnError: false, output: "html" },
+      ],
+    ],
+  },
+});
+
+// Merge MDX config with Next.js config
+export default withMDX(nextConfig);

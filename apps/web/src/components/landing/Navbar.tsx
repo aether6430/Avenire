@@ -13,7 +13,7 @@ import {
 } from "@avenire/ui/components/navigation-menu";
 import { List as MenuIcon, XIcon } from "@phosphor-icons/react";
 import type { Route } from "next";
-import Image from "next/image";
+
 import Link from "next/link";
 import * as React from "react";
 import { AvenireMark } from "@/components/branding/AvenireMark";
@@ -151,11 +151,10 @@ export function Navbar() {
                           render={<Link href={highlightedBlog.href} />}
                         >
                           <div className="relative mb-2 h-24 w-full overflow-hidden rounded-md border border-border/60 bg-background">
-                            <Image
+                            <img
                               alt={highlightedBlog.title}
-                              className="object-cover"
-                              fill
-                              sizes="(max-width: 768px) 100vw, 280px"
+                              className="h-full w-full object-cover"
+                              loading="lazy"
                               src={highlightedBlog.image}
                             />
                           </div>
