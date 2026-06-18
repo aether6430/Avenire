@@ -2,6 +2,12 @@
 
 import { Button } from "@avenire/ui/components/button";
 import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from "@avenire/ui/components/context-menu";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -30,13 +36,15 @@ import {
   useSidebar,
 } from "@avenire/ui/components/sidebar";
 import { Textarea } from "@avenire/ui/components/textarea";
+import { cn } from "@avenire/ui/lib/utils";
 import {
   BookOpenText as BookOpenCheck,
+  Columns,
   MagnifyingGlass,
   ChatCenteredText as MessageSquareDashed,
+  Plus,
   PlusCircle,
 } from "@phosphor-icons/react";
-import { cn } from "@avenire/ui/lib/utils";
 import type { Route } from "next";
 import {
   type MouseEvent,
@@ -213,7 +221,10 @@ export function FlashcardsSidebarPanel({
   };
 
   const navigateToFlashcards = useCallback(
-    (href: Route, options?: { openInNewPane?: boolean }) => {
+    (
+      href: Route,
+      options?: { openInNewPane?: boolean; openInNewTab?: boolean }
+    ) => {
       navigate(href, options);
     },
     [navigate]
@@ -225,12 +236,6 @@ export function FlashcardsSidebarPanel({
         return false;
       }
 
-      if (event.type === "contextmenu") {
-        event.preventDefault();
-        navigateToFlashcards(href, { openInNewPane: true });
-        return true;
-      }
-
       if (event.altKey) {
         event.preventDefault();
         navigateToFlashcards(href, { openInNewPane: true });
@@ -240,6 +245,29 @@ export function FlashcardsSidebarPanel({
       return false;
     },
     [isMobile, navigateToFlashcards]
+  );
+  const renderOpenContextMenu = useCallback(
+    (href: Route) => (
+      <>
+        <ContextMenuItem onClick={() => navigateToFlashcards(href)}>
+          <MessageSquareDashed className="mr-2 size-3.5" />
+          Open
+        </ContextMenuItem>
+        <ContextMenuItem
+          onClick={() => navigateToFlashcards(href, { openInNewPane: true })}
+        >
+          <Columns className="mr-2 size-3.5" />
+          Open in new pane
+        </ContextMenuItem>
+        <ContextMenuItem
+          onClick={() => navigateToFlashcards(href, { openInNewTab: true })}
+        >
+          <Plus className="mr-2 size-3.5" />
+          Open in new tab
+        </ContextMenuItem>
+      </>
+    ),
+    [navigateToFlashcards]
   );
 
   const reviewTarget =
@@ -330,77 +358,83 @@ export function FlashcardsSidebarPanel({
         <SidebarGroupContent>
           <SidebarMenu>
             <SidebarMenuItem>
-              <SidebarMenuButton
-                draggable
-                onClick={(event) => {
-                  const href = reviewTarget
-                    ? (`/workspace/flashcards/${reviewTarget.id}?study=1` as Route)
-                    : ("/workspace/flashcards" as Route);
-                  if (handlePaneIntent(event, href)) {
-                    return;
-                  }
-                  if (reviewTarget) {
-                    navigateToFlashcards(href);
-                    return;
-                  }
-                  navigateToFlashcards(href);
-                }}
-                onContextMenu={(event) => {
-                  const href = reviewTarget
-                    ? (`/workspace/flashcards/${reviewTarget.id}?study=1` as Route)
-                    : ("/workspace/flashcards" as Route);
-                  handlePaneIntent(event, href);
-                }}
-                onDragStart={(event) => {
-                  const href = reviewTarget
-                    ? (`/workspace/flashcards/${reviewTarget.id}?study=1` as Route)
-                    : ("/workspace/flashcards" as Route);
-                  setWorkspacePaneDragData(event.dataTransfer, href);
-                }}
-                onFocus={() => {
-                  if (reviewTarget) {
-                    prefetchFlashcardSet(reviewTarget.id).catch(
-                      () => undefined
-                    );
-                  }
-                }}
-                onMouseEnter={() => {
-                  if (reviewTarget) {
-                    prefetchFlashcardSet(reviewTarget.id).catch(
-                      () => undefined
-                    );
-                  }
-                }}
-              >
-                <BookOpenCheck className="size-4" />
-                <span>Start review</span>
-              </SidebarMenuButton>
+              {(() => {
+                const href = reviewTarget
+                  ? (`/workspace/flashcards/${reviewTarget.id}?study=1` as Route)
+                  : ("/workspace/flashcards" as Route);
+
+                return (
+                  <ContextMenu>
+                    <ContextMenuTrigger render={<div className="contents" />}>
+                      <SidebarMenuButton
+                        draggable
+                        onClick={(event) => {
+                          if (handlePaneIntent(event, href)) {
+                            return;
+                          }
+                          navigateToFlashcards(href);
+                        }}
+                        onDragStart={(event) => {
+                          setWorkspacePaneDragData(event.dataTransfer, href);
+                        }}
+                        onFocus={() => {
+                          if (reviewTarget) {
+                            prefetchFlashcardSet(reviewTarget.id).catch(
+                              () => undefined
+                            );
+                          }
+                        }}
+                        onMouseEnter={() => {
+                          if (reviewTarget) {
+                            prefetchFlashcardSet(reviewTarget.id).catch(
+                              () => undefined
+                            );
+                          }
+                        }}
+                      >
+                        <BookOpenCheck className="size-4" />
+                        <span>Start review</span>
+                      </SidebarMenuButton>
+                    </ContextMenuTrigger>
+                    <ContextMenuContent>
+                      {renderOpenContextMenu(href)}
+                    </ContextMenuContent>
+                  </ContextMenu>
+                );
+              })()}
             </SidebarMenuItem>
 
             <SidebarMenuItem>
-              <SidebarMenuButton
-                draggable
-                onClick={(event) => {
-                  if (
-                    handlePaneIntent(event, "/workspace/flashcards" as Route)
-                  ) {
-                    return;
-                  }
-                  navigateToFlashcards("/workspace/flashcards" as Route);
-                }}
-                onContextMenu={(event) => {
-                  handlePaneIntent(event, "/workspace/flashcards" as Route);
-                }}
-                onDragStart={(event) => {
-                  setWorkspacePaneDragData(
-                    event.dataTransfer,
-                    "/workspace/flashcards" as Route
-                  );
-                }}
-              >
-                <MessageSquareDashed className="size-4" />
-                <span>Mindset overview</span>
-              </SidebarMenuButton>
+              <ContextMenu>
+                <ContextMenuTrigger render={<div className="contents" />}>
+                  <SidebarMenuButton
+                    draggable
+                    onClick={(event) => {
+                      if (
+                        handlePaneIntent(
+                          event,
+                          "/workspace/flashcards" as Route
+                        )
+                      ) {
+                        return;
+                      }
+                      navigateToFlashcards("/workspace/flashcards" as Route);
+                    }}
+                    onDragStart={(event) => {
+                      setWorkspacePaneDragData(
+                        event.dataTransfer,
+                        "/workspace/flashcards" as Route
+                      );
+                    }}
+                  >
+                    <MessageSquareDashed className="size-4" />
+                    <span>Mindset overview</span>
+                  </SidebarMenuButton>
+                </ContextMenuTrigger>
+                <ContextMenuContent>
+                  {renderOpenContextMenu("/workspace/flashcards" as Route)}
+                </ContextMenuContent>
+              </ContextMenu>
             </SidebarMenuItem>
           </SidebarMenu>
         </SidebarGroupContent>
@@ -413,31 +447,37 @@ export function FlashcardsSidebarPanel({
             <SidebarMenu>
               {activeMisconceptions.slice(0, 5).map((misconception) => (
                 <SidebarMenuItem key={misconception.id}>
-                  <SidebarMenuButton
-                    onClick={(event) => {
-                      const href =
-                        `/workspace/flashcards?misconception=${encodeURIComponent(
-                          misconception.id
-                        )}` as Route;
-                      if (handlePaneIntent(event, href)) {
-                        return;
-                      }
-                      navigateToFlashcards(href);
-                    }}
-                    onContextMenu={(event) => {
-                      handlePaneIntent(
-                        event,
-                        `/workspace/flashcards?misconception=${encodeURIComponent(
-                          misconception.id
-                        )}` as Route
-                      );
-                    }}
-                  >
-                    <WarningDot confidence={misconception.confidence} />
-                    <span className="min-w-0 whitespace-normal break-words leading-4">
-                      {misconception.concept}
-                    </span>
-                  </SidebarMenuButton>
+                  {(() => {
+                    const href =
+                      `/workspace/flashcards?misconception=${encodeURIComponent(
+                        misconception.id
+                      )}` as Route;
+
+                    return (
+                      <ContextMenu>
+                        <ContextMenuTrigger
+                          render={<div className="contents" />}
+                        >
+                          <SidebarMenuButton
+                            onClick={(event) => {
+                              if (handlePaneIntent(event, href)) {
+                                return;
+                              }
+                              navigateToFlashcards(href);
+                            }}
+                          >
+                            <WarningDot confidence={misconception.confidence} />
+                            <span className="min-w-0 whitespace-normal break-words leading-4">
+                              {misconception.concept}
+                            </span>
+                          </SidebarMenuButton>
+                        </ContextMenuTrigger>
+                        <ContextMenuContent>
+                          {renderOpenContextMenu(href)}
+                        </ContextMenuContent>
+                      </ContextMenu>
+                    );
+                  })()}
                 </SidebarMenuItem>
               ))}
             </SidebarMenu>
@@ -476,40 +516,55 @@ export function FlashcardsSidebarPanel({
             <SidebarMenu>
               {filteredSets.map((set) => (
                 <SidebarMenuItem key={set.id}>
-                  <SidebarMenuButton
-                    draggable
-                    isActive={activeSetId === set.id}
-                    onClick={(event) => {
-                      const href = `/workspace/flashcards/${set.id}` as Route;
-                      if (handlePaneIntent(event, href)) {
-                        return;
-                      }
-                      navigateToFlashcards(href);
-                    }}
-                    onContextMenu={(event) => {
-                      handlePaneIntent(
-                        event,
-                        `/workspace/flashcards/${set.id}` as Route
-                      );
-                    }}
-                    onDragStart={(event) => {
-                      setWorkspacePaneDragData(
-                        event.dataTransfer,
-                        `/workspace/flashcards/${set.id}` as Route
-                      );
-                    }}
-                    onFocus={() => {
-                      prefetchFlashcardSet(set.id).catch(() => undefined);
-                    }}
-                    onMouseEnter={() => {
-                      prefetchFlashcardSet(set.id).catch(() => undefined);
-                    }}
-                  >
-                    <DeckCountChip due={set.dueCount} newCount={set.newCount} />
-                    <span className="min-w-0 whitespace-normal break-words leading-4">
-                      {set.title}
-                    </span>
-                  </SidebarMenuButton>
+                  {(() => {
+                    const href = `/workspace/flashcards/${set.id}` as Route;
+
+                    return (
+                      <ContextMenu>
+                        <ContextMenuTrigger
+                          render={<div className="contents" />}
+                        >
+                          <SidebarMenuButton
+                            draggable
+                            isActive={activeSetId === set.id}
+                            onClick={(event) => {
+                              if (handlePaneIntent(event, href)) {
+                                return;
+                              }
+                              navigateToFlashcards(href);
+                            }}
+                            onDragStart={(event) => {
+                              setWorkspacePaneDragData(
+                                event.dataTransfer,
+                                href
+                              );
+                            }}
+                            onFocus={() => {
+                              prefetchFlashcardSet(set.id).catch(
+                                () => undefined
+                              );
+                            }}
+                            onMouseEnter={() => {
+                              prefetchFlashcardSet(set.id).catch(
+                                () => undefined
+                              );
+                            }}
+                          >
+                            <DeckCountChip
+                              due={set.dueCount}
+                              newCount={set.newCount}
+                            />
+                            <span className="min-w-0 whitespace-normal break-words leading-4">
+                              {set.title}
+                            </span>
+                          </SidebarMenuButton>
+                        </ContextMenuTrigger>
+                        <ContextMenuContent>
+                          {renderOpenContextMenu(href)}
+                        </ContextMenuContent>
+                      </ContextMenu>
+                    );
+                  })()}
                 </SidebarMenuItem>
               ))}
             </SidebarMenu>

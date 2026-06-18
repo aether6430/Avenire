@@ -1,6 +1,12 @@
 "use client";
 
 import { Button } from "@avenire/ui/components/button";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from "@avenire/ui/components/context-menu";
 import { Input } from "@avenire/ui/components/input";
 import {
   SidebarGroup,
@@ -10,8 +16,14 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@avenire/ui/components/sidebar";
-import { ListChecks, MagnifyingGlass, Plus } from "@phosphor-icons/react";
+import {
+  Columns,
+  ListChecks,
+  MagnifyingGlass,
+  Plus,
+} from "@phosphor-icons/react";
 import type { Route } from "next";
+import type { ReactNode } from "react";
 import { useMemo, useState, useSyncExternalStore } from "react";
 import {
   getTaskStoreSnapshot,
@@ -22,21 +34,34 @@ import { formatTaskDueDate, getTaskStatusLabel } from "@/lib/tasks";
 import { commandPaletteActions } from "@/stores/commandPaletteStore";
 
 function SectionButton({
+  contextMenuContent,
   label,
   onClick,
 }: {
+  contextMenuContent?: ReactNode;
   label: string;
   onClick?: () => void;
 }) {
-  return (
+  const button = (
+    <SidebarMenuButton onClick={onClick} size="default">
+      <ListChecks className="size-4" />
+      <div className="min-w-0 flex-1 text-left">
+        <p className="truncate text-xs">{label}</p>
+      </div>
+    </SidebarMenuButton>
+  );
+
+  return contextMenuContent ? (
     <SidebarMenuItem>
-      <SidebarMenuButton onClick={onClick} size="default">
-        <ListChecks className="size-4" />
-        <div className="min-w-0 flex-1 text-left">
-          <p className="truncate text-xs">{label}</p>
-        </div>
-      </SidebarMenuButton>
+      <ContextMenu>
+        <ContextMenuTrigger render={<div className="contents" />}>
+          {button}
+        </ContextMenuTrigger>
+        <ContextMenuContent>{contextMenuContent}</ContextMenuContent>
+      </ContextMenu>
     </SidebarMenuItem>
+  ) : (
+    <SidebarMenuItem>{button}</SidebarMenuItem>
   );
 }
 
@@ -47,7 +72,10 @@ export function SidebarTaskPreview({
 }: {
   activeWorkspaceId?: string | null;
   closeMobileSidebar: () => void;
-  navigate: (href: Route) => void;
+  navigate: (
+    href: Route,
+    options?: { openInNewPane?: boolean; openInNewTab?: boolean }
+  ) => void;
 }) {
   const [searchQuery, setSearchQuery] = useState("");
   const { tasks: sidebarTasks } = useSyncExternalStore(
@@ -91,37 +119,82 @@ export function SidebarTaskPreview({
     (task) => (task.resources ?? []).length === 0
   );
 
+  const renderOpenContextMenu = (href: Route) => (
+    <>
+      <ContextMenuItem
+        onClick={() => {
+          closeMobileSidebar();
+          navigate(href);
+        }}
+      >
+        <ListChecks className="mr-2 size-3.5" />
+        Open
+      </ContextMenuItem>
+      <ContextMenuItem
+        onClick={() => {
+          closeMobileSidebar();
+          navigate(href, { openInNewPane: true });
+        }}
+      >
+        <Columns className="mr-2 size-3.5" />
+        Open in new pane
+      </ContextMenuItem>
+      <ContextMenuItem
+        onClick={() => {
+          closeMobileSidebar();
+          navigate(href, { openInNewTab: true });
+        }}
+      >
+        <Plus className="mr-2 size-3.5" />
+        Open in new tab
+      </ContextMenuItem>
+    </>
+  );
+
   const renderTaskItems = (tasks: typeof visibleTasks, emptyLabel: string) =>
     tasks.length > 0 ? (
       <SidebarMenu className="space-y-1">
-        {tasks.slice(0, 6).map((task) => (
-          <SidebarMenuItem key={task.id}>
-            <SidebarMenuButton
-              className="h-auto flex-col items-start gap-1 px-2 py-2"
-              onClick={() => {
-                closeMobileSidebar();
-                navigate(`/workspace/tasks?task=${task.id}` as Route);
-              }}
-            >
-              <div className="flex w-full items-start justify-between gap-2">
-                <span className="truncate text-left font-medium text-xs">
-                  {task.title}
-                </span>
-                <span className="shrink-0 rounded-sm border border-border/60 px-1.5 py-0.5 text-[10px] text-muted-foreground">
-                  {getTaskStatusLabel(task.status)}
-                </span>
-              </div>
-              <div className="flex w-full items-center justify-between text-[10px] text-muted-foreground">
-                <span className="truncate">
-                  {task.assignee?.name ?? task.assignee?.email ?? "Unassigned"}
-                </span>
-                <span className="shrink-0">
-                  {formatTaskDueDate(task.dueAt)}
-                </span>
-              </div>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        ))}
+        {tasks.slice(0, 6).map((task) => {
+          const href = `/workspace/tasks?task=${task.id}` as Route;
+
+          return (
+            <SidebarMenuItem key={task.id}>
+              <ContextMenu>
+                <ContextMenuTrigger render={<div className="contents" />}>
+                  <SidebarMenuButton
+                    className="h-auto flex-col items-start gap-1 px-2 py-2"
+                    onClick={() => {
+                      closeMobileSidebar();
+                      navigate(href);
+                    }}
+                  >
+                    <div className="flex w-full items-start justify-between gap-2">
+                      <span className="truncate text-left font-medium text-xs">
+                        {task.title}
+                      </span>
+                      <span className="shrink-0 rounded-sm border border-border/60 px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                        {getTaskStatusLabel(task.status)}
+                      </span>
+                    </div>
+                    <div className="flex w-full items-center justify-between text-[10px] text-muted-foreground">
+                      <span className="truncate">
+                        {task.assignee?.name ??
+                          task.assignee?.email ??
+                          "Unassigned"}
+                      </span>
+                      <span className="shrink-0">
+                        {formatTaskDueDate(task.dueAt)}
+                      </span>
+                    </div>
+                  </SidebarMenuButton>
+                </ContextMenuTrigger>
+                <ContextMenuContent>
+                  {renderOpenContextMenu(href)}
+                </ContextMenuContent>
+              </ContextMenu>
+            </SidebarMenuItem>
+          );
+        })}
       </SidebarMenu>
     ) : (
       <p className="px-2 py-2 text-muted-foreground text-xs">{emptyLabel}</p>
@@ -161,6 +234,9 @@ export function SidebarTaskPreview({
         <SidebarGroupContent>
           <SidebarMenu>
             <SectionButton
+              contextMenuContent={renderOpenContextMenu(
+                "/workspace/tasks" as Route
+              )}
               label="Open Tasks"
               onClick={() => {
                 closeMobileSidebar();

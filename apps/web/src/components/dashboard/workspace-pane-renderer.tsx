@@ -90,7 +90,7 @@ function TabItem({
   onCloseTab: (tabId: string) => void;
   onEditingTitleChange: (value: string) => void;
   onFinishEdit: (tabId: string, title: string) => void;
-  onOpenTab: () => void;
+  onOpenTab: (tabId?: string) => void;
   onStartEdit: (tabId: string, title: string) => void;
   onSwitchTab: (tabId: string) => void;
   tab: { id: string; title: string };
@@ -126,15 +126,15 @@ function TabItem({
           <Input
             autoFocus
             className="h-5 px-1 py-0 text-xs"
-            value={editingTabTitle}
-            onChange={(e) => onEditingTitleChange(e.target.value)}
             onBlur={() => onFinishEdit(tab.id, editingTabTitle)}
+            onChange={(e) => onEditingTitleChange(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Escape") {
                 e.preventDefault();
                 onCancelEdit();
               }
             }}
+            value={editingTabTitle}
           />
         </form>
       </div>
@@ -145,15 +145,16 @@ function TabItem({
     <ContextMenu>
       <ContextMenuTrigger render={<div className="contents" />}>
         <div
-          ref={setRef}
           className={cn(
-            "group flex h-6 min-w-0 max-w-56 cursor-grab items-center gap-1 rounded-md border px-1.5 text-left text-xs transition-colors active:cursor-grabbing",
+            "group flex h-7 min-w-0 max-w-56 cursor-grab items-center gap-1 rounded-md border px-2 text-left text-xs transition-colors active:cursor-grabbing",
+            "touch-none",
             isActive
               ? "border-border bg-muted text-foreground"
               : "border-transparent text-muted-foreground hover:bg-muted/60 hover:text-foreground",
             isDragging && "opacity-50",
             isOver && !isDragging && "bg-primary/10"
           )}
+          ref={setRef}
           {...attributes}
           {...listeners}
         >
@@ -171,12 +172,13 @@ function TabItem({
           </span>
           <button
             aria-label={`Close ${tab.title} tab`}
-            className="flex size-4 shrink-0 items-center justify-center rounded-sm text-muted-foreground opacity-0 transition hover:bg-foreground/10 hover:text-foreground group-hover:opacity-100 focus:opacity-100"
+            className="flex size-4 shrink-0 items-center justify-center rounded-sm text-muted-foreground opacity-0 transition hover:bg-foreground/10 hover:text-foreground focus:opacity-100 group-hover:opacity-100"
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
               onCloseTab(tab.id);
             }}
+            onPointerDown={(e) => e.stopPropagation()}
             type="button"
           >
             <X className="size-2.5" />
@@ -184,13 +186,15 @@ function TabItem({
         </div>
       </ContextMenuTrigger>
       <ContextMenuContent className="w-44 rounded-lg p-1">
-        <ContextMenuItem
-          onClick={() => onStartEdit(tab.id, tab.title)}
-        >
+        <ContextMenuItem onClick={() => onStartEdit(tab.id, tab.title)}>
           <Pencil className="mr-2 size-3.5" />
           Rename
         </ContextMenuItem>
         <ContextMenuSeparator />
+        <ContextMenuItem onClick={() => onOpenTab(tab.id)}>
+          <Plus className="mr-2 size-3.5" />
+          Duplicate tab
+        </ContextMenuItem>
         <ContextMenuItem onClick={() => onOpenTab()}>
           <Plus className="mr-2 size-3.5" />
           New tab
@@ -202,7 +206,7 @@ function TabItem({
           onClick={() => onCloseTab(tab.id)}
         >
           <X className="mr-2 size-3.5" />
-          Close tab
+          Delete tab
         </ContextMenuItem>
       </ContextMenuContent>
     </ContextMenu>
@@ -586,6 +590,9 @@ export function WorkspacePaneRenderer() {
     setActiveHeaderPaneId(activePaneId);
   }, [activePaneId, setActiveHeaderPaneId]);
 
+  const [editingTabId, setEditingTabId] = useState<string | null>(null);
+  const [editingTabTitle, setEditingTabTitle] = useState("");
+
   useEffect(() => {
     if (isMobile || !paneStoreHydrated) {
       return;
@@ -593,12 +600,7 @@ export function WorkspacePaneRenderer() {
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (
-        !(
-          event.ctrlKey &&
-          !event.metaKey &&
-          !event.altKey &&
-          !event.shiftKey
-        )
+        !(event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey)
       ) {
         return;
       }
@@ -675,9 +677,6 @@ export function WorkspacePaneRenderer() {
     }
   };
 
-  const [editingTabId, setEditingTabId] = useState<string | null>(null);
-  const [editingTabTitle, setEditingTabTitle] = useState("");
-
   const handleTabDragEnd = (event: DragEndEvent) => {
     const extractTabId = (id: string) =>
       id.replace("tab-item-", "").replace("tab-drop-", "");
@@ -701,7 +700,7 @@ export function WorkspacePaneRenderer() {
       sensors={sensors}
     >
       <div className="flex h-full min-h-0 w-full flex-col bg-background">
-        {tabs.length > 1 ? (
+        {tabs.length > 0 ? (
           <div className="flex h-9 shrink-0 items-center gap-1 border-border/70 border-b bg-background px-1.5">
             <DndContext onDragEnd={handleTabDragEnd} sensors={sensors}>
               <div
@@ -726,7 +725,20 @@ export function WorkspacePaneRenderer() {
                       setEditingTabId(null);
                       setEditingTabTitle("");
                     }}
-                    onOpenTab={openTab}
+                    onOpenTab={(tabId) => {
+                      const sourceTab =
+                        tabs.find((candidate) => candidate.id === tabId) ??
+                        null;
+                      const sourcePane =
+                        sourceTab?.panes.find(
+                          (pane) => pane.id === sourceTab.activePaneId
+                        ) ?? sourceTab?.panes[0];
+                      openTab(
+                        sourcePane
+                          ? `${sourcePane.route.pathname}${sourcePane.route.search}`
+                          : undefined
+                      );
+                    }}
                     onStartEdit={(tabId, title) => {
                       setEditingTabId(tabId);
                       setEditingTabTitle(title);

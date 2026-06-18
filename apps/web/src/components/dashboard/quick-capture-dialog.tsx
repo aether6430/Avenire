@@ -216,7 +216,7 @@ export function QuickCaptureDialog({
     setTask(resetTaskState());
     setNote(resetNoteState());
     setMisconception(resetMisconceptionState());
-  }, [currentUserId, kind, resolvedOpen, taskMode, taskValues]);
+  }, [currentUserId, kind, resolvedOpen, taskValues]);
 
   const submitLabel = useMemo(() => {
     if (busyKind === kind) {
@@ -326,7 +326,10 @@ export function QuickCaptureDialog({
   return (
     <Dialog onOpenChange={handleOpenChange} open={resolvedOpen}>
       <DialogTrigger render={trigger} />
-      <DialogContent className="max-w-4xl" largeWidth>
+      <DialogContent
+        className="w-[min(calc(100vw-2rem),64rem)] max-w-none"
+        largeWidth
+      >
         <DialogHeader className="space-y-2">
           <DialogTitle>{dialogTitle}</DialogTitle>
           <DialogDescription>{dialogDescription}</DialogDescription>
@@ -574,9 +577,7 @@ export function QuickCaptureDialog({
             disabled={
               isBusy ||
               (kind === "task" && !task.title.trim()) ||
-              (kind === "note" &&
-                !note.title.trim() &&
-                !note.content.trim()) ||
+              (kind === "note" && !note.title.trim() && !note.content.trim()) ||
               (kind === "misconception" &&
                 !(
                   misconception.subject.trim() &&

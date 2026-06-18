@@ -5,6 +5,7 @@ import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
+  ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@avenire/ui/components/context-menu";
 import {
@@ -22,8 +23,8 @@ import {
   Files,
   LinkSimple,
   MagnifyingGlass,
-  Plus,
   PushPin as Pin,
+  Plus,
   Trash as Trash2,
 } from "@phosphor-icons/react";
 import Fuse, { type IFuseOptions } from "fuse.js";
@@ -58,6 +59,7 @@ import {
   commandPaletteActions,
 } from "@/stores/commandPaletteStore";
 import {
+  filesPinsActions,
   type PinnedExplorerItem,
   useFilesPinsStore,
 } from "@/stores/filesPinsStore";
@@ -641,9 +643,13 @@ export function FilesSidebarPanel({
     setExpandedTreePaths((previous) => new Set([...previous, ...nextExpanded]));
   }, [currentFileId, currentFolderId, fileTree, folderTree, workspaceUuid]);
 
+  const treeItemCount = fileTree.length + folderTree.length;
   useEffect(() => {
     const targetPath = currentFileId ?? currentFolderId;
     if (!targetPath) {
+      return;
+    }
+    if (treeItemCount === 0) {
       return;
     }
     if (lastTreeRevealTargetRef.current === targetPath) {
@@ -665,7 +671,7 @@ export function FilesSidebarPanel({
     return () => {
       clearTimeout(timer);
     };
-  }, [currentFileId, currentFolderId, fileTree.length, folderTree.length]);
+  }, [currentFileId, currentFolderId, treeItemCount]);
 
   useEffect(() => {
     if (!workspaceUuid) {
@@ -943,7 +949,14 @@ export function FilesSidebarPanel({
       });
       filesUiActions.emitSync(workspaceUuid);
     },
-    [currentFileId, currentFolderId, navigateToFilesRoot, workspaceUuid]
+    [
+      currentFileId,
+      currentFolderId,
+      fileTree,
+      folderTree,
+      navigateToFilesRoot,
+      workspaceUuid,
+    ]
   );
 
   const fileSearchNeedle = filesNameSearchQuery.trim().toLowerCase();
@@ -1124,6 +1137,16 @@ export function FilesSidebarPanel({
             <ContextMenuItem
               onClick={() =>
                 navigate(
+                  `/workspace/files/${workspaceUuid}/folder/${folder.id}` as Route
+                )
+              }
+            >
+              <Files className="mr-2 size-3.5" />
+              Open
+            </ContextMenuItem>
+            <ContextMenuItem
+              onClick={() =>
+                navigate(
                   `/workspace/files/${workspaceUuid}/folder/${folder.id}` as Route,
                   { openInNewPane: true }
                 )
@@ -1143,6 +1166,22 @@ export function FilesSidebarPanel({
               <Plus className="mr-2 size-3.5" />
               Open in new tab
             </ContextMenuItem>
+            {folder.readOnly ? null : (
+              <>
+                <ContextMenuSeparator />
+                <ContextMenuItem
+                  className="text-destructive focus:text-destructive"
+                  onClick={() =>
+                    deleteTreeItems([{ id: folder.id, kind: "folder" }]).catch(
+                      () => undefined
+                    )
+                  }
+                >
+                  <Trash2 className="mr-2 size-3.5" />
+                  Delete
+                </ContextMenuItem>
+              </>
+            )}
           </>
         ),
         openIcon: TreeFolderOpenIcon,
@@ -1183,6 +1222,16 @@ export function FilesSidebarPanel({
             <ContextMenuItem
               onClick={() =>
                 navigate(
+                  `/workspace/files/${workspaceUuid}/folder/${file.folderId}?file=${file.id}` as Route
+                )
+              }
+            >
+              <Files className="mr-2 size-3.5" />
+              Open
+            </ContextMenuItem>
+            <ContextMenuItem
+              onClick={() =>
+                navigate(
                   `/workspace/files/${workspaceUuid}/folder/${file.folderId}?file=${file.id}` as Route,
                   { openInNewPane: true }
                 )
@@ -1202,6 +1251,22 @@ export function FilesSidebarPanel({
               <Plus className="mr-2 size-3.5" />
               Open in new tab
             </ContextMenuItem>
+            {file.readOnly ? null : (
+              <>
+                <ContextMenuSeparator />
+                <ContextMenuItem
+                  className="text-destructive focus:text-destructive"
+                  onClick={() =>
+                    deleteTreeItems([{ id: file.id, kind: "file" }]).catch(
+                      () => undefined
+                    )
+                  }
+                >
+                  <Trash2 className="mr-2 size-3.5" />
+                  Delete
+                </ContextMenuItem>
+              </>
+            )}
           </>
         ),
       });
@@ -1218,6 +1283,7 @@ export function FilesSidebarPanel({
     deleteTreeItems,
     filteredFileTreeState.files,
     filteredFileTreeState.folders,
+    navigate,
     navigateToFile,
     navigateToFolder,
     workspaceUuid,
@@ -1325,6 +1391,10 @@ export function FilesSidebarPanel({
                           </SidebarMenuButton>
                         </ContextMenuTrigger>
                         <ContextMenuContent>
+                          <ContextMenuItem onClick={() => navigate(folderHref)}>
+                            <Files className="mr-2 size-3.5" />
+                            Open
+                          </ContextMenuItem>
                           <ContextMenuItem
                             onClick={() =>
                               navigate(folderHref, { openInNewPane: true })
@@ -1340,6 +1410,18 @@ export function FilesSidebarPanel({
                           >
                             <Plus className="mr-2 size-3.5" />
                             Open in new tab
+                          </ContextMenuItem>
+                          <ContextMenuSeparator />
+                          <ContextMenuItem
+                            onClick={() =>
+                              filesPinsActions.togglePinnedItem(
+                                item.workspaceId,
+                                item
+                              )
+                            }
+                          >
+                            <Pin className="mr-2 size-3.5" />
+                            Unpin
                           </ContextMenuItem>
                         </ContextMenuContent>
                       </ContextMenu>
@@ -1387,6 +1469,10 @@ export function FilesSidebarPanel({
                         </ContextMenuTrigger>
                         {fileHref ? (
                           <ContextMenuContent>
+                            <ContextMenuItem onClick={() => navigate(fileHref)}>
+                              <Files className="mr-2 size-3.5" />
+                              Open
+                            </ContextMenuItem>
                             <ContextMenuItem
                               onClick={() =>
                                 navigate(fileHref, { openInNewPane: true })
@@ -1402,6 +1488,18 @@ export function FilesSidebarPanel({
                             >
                               <Plus className="mr-2 size-3.5" />
                               Open in new tab
+                            </ContextMenuItem>
+                            <ContextMenuSeparator />
+                            <ContextMenuItem
+                              onClick={() =>
+                                filesPinsActions.togglePinnedItem(
+                                  item.workspaceId,
+                                  item
+                                )
+                              }
+                            >
+                              <Pin className="mr-2 size-3.5" />
+                              Unpin
                             </ContextMenuItem>
                           </ContextMenuContent>
                         ) : null}
@@ -1454,9 +1552,7 @@ export function FilesSidebarPanel({
             <SidebarMenu>
               <SidebarMenuItem>
                 <ContextMenu>
-                  <ContextMenuTrigger
-                    render={<div className="contents" />}
-                  >
+                  <ContextMenuTrigger render={<div className="contents" />}>
                     <SidebarMenuButton
                       draggable
                       onClick={(event) => {
