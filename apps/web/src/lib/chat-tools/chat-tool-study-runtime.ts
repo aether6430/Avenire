@@ -1,4 +1,4 @@
-import { generateText, Output } from "@avenire/ai";
+import { generateText, Output, zodSchema } from "@avenire/ai";
 import { apollo } from "@avenire/ai/models";
 import type { chatToolSchemas } from "@avenire/ai/tools";
 import { getIngestionSummaryForFile } from "@avenire/database";
@@ -273,7 +273,7 @@ export async function generateFlashcardsFromSource(
   });
   const result = await generateText({
     model: apollo.languageModel("apollo-core"),
-    output: Output.object({ schema: flashcardGenerationSchema }),
+    output: Output.object({ schema: zodSchema(flashcardGenerationSchema) }),
     prompt: [
       "Create a clean Mindset Set from the study material.",
       "Write concise markdown front/back pairs.",
@@ -343,7 +343,7 @@ export async function generateQuizFromSource(
   });
   const result = await generateText({
     model: apollo.languageModel("apollo-core"),
-    output: Output.object({ schema: quizGenerationSchema }),
+    output: Output.object({ schema: zodSchema(quizGenerationSchema) }),
     prompt: [
       "Create a multiple choice quiz from the study material.",
       "Each question must have 4 options when possible.",

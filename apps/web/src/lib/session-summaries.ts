@@ -1,4 +1,4 @@
-import { generateText, Output } from "@avenire/ai";
+import { generateText, Output, zodSchema } from "@avenire/ai";
 import type { UIMessage } from "@avenire/ai/message-types";
 import { apollo } from "@avenire/ai/models";
 import {
@@ -561,7 +561,7 @@ export async function persistSessionSummaryForCompletedTurn(input: {
 
   const result = await generateText({
     model: apollo.languageModel(SUMMARY_MODEL),
-    output: Output.object({ schema: summaryOutputSchema }),
+    output: Output.object({ schema: zodSchema(summaryOutputSchema) }),
     prompt: [
       "Classify and summarize this completed chat session window for learning memory.",
       "Return concise, factual output only.",
