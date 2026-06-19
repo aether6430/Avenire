@@ -22,6 +22,8 @@ import {
   CHAT_STREAM_STATUS_EVENT,
   type ChatNameUpdatedDetail,
   type ChatStreamStatusDetail,
+  isActiveChatStreamStatus,
+  isChatStreamActive,
   rememberChatStreamStatus,
 } from "@/lib/chat-events";
 import { normalizeMediaType } from "@/lib/media-type";
@@ -38,6 +40,7 @@ interface ChatProps {
   initialMessages: UIMessage[];
   initialPrompt?: string | null;
   isReadonly: boolean;
+  newChatKey?: string;
   selectedModel: string;
   userName?: string;
   workspaceUuid: string;
@@ -63,6 +66,7 @@ export function Chat({
   initialPrompt,
   selectedModel,
   isReadonly,
+  newChatKey,
   workspaceUuid,
   userName,
 }: ChatProps) {
@@ -81,9 +85,10 @@ export function Chat({
   const activeSelectedModel = turboEnabled ? "apex-turbo" : selectedModel;
   const lastCompletedMessageIdRef = useRef<string | null>(null);
   const previousStatusRef = useRef<string | null>(null);
-  const initialMessagesCountRef = useRef(initialMessages.length);
+  const publishedStreamStatusRef = useRef<string | null>(null);
   const hasPushedNewChatUrlRef = useRef(id !== "new");
   const autoPromptSentRef = useRef<string | null>(null);
+  const previousNewChatKeyRef = useRef(newChatKey);
   const MAX_FILES = 3;
 
   const handleError = useCallback((error: Error) => {
@@ -105,6 +110,26 @@ export function Chat({
         body: {
           chatId,
           selectedModel: activeSelectedModel,
+        },
+        prepareSendMessagesRequest(request) {
+          const lastMessage = request.messages.at(-1);
+          const idempotencyKey =
+            lastMessage?.role === "user" ? lastMessage.id : null;
+          const headers = new Headers(request.headers);
+          if (idempotencyKey) {
+            headers.set("Idempotency-Key", idempotencyKey);
+          }
+
+          return {
+            body: {
+              ...request.body,
+              id: request.id,
+              messages: request.messages,
+              messageId: request.messageId,
+              trigger: request.trigger,
+            },
+            headers,
+          };
         },
       }),
     [activeSelectedModel, chatId]
@@ -191,8 +216,17 @@ export function Chat({
 
   useEffect(() => {
     if (id === "new") {
-      if (hasPushedNewChatUrlRef.current) {
+      const shouldResetNewChat =
+        hasPushedNewChatUrlRef.current ||
+        previousNewChatKeyRef.current !== newChatKey;
+      previousNewChatKeyRef.current = newChatKey;
+      if (shouldResetNewChat) {
         hasPushedNewChatUrlRef.current = false;
+        autoPromptSentRef.current = null;
+        publishedStreamStatusRef.current = null;
+        setAgentActivity(null);
+        setAttachments([]);
+        setInput("");
         setChatId(crypto.randomUUID());
         setMessages([]);
       }
@@ -201,9 +235,37 @@ export function Chat({
 
     hasPushedNewChatUrlRef.current = true;
     if (id !== chatId) {
+      publishedStreamStatusRef.current = null;
       setChatId(id);
     }
-  }, [chatId, id, setMessages]);
+  }, [chatId, id, newChatKey, setMessages]);
+
+  const publishChatStreamStatus = useCallback(
+    (nextStatus: string) => {
+      const detail = { chatId, status: nextStatus };
+      rememberChatStreamStatus(detail);
+      window.dispatchEvent(
+        new CustomEvent<ChatStreamStatusDetail>(CHAT_STREAM_STATUS_EVENT, {
+          detail,
+        })
+      );
+      publishedStreamStatusRef.current = nextStatus;
+    },
+    [chatId]
+  );
+
+  const promoteNewChatRoute = useCallback(() => {
+    if (id !== "new" || hasPushedNewChatUrlRef.current) {
+      return false;
+    }
+
+    hasPushedNewChatUrlRef.current = true;
+    publishChatStreamStatus("submitted");
+    paneRouter.replace(`/workspace/chats/${chatId}` as Route, {
+      scroll: false,
+    });
+    return true;
+  }, [chatId, id, paneRouter, publishChatStreamStatus]);
 
   const sendMessage = useCallback(
     async (message: SendMessageInput, options?: SendMessageOptions) => {
@@ -214,8 +276,9 @@ export function Chat({
 
   const handleStop = useCallback(() => {
     setAgentActivity(null);
+    publishChatStreamStatus("ready");
     stop();
-  }, [stop]);
+  }, [publishChatStreamStatus, stop]);
 
   useEffect(() => {
     if (initialMessages.length === 0 || messages.length > 0) {
@@ -225,25 +288,65 @@ export function Chat({
     setMessages(initialMessages);
   }, [initialMessages, messages.length, setMessages]);
 
-  useEffect(() => {
-    const canResumeExistingStream =
-      id !== "new" &&
-      initialMessagesCountRef.current > 0 &&
-      messages.at(-1)?.role === "user" &&
-      status === "ready";
-    if (!canResumeExistingStream) {
-      return;
-    }
-    resumeStream().catch(() => undefined);
-  }, [id, messages, resumeStream, status]);
+  const latestMessage = messages.at(-1);
+  const latestMessageId = latestMessage?.id ?? null;
+  const latestMessageRole = latestMessage?.role ?? null;
 
   useEffect(() => {
-    if (id === "new" || initialMessagesCountRef.current === 0) {
+    if (
+      id === "new" ||
+      latestMessageRole !== "user" ||
+      status !== "ready"
+    ) {
+      return;
+    }
+
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const retryDelaysMs = [0, 500, 1500, 3000, 5000];
+    let attemptIndex = 0;
+
+    const attemptResume = () => {
+      if (cancelled) {
+        return;
+      }
+
+      resumeStream()
+        .catch(() => undefined)
+        .finally(() => {
+          if (cancelled) {
+            return;
+          }
+          attemptIndex += 1;
+          const nextDelay = retryDelaysMs[attemptIndex];
+          if (nextDelay === undefined) {
+            return;
+          }
+          timer = setTimeout(attemptResume, nextDelay);
+        });
+    };
+
+    timer = setTimeout(attemptResume, retryDelaysMs[attemptIndex] ?? 0);
+
+    return () => {
+      cancelled = true;
+      if (timer) {
+        clearTimeout(timer);
+      }
+    };
+  }, [id, latestMessageId, latestMessageRole, resumeStream, status]);
+
+  useEffect(() => {
+    if (id === "new") {
       return;
     }
 
     const resumeExistingStream = () => {
-      if (document.visibilityState === "hidden" || status !== "ready") {
+      if (
+        document.visibilityState === "hidden" ||
+        status !== "ready" ||
+        latestMessageRole !== "user"
+      ) {
         return;
       }
       resumeStream().catch(() => undefined);
@@ -256,7 +359,7 @@ export function Chat({
       window.removeEventListener("focus", resumeExistingStream);
       document.removeEventListener("visibilitychange", resumeExistingStream);
     };
-  }, [id, resumeStream, status]);
+  }, [id, latestMessageRole, resumeStream, status]);
 
   useEffect(() => {
     if (id !== "new") {
@@ -272,30 +375,56 @@ export function Chat({
     }
 
     autoPromptSentRef.current = prompt;
+    promoteNewChatRoute();
     sendMessage({ text: prompt }).catch(() => {
       autoPromptSentRef.current = null;
+      publishChatStreamStatus("error");
     });
-  }, [id, initialPrompt, messages.length, sendMessage, status]);
+  }, [
+    id,
+    initialPrompt,
+    messages.length,
+    promoteNewChatRoute,
+    publishChatStreamStatus,
+    sendMessage,
+    status,
+  ]);
 
   useEffect(() => {
-    if (status !== "ready") {
+    const previousPublishedStatus = publishedStreamStatusRef.current;
+    if (
+      status === "ready" &&
+      latestMessageRole === "user" &&
+      isActiveChatStreamStatus(previousPublishedStatus)
+    ) {
       return;
     }
-    window.dispatchEvent(
-      new CustomEvent(CHAT_STREAM_FINISHED_EVENT, {
-        detail: { chatId },
-      })
-    );
-  }, [chatId, status]);
 
-  useEffect(() => {
-    const detail = { chatId, status };
-    rememberChatStreamStatus(detail);
-    window.dispatchEvent(
-      new CustomEvent<ChatStreamStatusDetail>(CHAT_STREAM_STATUS_EVENT, {
-        detail,
-      })
-    );
+    const shouldClearRememberedStream =
+      isChatStreamActive(chatId) && latestMessageRole !== "user";
+    const shouldPublish =
+      isActiveChatStreamStatus(status) ||
+      isActiveChatStreamStatus(previousPublishedStatus) ||
+      shouldClearRememberedStream;
+
+    if (!shouldPublish) {
+      publishedStreamStatusRef.current = status;
+      return;
+    }
+
+    publishChatStreamStatus(status);
+
+    if (
+      status === "ready" &&
+      isActiveChatStreamStatus(previousPublishedStatus)
+    ) {
+      window.dispatchEvent(
+        new CustomEvent(CHAT_STREAM_FINISHED_EVENT, {
+          detail: { chatId },
+        })
+      );
+    }
+
     if (status === "submitted") {
       emitPetNotification({
         message: "Thinking",
@@ -304,7 +433,7 @@ export function Chat({
         durationMs: 1800,
       });
     }
-  }, [chatId, status]);
+  }, [chatId, latestMessageRole, publishChatStreamStatus, status]);
 
   useEffect(() => {
     if (status !== "ready") {
@@ -415,12 +544,7 @@ export function Chat({
   );
 
   const handleSubmit = async (inputValue: string, files: Attachment[]) => {
-    if (id === "new" && !hasPushedNewChatUrlRef.current) {
-      hasPushedNewChatUrlRef.current = true;
-      paneRouter.replace(`/workspace/chats/${chatId}` as Route, {
-        scroll: false,
-      });
-    }
+    promoteNewChatRoute();
 
     const localFileParts: FileUIPart[] = files
       .filter((attachment) => attachment.source === "local")
@@ -460,13 +584,18 @@ export function Chat({
         ];
       });
 
-    if (localFileParts.length > 0 || workspaceFileParts.length > 0) {
-      await sendMessage({
-        text: inputValue,
-        files: [...localFileParts, ...workspaceFileParts],
-      });
-    } else {
-      await sendMessage({ text: inputValue });
+    try {
+      if (localFileParts.length > 0 || workspaceFileParts.length > 0) {
+        await sendMessage({
+          text: inputValue,
+          files: [...localFileParts, ...workspaceFileParts],
+        });
+      } else {
+        await sendMessage({ text: inputValue });
+      }
+    } catch (error) {
+      publishChatStreamStatus("error");
+      throw error;
     }
   };
 
@@ -499,7 +628,7 @@ export function Chat({
   const isEmptyState =
     !hasConversationSurface && status !== "submitted" && status !== "streaming";
   const isTransitioningFromNewChat =
-    chatId === "new" &&
+    id === "new" &&
     !hasConversationSurface &&
     (status === "submitted" || status === "streaming");
   const shouldUseCenteredComposerLayout =

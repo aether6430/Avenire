@@ -19,8 +19,12 @@ export interface ChatStreamStatusDetail {
 
 const activeChatStreamIds = new Set<string>();
 
+export function isActiveChatStreamStatus(status: string | null | undefined) {
+  return status === "submitted" || status === "streaming";
+}
+
 export function rememberChatStreamStatus(detail: ChatStreamStatusDetail) {
-  if (detail.status === "submitted" || detail.status === "streaming") {
+  if (isActiveChatStreamStatus(detail.status)) {
     activeChatStreamIds.add(detail.chatId);
     return;
   }

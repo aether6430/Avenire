@@ -5,6 +5,8 @@ import {
 
 const redisUrl = process.env.REDIS_URL;
 const ACTIVE_STREAM_KEY_PREFIX = "chat-active-stream:";
+// Failsafe for crashed/serverless instances that never reach stream cleanup.
+const ACTIVE_STREAM_TTL_SECONDS = 60 * 60;
 
 let redisClient: ManagedRedisClient | null = null;
 let redisSubscriber: ManagedRedisClient | null = null;
@@ -69,7 +71,9 @@ export async function setActiveStreamId(chatId: string, streamId: string) {
 
   try {
     const client = await getRedisClient();
-    await client.set(`${ACTIVE_STREAM_KEY_PREFIX}${chatId}`, streamId);
+    await client.set(`${ACTIVE_STREAM_KEY_PREFIX}${chatId}`, streamId, {
+      expiration: { type: "EX", value: ACTIVE_STREAM_TTL_SECONDS },
+    });
   } catch (error) {
     console.error("Failed to set active stream id", {
       chatId,

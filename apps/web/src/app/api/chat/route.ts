@@ -62,6 +62,7 @@ import {
   inferTopicLabel,
   normalizeSubjectLabel,
 } from "@/lib/subject-detection";
+import { publishWorkspaceStreamEvent } from "@/lib/workspace-event-stream";
 import {
   clearActiveStreamId,
   getActiveStreamId,
@@ -69,7 +70,6 @@ import {
   getRedisSubscriber,
   setActiveStreamId,
 } from "./chat-stream-store";
-import { publishWorkspaceStreamEvent } from "@/lib/workspace-event-stream";
 
 const DEFAULT_CHAT_TITLE = "New Chat";
 const LOG_PREFIX = "[api/chat]";
@@ -1545,18 +1545,6 @@ export async function POST(request: Request) {
     if (previousStreamId) {
       await clearActiveStreamId(chatSlug, previousStreamId);
     }
-    request.signal.addEventListener(
-      "abort",
-      () => {
-        void clearActiveStreamId(chatSlug, streamId);
-        logInfo("Chat request aborted", { chatId: chatSlug, streamId });
-        if (idempotencyRedisKey && idempotencyLockAcquired) {
-          void clearIdempotencyKey(idempotencyRedisKey);
-        }
-      },
-      { once: true }
-    );
-
     const stream = createUIMessageStream<UIMessage>({
       execute: async ({ writer }) => {
         const shouldGenerateChatTitle = shouldGenerateTitle(
@@ -1855,6 +1843,9 @@ export async function POST(request: Request) {
             resolvedTopic,
             promptMemoryBlockCount: promptMemoryBlocks.length,
           });
+          // Do not pass request.signal here. The client may disconnect during
+          // navigation or refresh, but the resumable stream should continue so
+          // `/api/chat/[id]/stream` can reconnect to it.
           result = streamText({
             model: apollo.languageModel(selectedModel),
             system: APOLLO_PROMPT(
@@ -1865,7 +1856,6 @@ export async function POST(request: Request) {
             maxOutputTokens: 20_000,
             stopWhen: stepCountIs(8),
             tools: modelTools,
-            abortSignal: request.signal,
             experimental_transform: smoothStream({
               delayInMs: null,
               chunking: "word",
@@ -1952,6 +1942,9 @@ export async function POST(request: Request) {
           })();
         } catch (error) {
           await clearActiveStreamId(chatSlug, streamId);
+          if (idempotencyRedisKey && idempotencyLockAcquired) {
+            await clearIdempotencyKey(idempotencyRedisKey);
+          }
           logError("Failed to start model stream", {
             chatId: chatSlug,
             model: selectedModel,
@@ -2163,49 +2156,35 @@ export async function POST(request: Request) {
       },
     });
 
-    const baseResponse = createUIMessageStreamResponse({ stream });
-    if (!baseResponse.body) {
-      await clearActiveStreamId(chatSlug, streamId);
-      return baseResponse;
-    }
-
-    const [clientBody, resumableBody] = baseResponse.body.tee();
-    const resumableTextStream = resumableBody.pipeThrough(
-      new TextDecoderStream()
-    );
-
-    void (async () => {
-      try {
-        const streamContext = createResumableStreamContext({
-          waitUntil: after,
-          publisher: await getRedisClient(),
-          subscriber: await getRedisSubscriber(),
-        });
-
-        await streamContext.createNewResumableStream(
-          streamId,
-          () => resumableTextStream
-        );
-      } catch (error) {
-        await clearActiveStreamId(chatSlug, streamId);
-        logError("Failed to create resumable chat stream", {
-          chatSlug,
-          streamId,
-          error: formatError(error),
-        });
-      }
-    })();
-
     apiLogger.requestSucceeded(200, {
       chatId: chatSlug,
       selectedModel: body.selectedModel ?? "apollo-apex",
       messageCount: originalMessages.length,
     });
 
-    return new Response(clientBody, {
-      status: baseResponse.status,
-      statusText: baseResponse.statusText,
-      headers: baseResponse.headers,
+    return createUIMessageStreamResponse({
+      stream,
+      async consumeSseStream({ stream: sseStream }) {
+        try {
+          const streamContext = createResumableStreamContext({
+            waitUntil: after,
+            publisher: await getRedisClient(),
+            subscriber: await getRedisSubscriber(),
+          });
+
+          await streamContext.createNewResumableStream(
+            streamId,
+            () => sseStream
+          );
+        } catch (error) {
+          await clearActiveStreamId(chatSlug, streamId);
+          logError("Failed to create resumable chat stream", {
+            chatSlug,
+            streamId,
+            error: formatError(error),
+          });
+        }
+      },
     });
   } catch (error) {
     logError("Unhandled chat POST error", { error: formatError(error) });
