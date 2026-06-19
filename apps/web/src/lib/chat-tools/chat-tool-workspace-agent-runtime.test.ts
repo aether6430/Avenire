@@ -27,6 +27,7 @@ vi.mock("@avenire/ai", () => ({
   Output: {
     object: ({ schema }: { schema: unknown }) => schema,
   },
+  zodSchema: (schema: unknown) => schema,
 }));
 
 vi.mock("@avenire/ai/models", () => ({
