@@ -1,4 +1,4 @@
-import { generateText, Output } from "@avenire/ai";
+import { generateText, Output, zodSchema } from "@avenire/ai";
 import type {
   AgentActivityAction,
   AgentActivityData,
@@ -144,7 +144,7 @@ export async function executeAvenireAgent(
   if (selectableMatches.length > 0) {
     const selection = await generateText({
       model: apollo.languageModel("apollo-agent"),
-      output: Output.object({ schema: agentSelectionSchema }),
+      output: Output.object({ schema: zodSchema(agentSelectionSchema) }),
       prompt: buildAgentSelectionPrompt({
         query: input.query,
         matches: selectableMatches,
@@ -337,7 +337,7 @@ export async function executeFileManagerAgent(
   if (candidateFiles.length > 0) {
     const selection = await generateText({
       model: apollo.languageModel("apollo-agent"),
-      output: Output.object({ schema: agentSelectionSchema }),
+      output: Output.object({ schema: zodSchema(agentSelectionSchema) }),
       prompt: buildFileManagerSelectionPrompt({
         files: candidateFiles,
         maxFiles,

@@ -25,6 +25,7 @@ import {
 } from "@/lib/chat-events";
 import { normalizeMediaType } from "@/lib/media-type";
 import { emitPetNotification } from "@/lib/pet-preferences";
+import { usePaneRouter } from "@/lib/workspace-panes";
 import { type Attachment, createLocalAttachment } from "./attachment";
 import { Messages } from "./messages";
 import { MultimodalInput } from "./multimodal-input";
@@ -47,9 +48,9 @@ type SendMessageOptions = Parameters<
 >[1];
 const ACTIVE_REPLY_MIN_HEIGHT = "calc(100dvh - 250px)";
 const EMPTY_COMPOSER_SHELL_CLASSNAME =
-  "mx-auto mb-3 w-full max-w-3xl px-4 md:mb-3 md:px-0";
+  "mx-auto mb-3 w-full max-w-4xl px-4 md:mb-3 md:px-0";
 const FLOATING_COMPOSER_SHELL_CLASSNAME =
-  "mx-auto w-full px-3 pb-[calc(0.6rem+env(safe-area-inset-bottom))] md:max-w-3xl md:px-0 md:pb-3";
+  "mx-auto w-full px-3 pb-[calc(0.6rem+env(safe-area-inset-bottom))] md:max-w-4xl md:px-0 md:pb-3";
 const MOBILE_CHAT_COMPOSER_CLOSE_EVENT = "avenire:mobile-chat-composer-close";
 const MOBILE_CHAT_COMPOSER_OPEN_EVENT = "avenire:mobile-chat-composer-open";
 const MOBILE_CHAT_COMPOSER_STATE_EVENT = "avenire:mobile-chat-composer-state";
@@ -75,6 +76,7 @@ export function Chat({
   const [mobileComposerOpen, setMobileComposerOpen] = useState(false);
   const [turboEnabled, setTurboEnabled] = useState(false);
   const isMobile = useIsMobile();
+  const paneRouter = usePaneRouter();
   const activeSelectedModel = turboEnabled ? "apex-turbo" : selectedModel;
   const lastCompletedMessageIdRef = useRef<string | null>(null);
   const previousStatusRef = useRef<string | null>(null);
@@ -412,6 +414,11 @@ export function Chat({
   );
 
   const handleSubmit = async (inputValue: string, files: Attachment[]) => {
+    if (id === "new" && !hasPushedNewChatUrlRef.current) {
+      hasPushedNewChatUrlRef.current = true;
+      paneRouter.replace(`/workspace/chats/${chatId}`, { scroll: false });
+    }
+
     const localFileParts: FileUIPart[] = files
       .filter((attachment) => attachment.source === "local")
       .flatMap((attachment) => {
@@ -617,7 +624,7 @@ export function Chat({
                 key="composer-center"
                 transition={{ duration: 0.24, ease: "easeOut" }}
               >
-                <div className="relative flex w-full flex-col items-center justify-center md:max-w-3xl">
+                <div className="relative flex w-full flex-col items-center justify-center md:max-w-4xl">
                   {isEmptyState ? (
                     <div className="pointer-events-none absolute bottom-[calc(100%+2.25rem)] w-full sm:bottom-[calc(100%+3rem)]">
                       <Overview userName={userName} />

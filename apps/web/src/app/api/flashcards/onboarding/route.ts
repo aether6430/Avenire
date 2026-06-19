@@ -1,4 +1,4 @@
-import { generateText, Output } from "@avenire/ai";
+import { generateText, Output, zodSchema } from "@avenire/ai";
 import { apollo } from "@avenire/ai/models";
 import { NextResponse } from "next/server";
 import { z } from "zod";
@@ -60,7 +60,7 @@ export async function POST(request: Request) {
   const source = buildStudySource(parsed.data);
   const result = await generateText({
     model: apollo.languageModel("apollo-core"),
-    output: Output.object({ schema: flashcardGenerationSchema }),
+    output: Output.object({ schema: zodSchema(flashcardGenerationSchema) }),
     prompt: [
       "Create a clean flashcard deck from the misconception source.",
       `Return exactly ${Math.max(1, Math.min(parsed.data.count ?? 5, 12))} cards.`,

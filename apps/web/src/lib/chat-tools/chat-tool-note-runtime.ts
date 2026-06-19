@@ -1,4 +1,4 @@
-import { generateText, Output } from "@avenire/ai";
+import { generateText, Output, zodSchema } from "@avenire/ai";
 import { apollo } from "@avenire/ai/models";
 import { scheduleIngestionJob } from "@avenire/ingestion/queue";
 import {
@@ -35,7 +35,7 @@ export async function generateNoteDraftFromTask(input: {
 }) {
   const result = await generateText({
     model: apollo.languageModel("apollo-core"),
-    output: Output.object({ schema: noteDraftSchema }),
+    output: Output.object({ schema: zodSchema(noteDraftSchema) }),
     prompt: [
       "Write a clean markdown note from the request.",
       "Return a concise, specific title and a polished markdown body.",
@@ -69,7 +69,7 @@ export async function rewriteNoteFromTask(input: {
 }) {
   const result = await generateText({
     model: apollo.languageModel("apollo-core"),
-    output: Output.object({ schema: noteRewriteSchema }),
+    output: Output.object({ schema: zodSchema(noteRewriteSchema) }),
     prompt: [
       "Revise the markdown note to satisfy the edit request.",
       "Return the full updated markdown note, not a diff.",

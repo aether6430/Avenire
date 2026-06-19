@@ -666,7 +666,7 @@ const PurePreviewMessage = ({
     <AnimatePresence>
       <motion.div
         animate={{ y: 0, opacity: 1 }}
-        className={cn("group/message mx-auto w-full max-w-3xl px-3 sm:px-4", {
+        className={cn("group/message mx-auto w-full max-w-4xl px-3 sm:px-4", {
           "justify-self-end": message.role === "user",
         })}
         data-message-id={message.id}

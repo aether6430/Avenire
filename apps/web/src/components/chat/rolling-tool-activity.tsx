@@ -134,27 +134,13 @@ type ActionGroup =
   | { action: MutationAction; type: "mutation" };
 
 const ROLLING_TOOL_TYPES = new Set([
-  "tool-avenire_agent",
-  "tool-file_manager_agent",
   "tool-generate_flashcards",
   "tool-get_due_cards",
   "tool-log_misconception",
   "tool-note_agent",
   "tool-quiz_me",
-  "tool-web_search",
-  "tool-search_materials",
-  // Granular file operations
-  "tool-list_files",
-  "tool-read_file",
-  "tool-move_file",
-  "tool-delete_file",
-  "tool-create_folder",
-  "tool-get_file_info",
-  // Granular note operations
   "tool-create_note",
-  "tool-read_note",
   "tool-update_note",
-  "tool-list_notes",
   "tool-update_note_tags",
 ]);
 
@@ -807,7 +793,7 @@ export const Reasoning = memo(
     return (
       <ReasoningContext.Provider value={contextValue}>
         <Collapsible
-          className={cn("not-prose mb-4", className)}
+          className={cn("not-prose mb-2", className)}
           onOpenChange={handleOpenChange}
           open={isOpen}
           {...props}

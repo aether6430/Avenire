@@ -739,7 +739,7 @@ async function generateChatMetadata(
         '{"title":"...","icon":"..."}',
         `User message: ${latestUserText}`,
       ].join("\n"),
-      maxOutputTokens: 64,
+      maxOutputTokens: 256,
       temperature: 0.2,
       abortSignal,
       experimental_telemetry: telemetry,
@@ -1135,6 +1135,43 @@ function getPersistedMessages(input: {
     ...persisted.slice(0, responseIndex),
     latestUserMessage,
     ...persisted.slice(responseIndex),
+  ];
+}
+
+function mergeSupersededStreamMessages(input: {
+  currentMessages: UIMessage[];
+  incomingMessages: UIMessage[];
+  latestUserMessageId: string | null;
+}) {
+  if (input.currentMessages.length === 0) {
+    return input.incomingMessages;
+  }
+
+  const currentIds = new Set(
+    input.currentMessages.map((message) => message.id)
+  );
+  const missingIncoming = input.incomingMessages.filter(
+    (message) => !currentIds.has(message.id)
+  );
+  if (missingIncoming.length === 0) {
+    return input.currentMessages;
+  }
+
+  if (!input.latestUserMessageId) {
+    return [...input.currentMessages, ...missingIncoming];
+  }
+
+  const latestUserIndex = input.currentMessages.findIndex(
+    (message) => message.id === input.latestUserMessageId
+  );
+  if (latestUserIndex < 0) {
+    return [...input.currentMessages, ...missingIncoming];
+  }
+
+  return [
+    ...input.currentMessages.slice(0, latestUserIndex + 1),
+    ...missingIncoming,
+    ...input.currentMessages.slice(latestUserIndex + 1),
   ];
 }
 
@@ -1714,7 +1751,6 @@ export async function POST(request: Request) {
               });
             },
             agentActivityId,
-            emitAgentActivity,
             rootFolderId: workspace.rootFolderId,
             userId: session.user.id,
             workspaceId: workspace.workspaceId,
@@ -1939,23 +1975,40 @@ export async function POST(request: Request) {
                   isContinuation,
                 });
                 const activeStreamId = await getActiveStreamId(chatSlug);
+                const latestUserMessageId =
+                  [...originalMessages]
+                    .reverse()
+                    .find((message) => message.role === "user")?.id ?? null;
+                const messagesToPersist =
+                  activeStreamId === streamId
+                    ? persistedMessages
+                    : mergeSupersededStreamMessages({
+                        currentMessages:
+                          (await getMessagesByChatSlugForUser(
+                            session.user.id,
+                            chatSlug,
+                            workspace.workspaceId
+                          )) ?? [],
+                        incomingMessages: persistedMessages,
+                        latestUserMessageId,
+                      });
                 if (activeStreamId !== streamId) {
-                  logInfo("Skipped persisting stale stream messages", {
+                  logInfo("Merging superseded stream messages", {
                     chatId: chatSlug,
-                    messageCount: messages.length,
+                    incomingMessageCount: persistedMessages.length,
+                    mergedMessageCount: messagesToPersist.length,
                     streamId,
                     activeStreamId,
                   });
-                  return;
                 }
                 logInfo("Model stream finished", {
                   chatId: chatSlug,
-                  messageCount: persistedMessages.length,
+                  messageCount: messagesToPersist.length,
                 });
                 await saveMessagesForChatSlug(
                   session.user.id,
                   chatSlug,
-                  persistedMessages,
+                  messagesToPersist,
                   workspace.workspaceId
                 );
                 try {
@@ -1974,7 +2027,7 @@ export async function POST(request: Request) {
                 await invalidateChatReadCaches(workspace.workspaceId);
                 logInfo("Persisted streamed messages", {
                   chatId: chatSlug,
-                  messageCount: persistedMessages.length,
+                  messageCount: messagesToPersist.length,
                 });
 
                 try {
@@ -1983,7 +2036,7 @@ export async function POST(request: Request) {
                   ).catch(() => null);
                   const latestUserPosition = Math.max(
                     0,
-                    persistedMessages
+                    messagesToPersist
                       .map((message, index) =>
                         message.role === "user" ? index : -1
                       )
@@ -1995,7 +2048,7 @@ export async function POST(request: Request) {
                     endedAt: new Date(),
                     latestSummary,
                     latestUserPosition,
-                    messages: persistedMessages,
+                    messages: messagesToPersist,
                     previousLastMessageAt: chat.lastMessageAt
                       ? new Date(chat.lastMessageAt)
                       : null,
@@ -2069,7 +2122,7 @@ export async function POST(request: Request) {
                   apiLogger.meter("meter.chat.request", {
                     chatId: chatSlug,
                     model: selectedModel,
-                    messageCount: persistedMessages.length,
+                    messageCount: messagesToPersist.length,
                   });
                   apiLogger.featureUsed("chat", {
                     chatId: chatSlug,
