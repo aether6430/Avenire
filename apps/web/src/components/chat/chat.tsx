@@ -10,6 +10,7 @@ import {
   lastAssistantMessageIsCompleteWithApprovalResponses,
 } from "ai";
 import { AnimatePresence, motion } from "motion/react";
+import type { Route } from "next";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDropzone } from "react-dropzone";
 import { toast } from "sonner";
@@ -416,7 +417,9 @@ export function Chat({
   const handleSubmit = async (inputValue: string, files: Attachment[]) => {
     if (id === "new" && !hasPushedNewChatUrlRef.current) {
       hasPushedNewChatUrlRef.current = true;
-      paneRouter.replace(`/workspace/chats/${chatId}`, { scroll: false });
+      paneRouter.replace(`/workspace/chats/${chatId}` as Route, {
+        scroll: false,
+      });
     }
 
     const localFileParts: FileUIPart[] = files

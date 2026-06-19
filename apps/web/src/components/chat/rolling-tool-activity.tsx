@@ -546,6 +546,25 @@ function toAction(part: ToolPart): ActivityAction | null {
     };
   }
 
+  if (part.type === "tool-get_due_cards") {
+    const totalDueCount = isOutputAvailable(part)
+      ? part.output.totalDueCount
+      : undefined;
+    return {
+      kind: "flashcards",
+      pending: isPending(part),
+      preview:
+        typeof totalDueCount === "number"
+          ? {
+              cardCount: totalDueCount,
+              setId: "",
+              title: "Due cards",
+            }
+          : undefined,
+      value: "due cards",
+    };
+  }
+
   if (part.type === "tool-log_misconception") {
     const output = isOutputAvailable(part) ? part.output : null;
     const misconception = output?.misconception;

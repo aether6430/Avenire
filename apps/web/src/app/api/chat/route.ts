@@ -1979,6 +1979,9 @@ export async function POST(request: Request) {
                   [...originalMessages]
                     .reverse()
                     .find((message) => message.role === "user")?.id ?? null;
+                // Superseded streams are merged as a best-effort recovery path;
+                // a later active stream save may still win, but this avoids
+                // dropping completed superseded responses outright.
                 const messagesToPersist =
                   activeStreamId === streamId
                     ? persistedMessages
