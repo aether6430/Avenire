@@ -3,9 +3,10 @@
 import { type UseChatHelpers, useChat } from "@ai-sdk/react";
 import type { AgentActivityData, UIMessage } from "@avenire/ai/message-types";
 import { Button } from "@avenire/ui/components/button";
+import { createDurableChatTransport } from "@durable-streams/aisdk-transport";
 import { CaretDown as ChevronDown } from "@phosphor-icons/react";
 import {
-  DefaultChatTransport,
+  type ChatTransport,
   type FileUIPart,
   lastAssistantMessageIsCompleteWithApprovalResponses,
 } from "ai";
@@ -21,6 +22,8 @@ import {
   CHAT_STREAM_FINISHED_EVENT,
   CHAT_STREAM_STATUS_EVENT,
   type ChatNameUpdatedDetail,
+  type ChatStreamFinishedDetail,
+  type ChatStreamStatus,
   type ChatStreamStatusDetail,
   isActiveChatStreamStatus,
   isChatStreamActive,
@@ -85,10 +88,11 @@ export function Chat({
   const activeSelectedModel = turboEnabled ? "apex-turbo" : selectedModel;
   const lastCompletedMessageIdRef = useRef<string | null>(null);
   const previousStatusRef = useRef<string | null>(null);
-  const publishedStreamStatusRef = useRef<string | null>(null);
+  const publishedStreamStatusRef = useRef<ChatStreamStatus | null>(null);
   const hasPushedNewChatUrlRef = useRef(id !== "new");
   const autoPromptSentRef = useRef<string | null>(null);
   const previousNewChatKeyRef = useRef(newChatKey);
+  const previousRouteIdRef = useRef(id);
   const MAX_FILES = 3;
 
   const handleError = useCallback((error: Error) => {
@@ -103,37 +107,32 @@ export function Chat({
     });
   }, []);
 
-  const transport = useMemo(
-    () =>
-      new DefaultChatTransport({
-        api: "/api/chat",
-        body: {
-          chatId,
-          selectedModel: activeSelectedModel,
-        },
-        prepareSendMessagesRequest(request) {
-          const lastMessage = request.messages.at(-1);
-          const idempotencyKey =
-            lastMessage?.role === "user" ? lastMessage.id : null;
-          const headers = new Headers(request.headers);
-          if (idempotencyKey) {
-            headers.set("Idempotency-Key", idempotencyKey);
-          }
+  const transport = useMemo<ChatTransport<UIMessage>>(() => {
+    const durableTransport = createDurableChatTransport<UIMessage>({
+      api: "/api/chat",
+    });
 
-          return {
-            body: {
-              ...request.body,
-              id: request.id,
-              messages: request.messages,
-              messageId: request.messageId,
-              trigger: request.trigger,
-            },
-            headers,
-          };
-        },
-      }),
-    [activeSelectedModel, chatId]
-  );
+    return {
+      reconnectToStream: durableTransport.reconnectToStream,
+      sendMessages: (options) => {
+        const lastMessage = options.messages.at(-1);
+        const headers = new Headers(options.headers);
+        if (lastMessage?.role === "user") {
+          headers.set("Idempotency-Key", lastMessage.id);
+        }
+
+        return durableTransport.sendMessages({
+          ...options,
+          body: {
+            ...options.body,
+            chatId: options.chatId,
+            selectedModel: activeSelectedModel,
+          },
+          headers,
+        });
+      },
+    };
+  }, [activeSelectedModel]);
 
   const {
     messages,
@@ -215,9 +214,12 @@ export function Chat({
   }, [displayedMessages]);
 
   useEffect(() => {
+    const previousRouteId = previousRouteIdRef.current;
+    previousRouteIdRef.current = id;
+
     if (id === "new") {
       const shouldResetNewChat =
-        hasPushedNewChatUrlRef.current ||
+        previousRouteId !== "new" ||
         previousNewChatKeyRef.current !== newChatKey;
       previousNewChatKeyRef.current = newChatKey;
       if (shouldResetNewChat) {
@@ -241,7 +243,7 @@ export function Chat({
   }, [chatId, id, newChatKey, setMessages]);
 
   const publishChatStreamStatus = useCallback(
-    (nextStatus: string) => {
+    (nextStatus: ChatStreamStatus) => {
       const detail = { chatId, status: nextStatus };
       rememberChatStreamStatus(detail);
       window.dispatchEvent(
@@ -256,7 +258,7 @@ export function Chat({
 
   const promoteNewChatRoute = useCallback(() => {
     if (id !== "new" || hasPushedNewChatUrlRef.current) {
-      return false;
+      return;
     }
 
     hasPushedNewChatUrlRef.current = true;
@@ -264,7 +266,6 @@ export function Chat({
     paneRouter.replace(`/workspace/chats/${chatId}` as Route, {
       scroll: false,
     });
-    return true;
   }, [chatId, id, paneRouter, publishChatStreamStatus]);
 
   const sendMessage = useCallback(
@@ -272,6 +273,14 @@ export function Chat({
       return append(message, options);
     },
     [append]
+  );
+
+  const handleResumeStreamError = useCallback(
+    (error: Error) => {
+      publishChatStreamStatus("error");
+      handleError(error);
+    },
+    [handleError, publishChatStreamStatus]
   );
 
   const handleStop = useCallback(() => {
@@ -289,15 +298,12 @@ export function Chat({
   }, [initialMessages, messages.length, setMessages]);
 
   const latestMessage = messages.at(-1);
-  const latestMessageId = latestMessage?.id ?? null;
   const latestMessageRole = latestMessage?.role ?? null;
+  const latestUserMessageId =
+    latestMessageRole === "user" ? (latestMessage?.id ?? null) : null;
 
   useEffect(() => {
-    if (
-      id === "new" ||
-      latestMessageRole !== "user" ||
-      status !== "ready"
-    ) {
+    if (id === "new" || !latestUserMessageId || status !== "ready") {
       return;
     }
 
@@ -311,19 +317,16 @@ export function Chat({
         return;
       }
 
-      resumeStream()
-        .catch(() => undefined)
-        .finally(() => {
-          if (cancelled) {
-            return;
-          }
-          attemptIndex += 1;
-          const nextDelay = retryDelaysMs[attemptIndex];
-          if (nextDelay === undefined) {
-            return;
-          }
-          timer = setTimeout(attemptResume, nextDelay);
-        });
+      void resumeStream().then(() => {
+        if (cancelled) {
+          return;
+        }
+        attemptIndex += 1;
+        if (attemptIndex >= retryDelaysMs.length) {
+          return;
+        }
+        timer = setTimeout(attemptResume, retryDelaysMs[attemptIndex]);
+      }, handleResumeStreamError);
     };
 
     timer = setTimeout(attemptResume, retryDelaysMs[attemptIndex] ?? 0);
@@ -334,7 +337,7 @@ export function Chat({
         clearTimeout(timer);
       }
     };
-  }, [id, latestMessageId, latestMessageRole, resumeStream, status]);
+  }, [handleResumeStreamError, id, latestUserMessageId, resumeStream, status]);
 
   useEffect(() => {
     if (id === "new") {
@@ -349,7 +352,7 @@ export function Chat({
       ) {
         return;
       }
-      resumeStream().catch(() => undefined);
+      void resumeStream().catch(handleResumeStreamError);
     };
 
     window.addEventListener("focus", resumeExistingStream);
@@ -359,7 +362,7 @@ export function Chat({
       window.removeEventListener("focus", resumeExistingStream);
       document.removeEventListener("visibilitychange", resumeExistingStream);
     };
-  }, [id, latestMessageRole, resumeStream, status]);
+  }, [id, handleResumeStreamError, latestMessageRole, resumeStream, status]);
 
   useEffect(() => {
     if (id !== "new") {
@@ -376,9 +379,10 @@ export function Chat({
 
     autoPromptSentRef.current = prompt;
     promoteNewChatRoute();
-    sendMessage({ text: prompt }).catch(() => {
+    void sendMessage({ text: prompt }).catch((error: Error) => {
       autoPromptSentRef.current = null;
       publishChatStreamStatus("error");
+      handleError(error);
     });
   }, [
     id,
@@ -388,6 +392,7 @@ export function Chat({
     publishChatStreamStatus,
     sendMessage,
     status,
+    handleError,
   ]);
 
   useEffect(() => {
@@ -419,7 +424,7 @@ export function Chat({
       isActiveChatStreamStatus(previousPublishedStatus)
     ) {
       window.dispatchEvent(
-        new CustomEvent(CHAT_STREAM_FINISHED_EVENT, {
+        new CustomEvent<ChatStreamFinishedDetail>(CHAT_STREAM_FINISHED_EVENT, {
           detail: { chatId },
         })
       );

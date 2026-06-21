@@ -12,14 +12,16 @@ export interface ChatStreamFinishedDetail {
   chatId: string;
 }
 
+export type ChatStreamStatus = "error" | "ready" | "streaming" | "submitted";
+
 export interface ChatStreamStatusDetail {
   chatId: string;
-  status: string;
+  status: ChatStreamStatus;
 }
 
 const activeChatStreamIds = new Set<string>();
 
-export function isActiveChatStreamStatus(status: string | null | undefined) {
+export function isActiveChatStreamStatus(status: ChatStreamStatus | null) {
   return status === "submitted" || status === "streaming";
 }
 

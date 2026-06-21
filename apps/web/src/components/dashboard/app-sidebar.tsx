@@ -161,6 +161,25 @@ function isChatSummary(value: unknown): value is ChatSummary {
   );
 }
 
+function createOptimisticChatSummary(input: {
+  detail: ChatNameUpdatedDetail;
+  workspaceUuid: string;
+}): ChatSummary {
+  const now = new Date().toISOString();
+  return {
+    branching: null,
+    createdAt: now,
+    icon: input.detail.icon ?? null,
+    id: `optimistic:${input.detail.id}`,
+    lastMessageAt: now,
+    pinned: false,
+    slug: input.detail.id,
+    title: input.detail.name,
+    updatedAt: now,
+    workspaceId: input.workspaceUuid,
+  };
+}
+
 function applyChatRealtimeEvent(
   chats: ChatSummary[],
   payload: {
@@ -1513,18 +1532,30 @@ export function DashboardSidebar({
         return;
       }
 
-      setChats((prev) =>
-        prev.map((chat) =>
-          chat.slug === detail.id
-            ? {
-                ...chat,
-                title: detail.name,
-                icon: detail.icon ?? chat.icon ?? null,
-                updatedAt: new Date().toISOString(),
-              }
-            : chat
-        )
-      );
+      setChats((prev) => {
+        const now = new Date().toISOString();
+        const existing = prev.find((chat) => chat.slug === detail.id);
+        const next = existing
+          ? prev.map((chat) =>
+              chat.slug === detail.id
+                ? {
+                    ...chat,
+                    icon: detail.icon ?? chat.icon ?? null,
+                    title: detail.name,
+                    updatedAt: now,
+                  }
+                : chat
+            )
+          : workspaceUuid
+            ? [createOptimisticChatSummary({ detail, workspaceUuid }), ...prev]
+            : prev;
+
+        if (workspaceUuid) {
+          writeCachedChats(workspaceUuid, next);
+        }
+        return next;
+      });
+      void loadChats();
     };
 
     const onChatStreamStatus = (event: Event) => {
@@ -1551,7 +1582,7 @@ export function DashboardSidebar({
       window.removeEventListener(CHAT_NAME_UPDATED_EVENT, onChatNameUpdated);
       window.removeEventListener(CHAT_STREAM_STATUS_EVENT, onChatStreamStatus);
     };
-  }, [loadChats]);
+  }, [loadChats, workspaceUuid]);
 
   const sortedChats = useMemo(
     () =>

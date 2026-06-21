@@ -1,26 +1,24 @@
-import { UI_MESSAGE_STREAM_HEADERS } from "@avenire/ai";
 import { auth } from "@avenire/auth/server";
 import { headers } from "next/headers";
-import { after } from "next/server";
-import { createResumableStreamContext } from "resumable-stream";
 import { getChatBySlugForUser } from "@/lib/chat-data";
+import {
+  buildDurableChatStreamReadProxyUrl,
+  parseChatStreamPath,
+} from "@/lib/durable-chat-streams";
 import { resolveWorkspaceForUser } from "@/lib/file-data";
 import {
   clearActiveStreamId,
   getActiveStreamId,
-  getRedisClient,
-  getRedisSubscriber,
 } from "../../chat-stream-store";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(
-  _request: Request,
+  request: Request,
   context: { params: Promise<{ id: string }> }
 ) {
   const session = await auth.api.getSession({ headers: await headers() });
-
   if (!session?.user) {
     return new Response(null, { status: 401 });
   }
@@ -37,11 +35,24 @@ export async function GET(
     return new Response(null, { status: 404 });
   }
 
-  const activeStreamId = await getActiveStreamId(id);
-  if (!activeStreamId) {
+  const activeStreamPath = await getActiveStreamId(id);
+  if (!activeStreamPath) {
     return new Response(null, {
-      status: 204,
       headers: { "Cache-Control": "no-store" },
+      status: 204,
+    });
+  }
+
+  const streamPath = parseChatStreamPath(activeStreamPath);
+  if (
+    !streamPath ||
+    streamPath.chatSlug !== id ||
+    streamPath.workspaceId !== workspace.workspaceId
+  ) {
+    await clearActiveStreamId(id, activeStreamPath);
+    return new Response(null, {
+      headers: { "Cache-Control": "no-store" },
+      status: 204,
     });
   }
 
@@ -51,40 +62,25 @@ export async function GET(
     workspace.workspaceId
   );
   if (!chat) {
+    await clearActiveStreamId(id, activeStreamPath);
     return new Response(null, {
-      status: 204,
       headers: { "Cache-Control": "no-store" },
+      status: 204,
     });
   }
 
-  try {
-    const streamContext = createResumableStreamContext({
-      waitUntil: after,
-      publisher: await getRedisClient(),
-      subscriber: await getRedisSubscriber(),
-    });
-
-    const stream = await streamContext.resumeExistingStream(activeStreamId);
-    if (!stream) {
-      await clearActiveStreamId(id, activeStreamId);
-      return new Response(null, {
-        status: 204,
-        headers: { "Cache-Control": "no-store" },
-      });
-    }
-
-    return new Response(stream, {
+  const streamUrl = buildDurableChatStreamReadProxyUrl(
+    request,
+    streamPath.path
+  );
+  return Response.json(
+    { streamUrl },
+    {
       headers: {
-        ...UI_MESSAGE_STREAM_HEADERS,
         "Cache-Control": "no-store",
+        Location: streamUrl,
       },
-    });
-  } catch (error) {
-    console.error("Failed to resume chat stream", { chatId: id, error });
-    await clearActiveStreamId(id, activeStreamId);
-    return new Response(null, {
-      status: 204,
-      headers: { "Cache-Control": "no-store" },
-    });
-  }
+      status: 200,
+    }
+  );
 }

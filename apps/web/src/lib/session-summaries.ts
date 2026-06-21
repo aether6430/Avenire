@@ -41,15 +41,19 @@ const misconceptionCandidateSchema = z.object({
   topic: z.string().min(1),
 });
 
+const summaryListSchema = z
+  .array(z.string().min(1))
+  .transform((items) => items.slice(0, MAX_SUMMARY_LIST_ITEMS));
+
+const misconceptionCandidateListSchema = z
+  .array(misconceptionCandidateSchema)
+  .transform((items) => items.slice(0, MAX_MISCONCEPTION_CANDIDATES));
+
 const summaryOutputSchema = z.object({
-  conceptsCovered: z.array(z.string().min(1)).max(MAX_SUMMARY_LIST_ITEMS),
+  conceptsCovered: summaryListSchema,
   memoryRelevance: z.enum(["learning", "non_learning"]),
-  misconceptionsDetected: z
-    .array(z.string().min(1))
-    .max(MAX_SUMMARY_LIST_ITEMS),
-  misconceptionCandidates: z
-    .array(misconceptionCandidateSchema)
-    .max(MAX_MISCONCEPTION_CANDIDATES),
+  misconceptionsDetected: summaryListSchema,
+  misconceptionCandidates: misconceptionCandidateListSchema,
   relevanceReason: z.string().min(1),
   subject: z.string().min(1).nullable(),
   subjectConfidence: z.number().min(0).max(1).nullable(),
@@ -246,7 +250,9 @@ function summarizeToolPart(
       return normalizeText(part.output.summary);
     // Granular file operations
     case "tool-list_files": {
-      const folderCount = Array.isArray(part.output.folders) ? part.output.folders.length : 0;
+      const folderCount = Array.isArray(part.output.folders)
+        ? part.output.folders.length
+        : 0;
       return `Listed ${part.output.totalCount} workspace file(s)${folderCount > 0 ? ` in ${folderCount} folder(s).` : "."}`;
     }
     case "tool-read_file":

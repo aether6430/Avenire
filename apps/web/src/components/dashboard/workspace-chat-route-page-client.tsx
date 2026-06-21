@@ -2,7 +2,7 @@
 
 import type { UIMessage } from "@avenire/ai/message-types";
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ChatWorkspace } from "@/components/dashboard/chat-workspace";
 import { useWorkspaceBootstrap } from "@/components/dashboard/workspace-bootstrap";
 import { WorkspaceRoutePlaceholder } from "@/components/dashboard/workspace-route-placeholder";
@@ -65,6 +65,10 @@ export function WorkspaceChatRoutePageClient({
   const [resolvingChatIds, setResolvingChatIds] = useState<Set<string>>(
     () => new Set()
   );
+  const streamingChatIdsRef = useRef(streamingChatIds);
+  useEffect(() => {
+    streamingChatIdsRef.current = streamingChatIds;
+  }, [streamingChatIds]);
   const isSlugStreaming = streamingChatIds.has(slug);
   const isSlugResolving = resolvingChatIds.has(slug);
   const chatQuery = useQuery({
@@ -96,7 +100,7 @@ export function WorkspaceChatRoutePageClient({
       if (!detail?.chatId) {
         return;
       }
-      const wasActive = isChatStreamActive(detail.chatId);
+      const wasActive = streamingChatIdsRef.current.has(detail.chatId);
       rememberChatStreamStatus(detail);
 
       const isActive = isActiveChatStreamStatus(detail.status);
@@ -136,8 +140,8 @@ export function WorkspaceChatRoutePageClient({
     }
 
     let cancelled = false;
-    queryRefetch().finally(() => {
-      if (cancelled) {
+    void queryRefetch().then((result) => {
+      if (cancelled || !result.data?.chat) {
         return;
       }
       setResolvingChatIds((current) => {
