@@ -1531,6 +1531,9 @@ export function DashboardSidebar({
       if (!(detail?.id && detail?.name)) {
         return;
       }
+      if (detail.workspaceUuid && detail.workspaceUuid !== workspaceUuid) {
+        return;
+      }
 
       setChats((prev) => {
         const now = new Date().toISOString();

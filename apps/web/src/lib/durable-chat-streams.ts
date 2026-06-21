@@ -43,6 +43,9 @@ function encodePathSegment(value: string) {
   if (!trimmed) {
     throw new Error("Durable chat stream path segments cannot be empty.");
   }
+  if (trimmed === "." || trimmed === "..") {
+    throw new Error(`Durable chat stream path segment cannot be "${trimmed}".`);
+  }
   return encodeURIComponent(trimmed);
 }
 
@@ -52,6 +55,7 @@ function normalizeStreamPath(value: string) {
     !trimmed ||
     trimmed.includes("://") ||
     trimmed.includes("..") ||
+    trimmed === "." ||
     trimmed.includes("\\") ||
     trimmed.includes("?") ||
     trimmed.includes("#")

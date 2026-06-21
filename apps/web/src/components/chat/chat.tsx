@@ -157,7 +157,7 @@ export function Chat({
         }
         window.dispatchEvent(
           new CustomEvent<ChatNameUpdatedDetail>(CHAT_NAME_UPDATED_EVENT, {
-            detail,
+            detail: { ...detail, workspaceUuid },
           })
         );
         return;

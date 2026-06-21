@@ -6,6 +6,7 @@ export interface ChatNameUpdatedDetail {
   icon?: string | null;
   id: string;
   name: string;
+  workspaceUuid: string;
 }
 
 export interface ChatStreamFinishedDetail {
