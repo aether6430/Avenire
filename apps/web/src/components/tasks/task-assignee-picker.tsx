@@ -71,7 +71,6 @@ export function TaskAssigneePicker({
     }
 
     if (!workspaceUuid) {
-      setRemoteMembers(normalizedMembers);
       return;
     }
 
@@ -105,17 +104,22 @@ export function TaskAssigneePicker({
     };
   }, [normalizedMembers, open, query, workspaceUuid]);
 
-  const availableMembers = query.trim() ? remoteMembers : normalizedMembers;
+  const availableMembers = workspaceUuid
+    ? query.trim()
+      ? remoteMembers
+      : normalizedMembers
+    : normalizedMembers;
+  const memberSource =
+    workspaceUuid && remoteMembers.length > 0
+      ? remoteMembers
+      : availableMembers;
   const resolvedMembers = useMemo(
     () =>
-      (workspaceUuid && remoteMembers.length > 0
-        ? remoteMembers
-        : availableMembers
-      ).filter(
+      memberSource.filter(
         (member): member is WorkspaceMemberOption & { userId: string } =>
           typeof member.userId === "string" && member.userId.length > 0
       ),
-    [availableMembers, remoteMembers, workspaceUuid]
+    [memberSource]
   );
   const selectedMember =
     selectedAssignee ??
