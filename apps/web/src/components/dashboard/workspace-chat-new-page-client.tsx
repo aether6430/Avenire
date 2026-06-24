@@ -15,9 +15,7 @@ export function WorkspaceChatNewPageClient({
   const initialPrompt = allowPrompt
     ? searchParams.get("prompt")?.trim() || null
     : null;
-  const newChatKey = `new:${searchParams.get("fresh") ?? ""}:${
-    initialPrompt ?? ""
-  }`;
+  const newChatKey = `new:${initialPrompt ?? ""}`;
 
   if (!(status === "ready" && user && workspace)) {
     return <WorkspaceRoutePlaceholder label="Loading method..." />;

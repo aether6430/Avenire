@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ChatWorkspace } from "@/components/dashboard/chat-workspace";
 import { useWorkspaceBootstrap } from "@/components/dashboard/workspace-bootstrap";
 import { WorkspaceRoutePlaceholder } from "@/components/dashboard/workspace-route-placeholder";
+import { readCachedChatMessages } from "@/lib/chat-message-cache";
 import {
   CHAT_STREAM_FINISHED_EVENT,
   CHAT_STREAM_STATUS_EVENT,
@@ -55,22 +56,36 @@ export function WorkspaceChatRoutePageClient({
   const slug =
     slugProp ?? pathname.match(/^\/workspace\/chats\/([^/?#]+)/)?.[1] ?? "new";
   const initialPrompt = searchParams.get("prompt")?.trim() || null;
-  const newChatInstanceKey =
-    slug === "new"
-      ? `new:${searchParams.get("fresh") ?? ""}:${initialPrompt ?? ""}`
-      : slug;
+  const newChatInstanceKey = slug === "new" ? `new:${initialPrompt ?? ""}` : slug;
   const [streamingChatIds, setStreamingChatIds] = useState<Set<string>>(() =>
     isChatStreamActive(slug) ? new Set([slug]) : new Set()
   );
   const [resolvingChatIds, setResolvingChatIds] = useState<Set<string>>(
     () => new Set()
   );
+  const [cachedMessages, setCachedMessages] = useState<UIMessage[]>([]);
   const streamingChatIdsRef = useRef(streamingChatIds);
   useEffect(() => {
     streamingChatIdsRef.current = streamingChatIds;
   }, [streamingChatIds]);
   const isSlugStreaming = streamingChatIds.has(slug);
   const isSlugResolving = resolvingChatIds.has(slug);
+
+  useEffect(() => {
+    if (slug === "new") {
+      setCachedMessages([]);
+      return;
+    }
+    let cancelled = false;
+    void readCachedChatMessages(slug).then((messages) => {
+      if (!cancelled) {
+        setCachedMessages(messages);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [slug]);
   const chatQuery = useQuery({
     enabled:
       status === "ready" &&
@@ -228,7 +243,7 @@ export function WorkspaceChatRoutePageClient({
   }
 
   if (chatQuery.isPending || chatQuery.data === null) {
-    if (!shouldShowOptimisticChatShell) {
+    if (!shouldShowOptimisticChatShell && cachedMessages.length === 0) {
       return <WorkspaceRoutePlaceholder label="Loading method..." />;
     }
 
@@ -237,7 +252,7 @@ export function WorkspaceChatRoutePageClient({
         chatIcon={null}
         chatSlug={slug}
         chatTitle="New Method"
-        initialMessages={[]}
+        initialMessages={cachedMessages}
         initialPrompt={null}
         isReadonly={false}
         newChatKey={newChatInstanceKey}
