@@ -2303,7 +2303,7 @@ export function DashboardSidebar({
       <div
         aria-hidden="true"
         className={cn(
-          "fixed inset-y-0 left-0 z-30 hidden w-10 md:block",
+          "fixed inset-y-0 left-0 z-50 hidden w-10 md:block",
           state === "collapsed" && !isPeekabooActive
             ? "pointer-events-auto"
             : "pointer-events-none"
@@ -2313,7 +2313,7 @@ export function DashboardSidebar({
       />
       <Sidebar
         className={cn(
-          "z-40 transition-all duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)]",
+          "z-50 transition-all duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)]",
           className,
           isPeekabooActive && "ring-1 ring-sidebar-border"
         )}
