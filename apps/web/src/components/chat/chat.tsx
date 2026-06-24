@@ -18,6 +18,11 @@ import { toast } from "sonner";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { getChatErrorMessage } from "@/lib/chat-errors";
 import {
+  readCachedChatMessages,
+  reconcileChatMessages,
+  writeCachedChatMessages,
+} from "@/lib/chat-message-cache";
+import {
   CHAT_NAME_UPDATED_EVENT,
   CHAT_STREAM_FINISHED_EVENT,
   CHAT_STREAM_STATUS_EVENT,
@@ -62,6 +67,8 @@ const MOBILE_CHAT_COMPOSER_CLOSE_EVENT = "avenire:mobile-chat-composer-close";
 const MOBILE_CHAT_COMPOSER_OPEN_EVENT = "avenire:mobile-chat-composer-open";
 const MOBILE_CHAT_COMPOSER_STATE_EVENT = "avenire:mobile-chat-composer-state";
 const MOBILE_CHAT_VOICE_START_EVENT = "avenire:mobile-chat-voice-start";
+const NEW_CHAT_REQUESTED_EVENT = "avenire:new-chat-requested";
+const CHAT_MESSAGE_SENT_EVENT = "avenire:chat-message-sent";
 
 export function Chat({
   id,
@@ -242,6 +249,28 @@ export function Chat({
     }
   }, [chatId, id, newChatKey, setMessages]);
 
+  useEffect(() => {
+    if (id !== "new") {
+      return;
+    }
+
+    const resetNewChat = () => {
+      hasPushedNewChatUrlRef.current = false;
+      autoPromptSentRef.current = null;
+      publishedStreamStatusRef.current = null;
+      setAgentActivity(null);
+      setAttachments([]);
+      setInput("");
+      setChatId(crypto.randomUUID());
+      setMessages([]);
+    };
+
+    window.addEventListener(NEW_CHAT_REQUESTED_EVENT, resetNewChat);
+    return () => {
+      window.removeEventListener(NEW_CHAT_REQUESTED_EVENT, resetNewChat);
+    };
+  }, [id, setMessages]);
+
   const publishChatStreamStatus = useCallback(
     (nextStatus: ChatStreamStatus) => {
       const detail = { chatId, status: nextStatus };
@@ -290,20 +319,47 @@ export function Chat({
   }, [publishChatStreamStatus, stop]);
 
   useEffect(() => {
-    if (initialMessages.length === 0 || messages.length > 0) {
+    let cancelled = false;
+
+    void readCachedChatMessages(chatId).then((cachedMessages) => {
+      if (cancelled) {
+        return;
+      }
+      const reconciledMessages = reconcileChatMessages(
+        initialMessages,
+        cachedMessages
+      );
+      if (reconciledMessages.length > 0) {
+        setMessages(reconciledMessages);
+      } else if (initialMessages.length > 0) {
+        setMessages(initialMessages);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [chatId, initialMessages, setMessages]);
+
+  useEffect(() => {
+    if (messages.length === 0) {
       return;
     }
-
-    setMessages(initialMessages);
-  }, [initialMessages, messages.length, setMessages]);
+    void writeCachedChatMessages(chatId, messages);
+  }, [chatId, messages]);
 
   const latestMessage = messages.at(-1);
   const latestMessageRole = latestMessage?.role ?? null;
   const latestUserMessageId =
     latestMessageRole === "user" ? (latestMessage?.id ?? null) : null;
+  const shouldResumeKnownStream =
+    id !== "new" && status === "ready" && isChatStreamActive(chatId);
 
   useEffect(() => {
-    if (id === "new" || !latestUserMessageId || status !== "ready") {
+    if (id === "new" || status !== "ready") {
+      return;
+    }
+    if (!(latestUserMessageId || shouldResumeKnownStream)) {
       return;
     }
 
@@ -337,7 +393,15 @@ export function Chat({
         clearTimeout(timer);
       }
     };
-  }, [handleResumeStreamError, id, latestUserMessageId, resumeStream, status]);
+  }, [
+    chatId,
+    handleResumeStreamError,
+    id,
+    latestUserMessageId,
+    resumeStream,
+    shouldResumeKnownStream,
+    status,
+  ]);
 
   useEffect(() => {
     if (id === "new") {
@@ -348,7 +412,7 @@ export function Chat({
       if (
         document.visibilityState === "hidden" ||
         status !== "ready" ||
-        latestMessageRole !== "user"
+        !(latestMessageRole === "user" || isChatStreamActive(chatId))
       ) {
         return;
       }
@@ -362,7 +426,7 @@ export function Chat({
       window.removeEventListener("focus", resumeExistingStream);
       document.removeEventListener("visibilitychange", resumeExistingStream);
     };
-  }, [id, handleResumeStreamError, latestMessageRole, resumeStream, status]);
+  }, [chatId, id, handleResumeStreamError, latestMessageRole, resumeStream, status]);
 
   useEffect(() => {
     if (id !== "new") {
@@ -550,6 +614,11 @@ export function Chat({
 
   const handleSubmit = async (inputValue: string, files: Attachment[]) => {
     promoteNewChatRoute();
+    window.dispatchEvent(
+      new CustomEvent(CHAT_MESSAGE_SENT_EVENT, {
+        detail: { chatId, text: inputValue, workspaceUuid },
+      })
+    );
 
     const localFileParts: FileUIPart[] = files
       .filter((attachment) => attachment.source === "local")
