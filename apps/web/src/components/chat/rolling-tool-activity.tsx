@@ -134,13 +134,25 @@ type ActionGroup =
   | { action: MutationAction; type: "mutation" };
 
 const ROLLING_TOOL_TYPES = new Set([
+  "tool-avenire_agent",
+  "tool-file_manager_agent",
+  "tool-search_materials",
+  "tool-web_search",
+  "tool-list_files",
+  "tool-read_file",
+  "tool-move_file",
+  "tool-delete_file",
+  "tool-create_folder",
+  "tool-get_file_info",
   "tool-generate_flashcards",
   "tool-get_due_cards",
   "tool-log_misconception",
   "tool-note_agent",
   "tool-quiz_me",
   "tool-create_note",
+  "tool-read_note",
   "tool-update_note",
+  "tool-list_notes",
   "tool-update_note_tags",
 ]);
 
@@ -876,46 +888,43 @@ export const ReasoningContent = memo(
       .map((line) => line.trimEnd())
       .filter((line) => line.length > 0);
 
+    const targetY =
+      lines.length > VISIBLE_ROWS
+        ? -(lines.length - VISIBLE_ROWS) * ROW_HEIGHT
+        : 0;
+    const springY = useSpring(targetY, {
+      damping: 20,
+      mass: 0.5,
+      stiffness: 160,
+    });
+
+    useEffect(() => {
+      springY.set(targetY);
+    }, [springY, targetY]);
+
     return (
       <div
         className={cn("relative mt-[3px] overflow-hidden", className)}
-        style={{ height: WINDOW_HEIGHT }}
+        style={{
+          height: WINDOW_HEIGHT,
+          maskImage:
+            "linear-gradient(to bottom, transparent 0, black 22px, black 100%)",
+          WebkitMaskImage:
+            "linear-gradient(to bottom, transparent 0, black 22px, black 100%)",
+        }}
         {...props}
       >
-        <div
-          className="pointer-events-none absolute inset-x-0 top-0 z-0"
-          style={{
-            background:
-              "linear-gradient(to bottom, hsl(var(--background)) 15%, transparent 100%)",
-            height: ROW_HEIGHT * 1.4,
-          }}
-        />
-        <div
-          className="pointer-events-none absolute inset-x-0 bottom-0 z-0"
-          style={{
-            background:
-              "linear-gradient(to top, hsl(var(--background)) 15%, transparent 100%)",
-            height: ROW_HEIGHT * 1.4,
-          }}
-        />
-        <m.pre
-          animate={{
-            y:
-              lines.length > VISIBLE_ROWS
-                ? -(lines.length - VISIBLE_ROWS) * ROW_HEIGHT
-                : 0,
-          }}
-          className="relative z-10 whitespace-pre-wrap break-words pl-4 font-mono text-[11px] text-foreground/22 leading-[22px]"
-          initial={false}
-          style={{ willChange: "transform" }}
-          transition={{
-            damping: 20,
-            mass: 0.5,
-            stiffness: 160,
-          }}
-        >
-          {lines.join("\n")}
-        </m.pre>
+        <m.div style={{ y: springY, willChange: "transform" }}>
+          {lines.map((line, index) => (
+            <div
+              className="truncate pl-4 font-mono text-[11px] text-foreground/22 leading-[22px]"
+              key={`${line}-${index}`}
+              style={{ height: ROW_HEIGHT }}
+            >
+              {line}
+            </div>
+          ))}
+        </m.div>
       </div>
     );
   }
@@ -1204,17 +1213,15 @@ function RollingWindow({ items }: { items: ExploreItem[] }) {
     <>
       <div
         aria-hidden="true"
-        className="relative mt-[3px]"
-        style={{ height: WINDOW_HEIGHT, overflow: "hidden" }}
+        className="relative mt-[3px] overflow-hidden"
+        style={{
+          height: WINDOW_HEIGHT,
+          maskImage:
+            "linear-gradient(to bottom, transparent 0, black 22px, black 100%)",
+          WebkitMaskImage:
+            "linear-gradient(to bottom, transparent 0, black 22px, black 100%)",
+        }}
       >
-        <div
-          className="pointer-events-none absolute inset-x-0 top-0 z-10"
-          style={{
-            background:
-              "linear-gradient(to bottom, hsl(var(--background)) 15%, transparent 100%)",
-            height: ROW_HEIGHT * 1.4,
-          }}
-        />
         <m.div style={{ y: springY }}>
           {items.map((item, index) => (
             <div
