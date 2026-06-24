@@ -15,6 +15,7 @@ export function WorkspaceChatNewPageClient({
   const initialPrompt = allowPrompt
     ? searchParams.get("prompt")?.trim() || null
     : null;
+  const newChatKey = `new:${initialPrompt ?? ""}`;
 
   if (!(status === "ready" && user && workspace)) {
     return <WorkspaceRoutePlaceholder label="Loading method..." />;
@@ -28,6 +29,7 @@ export function WorkspaceChatNewPageClient({
       initialMessages={[]}
       initialPrompt={initialPrompt}
       isReadonly={false}
+      newChatKey={newChatKey}
       userName={user.name ?? undefined}
       workspaceUuid={workspace.workspaceId}
     />

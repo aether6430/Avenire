@@ -6,7 +6,6 @@ import {
   apollo,
   convertToModelMessages,
   createUIMessageStream,
-  createUIMessageStreamResponse,
   generateText,
   type PromptMemoryBlock,
   smoothStream,
@@ -19,9 +18,9 @@ import {
   logRetrievalQualitySignal,
   type RetrievalQualityCandidate,
 } from "@avenire/ingestion";
+import { toDurableStreamResponse } from "@durable-streams/aisdk-transport";
 import { headers } from "next/headers";
 import { after, NextResponse } from "next/server";
-import { createResumableStreamContext } from "resumable-stream";
 import { consumeChatUnits, restoreChatUnits } from "@/lib/billing";
 import {
   createChatForUser,
@@ -42,6 +41,13 @@ import {
   prewarmActiveMisconceptionsCache,
 } from "@/lib/chat-tools";
 import { invalidateChatReadCaches } from "@/lib/domain-cache";
+import {
+  buildChatStreamPath,
+  buildDurableChatStreamReadProxyUrl,
+  buildDurableChatStreamWriteUrl,
+  getDurableChatStreamWriteHeaders,
+  readStreamAsAsyncIterable,
+} from "@/lib/durable-chat-streams";
 import { resolveWorkspaceForUser } from "@/lib/file-data";
 import "@/lib/learning-automation";
 import {
@@ -62,14 +68,13 @@ import {
   inferTopicLabel,
   normalizeSubjectLabel,
 } from "@/lib/subject-detection";
+import { publishWorkspaceStreamEvent } from "@/lib/workspace-event-stream";
 import {
   clearActiveStreamId,
   getActiveStreamId,
   getRedisClient,
-  getRedisSubscriber,
   setActiveStreamId,
 } from "./chat-stream-store";
-import { publishWorkspaceStreamEvent } from "@/lib/workspace-event-stream";
 
 const DEFAULT_CHAT_TITLE = "New Chat";
 const LOG_PREFIX = "[api/chat]";
@@ -119,7 +124,17 @@ const MODEL_TOOL_ALLOW_LIST = new Set([
 ]);
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const maxDuration = 300;
+
+function createDeferredSignal() {
+  let resolveSignal: () => void = () => {
+    throw new Error("Deferred signal resolved before initialization.");
+  };
+  const promise = new Promise<void>((resolve) => {
+    resolveSignal = resolve;
+  });
+
+  return { promise, resolve: resolveSignal };
+}
 
 function isChatProfileLoggingEnabled() {
   return (
@@ -434,6 +449,10 @@ function extractAssistantText(message: UIMessage) {
   }
 }
 
+interface RetrievalQualityCandidateRow extends RetrievalQualityCandidate {
+  snippet?: string | null;
+}
+
 function collectRetrievalQualityCandidates(message: UIMessage) {
   const candidates: RetrievalQualityCandidate[] = [];
   const queries = new Set<string>();
@@ -459,9 +478,9 @@ function collectRetrievalQualityCandidates(message: UIMessage) {
       continue;
     }
     const output = toolPart.output as {
-      citations?: Array<Record<string, unknown>>;
-      matches?: Array<Record<string, unknown>>;
-      query?: unknown;
+      citations?: RetrievalQualityCandidateRow[];
+      matches?: RetrievalQualityCandidateRow[];
+      query?: string | null;
     };
     if (typeof output.query === "string" && output.query.trim()) {
       queries.add(output.query.trim());
@@ -488,8 +507,7 @@ function collectRetrievalQualityCandidates(message: UIMessage) {
               : null,
         fileId: typeof row.fileId === "string" ? row.fileId : null,
         score: typeof row.score === "number" ? row.score : null,
-        sourceType:
-          typeof row.sourceType === "string" ? row.sourceType : null,
+        sourceType: typeof row.sourceType === "string" ? row.sourceType : null,
       });
     }
   }
@@ -1021,9 +1039,7 @@ function resolveTurboModelCreditMultiplier() {
 }
 
 function resolveApexModelCreditMultiplier() {
-  const raw = Number.parseFloat(
-    process.env.APEX_MODEL_CREDIT_MULTIPLIER ?? ""
-  );
+  const raw = Number.parseFloat(process.env.APEX_MODEL_CREDIT_MULTIPLIER ?? "");
   if (!Number.isFinite(raw) || raw < 1) {
     return DEFAULT_APEX_MODEL_CREDIT_MULTIPLIER;
   }
@@ -1218,6 +1234,7 @@ export async function POST(request: Request) {
       workspaceUuid?: string;
       selectedModel?: ApolloModelName;
       chatId?: string;
+      id?: string;
       sessionId?: string;
       status?: string;
       userName?: string;
@@ -1327,7 +1344,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: true }, { status: 202 });
     }
 
-    const chatSlug: string = body.chatId?.trim() ?? "";
+    const chatSlug: string = (body.chatId ?? body.id)?.trim() ?? "";
     if (!chatSlug) {
       apiLogger.requestFailed(400, "Missing chatId");
       return NextResponse.json({ error: "Missing chatId" }, { status: 400 });
@@ -1538,25 +1555,15 @@ export async function POST(request: Request) {
       }
     }
 
-    const streamId = randomUUID();
-    const previousStreamIdPromise = getActiveStreamId(chatSlug);
-    await setActiveStreamId(chatSlug, streamId);
-    const previousStreamId = await previousStreamIdPromise;
-    if (previousStreamId) {
-      await clearActiveStreamId(chatSlug, previousStreamId);
+    const streamPath = buildChatStreamPath({
+      chatSlug,
+      streamId: randomUUID(),
+      workspaceId: workspace.workspaceId,
+    });
+    const previousStreamPath = await getActiveStreamId(chatSlug);
+    if (previousStreamPath) {
+      await clearActiveStreamId(chatSlug, previousStreamPath);
     }
-    request.signal.addEventListener(
-      "abort",
-      () => {
-        void clearActiveStreamId(chatSlug, streamId);
-        logInfo("Chat request aborted", { chatId: chatSlug, streamId });
-        if (idempotencyRedisKey && idempotencyLockAcquired) {
-          void clearIdempotencyKey(idempotencyRedisKey);
-        }
-      },
-      { once: true }
-    );
-
     const stream = createUIMessageStream<UIMessage>({
       execute: async ({ writer }) => {
         const shouldGenerateChatTitle = shouldGenerateTitle(
@@ -1727,35 +1734,33 @@ export async function POST(request: Request) {
           });
         };
         emitStartupActivity("Preparing chat context");
-        const tools = createChatTools(
-          {
-            chatSlug,
-            chargeWidgetGeneration: async () => {
-              const widgetGenerationCredits = resolveWidgetGenerationCredits();
-              const usage = await consumeChatUnits(
-                session.user.id,
-                widgetGenerationCredits
-              );
-              if (!usage.ok) {
-                logInfo("Widget generation over usage limit", {
-                  chatId: chatSlug,
-                  credits: widgetGenerationCredits,
-                  retryAfter: usage.retryAfter?.toISOString() ?? null,
-                });
-                throw new Error("Chat usage limit reached");
-              }
-              apiLogger.meter("meter.chat.widget", {
+        const tools = createChatTools({
+          chatSlug,
+          chargeWidgetGeneration: async () => {
+            const widgetGenerationCredits = resolveWidgetGenerationCredits();
+            const usage = await consumeChatUnits(
+              session.user.id,
+              widgetGenerationCredits
+            );
+            if (!usage.ok) {
+              logInfo("Widget generation over usage limit", {
                 chatId: chatSlug,
-                creditsCharged: widgetGenerationCredits,
-                model: selectedModel,
+                credits: widgetGenerationCredits,
+                retryAfter: usage.retryAfter?.toISOString() ?? null,
               });
-            },
-            agentActivityId,
-            rootFolderId: workspace.rootFolderId,
-            userId: session.user.id,
-            workspaceId: workspace.workspaceId,
-          }
-        );
+              throw new Error("Chat usage limit reached");
+            }
+            apiLogger.meter("meter.chat.widget", {
+              chatId: chatSlug,
+              creditsCharged: widgetGenerationCredits,
+              model: selectedModel,
+            });
+          },
+          agentActivityId,
+          rootFolderId: workspace.rootFolderId,
+          userId: session.user.id,
+          workspaceId: workspace.workspaceId,
+        });
         const modelTools = pickModelTools(tools);
 
         try {
@@ -1855,6 +1860,9 @@ export async function POST(request: Request) {
             resolvedTopic,
             promptMemoryBlockCount: promptMemoryBlocks.length,
           });
+          // Do not pass request.signal here. The client may disconnect during
+          // navigation or refresh, but the resumable stream should continue so
+          // `/api/chat/[id]/stream` can reconnect to it.
           result = streamText({
             model: apollo.languageModel(selectedModel),
             system: APOLLO_PROMPT(
@@ -1865,7 +1873,6 @@ export async function POST(request: Request) {
             maxOutputTokens: 20_000,
             stopWhen: stepCountIs(8),
             tools: modelTools,
-            abortSignal: request.signal,
             experimental_transform: smoothStream({
               delayInMs: null,
               chunking: "word",
@@ -1951,7 +1958,10 @@ export async function POST(request: Request) {
             });
           })();
         } catch (error) {
-          await clearActiveStreamId(chatSlug, streamId);
+          await clearActiveStreamId(chatSlug, streamPath);
+          if (idempotencyRedisKey && idempotencyLockAcquired) {
+            await clearIdempotencyKey(idempotencyRedisKey);
+          }
           logError("Failed to start model stream", {
             chatId: chatSlug,
             model: selectedModel,
@@ -1974,7 +1984,7 @@ export async function POST(request: Request) {
                   responseMessage: responseMessage as unknown as UIMessage,
                   isContinuation,
                 });
-                const activeStreamId = await getActiveStreamId(chatSlug);
+                const activeStreamPath = await getActiveStreamId(chatSlug);
                 const latestUserMessageId =
                   [...originalMessages]
                     .reverse()
@@ -1983,7 +1993,7 @@ export async function POST(request: Request) {
                 // a later active stream save may still win, but this avoids
                 // dropping completed superseded responses outright.
                 const messagesToPersist =
-                  activeStreamId === streamId
+                  activeStreamPath === streamPath
                     ? persistedMessages
                     : mergeSupersededStreamMessages({
                         currentMessages:
@@ -1995,13 +2005,13 @@ export async function POST(request: Request) {
                         incomingMessages: persistedMessages,
                         latestUserMessageId,
                       });
-                if (activeStreamId !== streamId) {
+                if (activeStreamPath !== streamPath) {
                   logInfo("Merging superseded stream messages", {
+                    activeStreamPath,
                     chatId: chatSlug,
                     incomingMessageCount: persistedMessages.length,
                     mergedMessageCount: messagesToPersist.length,
-                    streamId,
-                    activeStreamId,
+                    streamPath,
                   });
                 }
                 logInfo("Model stream finished", {
@@ -2149,7 +2159,7 @@ export async function POST(request: Request) {
                   error,
                 });
               } finally {
-                await clearActiveStreamId(chatSlug, streamId);
+                await clearActiveStreamId(chatSlug, streamPath);
                 if (idempotencyRedisKey && idempotencyLockAcquired) {
                   await markIdempotencyDone(idempotencyRedisKey, chatSlug);
                 }
@@ -2163,50 +2173,31 @@ export async function POST(request: Request) {
       },
     });
 
-    const baseResponse = createUIMessageStreamResponse({ stream });
-    if (!baseResponse.body) {
-      await clearActiveStreamId(chatSlug, streamId);
-      return baseResponse;
+    const activeStreamReady = createDeferredSignal();
+    async function* publishActiveStreamThenRead() {
+      await setActiveStreamId(chatSlug, streamPath);
+      activeStreamReady.resolve();
+      yield* readStreamAsAsyncIterable(stream);
     }
 
-    const [clientBody, resumableBody] = baseResponse.body.tee();
-    const resumableTextStream = resumableBody.pipeThrough(
-      new TextDecoderStream()
-    );
+    const response = await toDurableStreamResponse({
+      source: publishActiveStreamThenRead(),
+      stream: {
+        headers: getDurableChatStreamWriteHeaders(),
+        readUrl: buildDurableChatStreamReadProxyUrl(request, streamPath),
+        writeUrl: buildDurableChatStreamWriteUrl(streamPath),
+      },
+      waitUntil: after,
+    });
+    await activeStreamReady.promise;
 
-    void (async () => {
-      try {
-        const streamContext = createResumableStreamContext({
-          waitUntil: after,
-          publisher: await getRedisClient(),
-          subscriber: await getRedisSubscriber(),
-        });
-
-        await streamContext.createNewResumableStream(
-          streamId,
-          () => resumableTextStream
-        );
-      } catch (error) {
-        await clearActiveStreamId(chatSlug, streamId);
-        logError("Failed to create resumable chat stream", {
-          chatSlug,
-          streamId,
-          error: formatError(error),
-        });
-      }
-    })();
-
-    apiLogger.requestSucceeded(200, {
+    apiLogger.requestSucceeded(201, {
       chatId: chatSlug,
-      selectedModel: body.selectedModel ?? "apollo-apex",
       messageCount: originalMessages.length,
+      selectedModel: body.selectedModel ?? "apollo-apex",
+      streamPath,
     });
-
-    return new Response(clientBody, {
-      status: baseResponse.status,
-      statusText: baseResponse.statusText,
-      headers: baseResponse.headers,
-    });
+    return response;
   } catch (error) {
     logError("Unhandled chat POST error", { error: formatError(error) });
     if (idempotencyRedisKey && idempotencyLockAcquired) {

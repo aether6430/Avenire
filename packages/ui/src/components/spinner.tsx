@@ -2,12 +2,12 @@
 
 import { AnimatePresence, motion } from "motion/react";
 import {
+  type ComponentPropsWithoutRef,
   forwardRef,
+  type HTMLAttributes,
   useEffect,
   useMemo,
   useState,
-  type ComponentPropsWithoutRef,
-  type HTMLAttributes,
 } from "react";
 
 import { cn } from "../lib/utils";
@@ -30,10 +30,10 @@ export const SpinnerGlyph = forwardRef<SVGSVGElement, SpinnerGlyphProps>(
     return (
       <motion.svg
         {...props}
-        ref={ref}
         className={cn("shrink-0 text-muted-foreground", className)}
         fill="none"
         height="1em"
+        ref={ref}
         stroke="currentColor"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -49,7 +49,7 @@ export const SpinnerGlyph = forwardRef<SVGSVGElement, SpinnerGlyphProps>(
             d: {
               duration: 6,
               ease: "easeInOut",
-              repeat: Infinity,
+              repeat: Number.POSITIVE_INFINITY,
               times: [0, 0.25, 0.5, 0.75, 1],
             },
           }}
@@ -97,10 +97,7 @@ export const ThinkingIndicator = forwardRef<HTMLDivElement, SpinnerProps>(
     );
 
     const [index, setIndex] = useState(0);
-
-    useEffect(() => {
-      setIndex(0);
-    }, [resolvedMessages]);
+    const safeIndex = index % resolvedMessages.length;
 
     useEffect(() => {
       if (resolvedMessages.length <= 1) {
@@ -123,7 +120,7 @@ export const ThinkingIndicator = forwardRef<HTMLDivElement, SpinnerProps>(
       >
         <SpinnerGlyph aria-hidden className="size-5" />
 
-        <span className="inline-grid overflow-hidden text-[13px] font-medium">
+        <span className="inline-grid overflow-hidden font-medium text-[13px]">
           <span
             aria-hidden="true"
             className="invisible col-start-1 row-start-1"
@@ -144,9 +141,9 @@ export const ThinkingIndicator = forwardRef<HTMLDivElement, SpinnerProps>(
                 y: "-80%",
               }}
               initial={{ opacity: 0, y: "80%" }}
-              key={resolvedMessages[index]}
+              key={resolvedMessages[safeIndex]}
             >
-              {resolvedMessages[index]}
+              {resolvedMessages[safeIndex]}
             </motion.span>
           </AnimatePresence>
         </span>

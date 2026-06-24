@@ -497,14 +497,9 @@ export const chatToolSchemas = {
         tags: z.array(z.string()).max(12).optional(),
         title: z.string().min(1).optional(),
       })
-      .refine(
-        (value) =>
-          Number(Boolean(value.fileId)) +
-            Number(Boolean(value.query)) +
-            Number(Boolean(value.sourceText)) ===
-          1,
-        "Provide exactly one of fileId, query, or sourceText."
-      ),
+      .refine((input) => input.fileId || input.query || input.sourceText, {
+        message: "Provide fileId, query, or sourceText.",
+      }),
     output: z.object({
       cards: z.array(flashcardSchema),
       setId: z.string(),
@@ -533,14 +528,9 @@ export const chatToolSchemas = {
         tags: z.array(z.string()).max(12).optional(),
         title: z.string().min(1).optional(),
       })
-      .refine(
-        (value) =>
-          Number(Boolean(value.fileId)) +
-            Number(Boolean(value.query)) +
-            Number(Boolean(value.sourceText)) ===
-          1,
-        "Provide exactly one of fileId, query, or sourceText."
-      ),
+      .refine((input) => input.fileId || input.query || input.sourceText, {
+        message: "Provide fileId, query, or sourceText.",
+      }),
     output: z.object({
       questionCount: z.number().int(),
       questions: z.array(quizQuestionSchema),

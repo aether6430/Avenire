@@ -85,6 +85,11 @@ import { ChatIcon } from "@/components/chat/chat-icon";
 import { useHaptics } from "@/hooks/use-haptics";
 import type { ChatSummary } from "@/lib/chat-data";
 import {
+  readIndexedCachedChats,
+  writeIndexedCachedChats,
+} from "@/lib/chat-list-indexed-cache";
+import { deleteCachedChatMessages } from "@/lib/chat-message-cache";
+import {
   CHAT_NAME_UPDATED_EVENT,
   CHAT_STREAM_STATUS_EVENT,
   type ChatNameUpdatedDetail,
@@ -159,6 +164,27 @@ function isChatSummary(value: unknown): value is ChatSummary {
     typeof candidate.title === "string" &&
     typeof candidate.lastMessageAt === "string"
   );
+}
+
+function createOptimisticChatSummary(input: {
+  chatId: string;
+  icon?: string | null;
+  title?: string | null;
+  workspaceUuid: string;
+}): ChatSummary {
+  const now = new Date().toISOString();
+  return {
+    branching: null,
+    createdAt: now,
+    icon: input.icon ?? null,
+    id: `optimistic:${input.chatId}`,
+    lastMessageAt: now,
+    pinned: false,
+    slug: input.chatId,
+    title: input.title?.trim() || "New Method",
+    updatedAt: now,
+    workspaceId: input.workspaceUuid,
+  };
 }
 
 function applyChatRealtimeEvent(
@@ -388,8 +414,12 @@ const DASHBOARD_FLASHCARDS_ROUTE_REGEX = /^\/workspace\/flashcards\/([^/?#]+)/;
 const DASHBOARD_FILES_FOLDER_ROUTE_REGEX =
   /^\/workspace\/files\/[^/]+\/folder\/([^/?#]+)/;
 
-function createFreshNewChatHref() {
-  return `/workspace/chats/new?fresh=${Date.now().toString(36)}` as Route;
+function createNewChatHref() {
+  return "/workspace/chats/new" as Route;
+}
+
+function requestNewChatReset() {
+  window.dispatchEvent(new CustomEvent("avenire:new-chat-requested"));
 }
 
 function getChatDateGroup(chat: ChatSummary) {
@@ -1223,12 +1253,36 @@ export function DashboardSidebar({
   }, [derivedWorkspaceUuid]);
 
   useEffect(() => {
+    if (!workspaceUuid) {
+      return;
+    }
+    let cancelled = false;
+    void readIndexedCachedChats(workspaceUuid).then((indexedChats) => {
+      if (cancelled || !indexedChats) {
+        return;
+      }
+      setChats(indexedChats);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [workspaceUuid]);
+
+  useEffect(() => {
     if (chatsWorkspaceRef.current === workspaceUuid) {
       return;
     }
     chatsWorkspaceRef.current = workspaceUuid;
     const cachedChats = workspaceUuid ? readCachedChats(workspaceUuid) : null;
     setChats(cachedChats ?? []);
+    if (workspaceUuid) {
+      void readIndexedCachedChats(workspaceUuid).then((indexedChats) => {
+        if (!indexedChats || chatsWorkspaceRef.current !== workspaceUuid) {
+          return;
+        }
+        setChats(indexedChats);
+      });
+    }
   }, [workspaceUuid]);
 
   useEffect(() => {
@@ -1362,6 +1416,7 @@ export function DashboardSidebar({
       setChats(nextChats);
       if (workspaceUuid && chatsWorkspaceRef.current === workspaceUuid) {
         writeCachedChats(workspaceUuid, nextChats);
+        void writeIndexedCachedChats(workspaceUuid, nextChats);
       }
     } catch {
       // ignore
@@ -1422,6 +1477,7 @@ export function DashboardSidebar({
       return;
     }
     writeCachedChats(workspaceUuid, chats);
+    void writeIndexedCachedChats(workspaceUuid, chats);
   }, [chats, workspaceUuid]);
 
   useEffect(() => {
@@ -1512,19 +1568,47 @@ export function DashboardSidebar({
       if (!(detail?.id && detail?.name)) {
         return;
       }
+      if (!detail.workspaceUuid || detail.workspaceUuid !== workspaceUuid) {
+        return;
+      }
 
-      setChats((prev) =>
-        prev.map((chat) =>
-          chat.slug === detail.id
-            ? {
-                ...chat,
-                title: detail.name,
-                icon: detail.icon ?? chat.icon ?? null,
-                updatedAt: new Date().toISOString(),
-              }
-            : chat
-        )
-      );
+      setChats((prev) => {
+        const now = new Date().toISOString();
+        const existing = prev.find((chat) => chat.slug === detail.id);
+        const next = existing
+          ? prev.map((chat) =>
+              chat.slug === detail.id
+                ? {
+                    ...chat,
+                    icon: detail.icon ?? chat.icon ?? null,
+                    lastMessageAt: now,
+                    title: detail.name,
+                    updatedAt: now,
+                  }
+                : chat
+            )
+          : workspaceUuid
+            ? [
+                createOptimisticChatSummary({
+                  chatId: detail.id,
+                  icon: detail.icon ?? null,
+                  title: detail.name,
+                  workspaceUuid,
+                }),
+                ...prev,
+              ]
+            : prev;
+
+        if (workspaceUuid) {
+          void writeIndexedCachedChats(workspaceUuid, next);
+        }
+
+        if (workspaceUuid) {
+          writeCachedChats(workspaceUuid, next);
+        }
+        return next;
+      });
+      void loadChats();
     };
 
     const onChatStreamStatus = (event: Event) => {
@@ -1534,7 +1618,6 @@ export function DashboardSidebar({
       }
       if (detail.status === "submitted" || detail.status === "streaming") {
         setPendingChatSlug(detail.chatId);
-        void loadChats();
         return;
       }
       if (detail.status === "ready" || detail.status === "error") {
@@ -1545,13 +1628,56 @@ export function DashboardSidebar({
       }
     };
 
+    const onChatMessageSent = (event: Event) => {
+      const detail = (
+        event as CustomEvent<{
+          chatId?: string;
+          text?: string;
+          workspaceUuid?: string;
+        }>
+      ).detail;
+      if (!detail?.chatId || detail.workspaceUuid !== workspaceUuid) {
+        return;
+      }
+      const chatId = detail.chatId;
+
+      setChats((prev) => {
+        const now = new Date().toISOString();
+        const title = detail.text?.trim().split(/\s+/).slice(0, 8).join(" ");
+        const existing = prev.find((chat) => chat.slug === chatId);
+        const next = existing
+          ? prev.map((chat) =>
+              chat.slug === chatId
+                ? { ...chat, lastMessageAt: now, updatedAt: now }
+                : chat
+            )
+          : workspaceUuid
+            ? [
+                createOptimisticChatSummary({
+                  chatId,
+                  title,
+                  workspaceUuid,
+                }),
+                ...prev,
+              ]
+            : prev;
+        if (workspaceUuid) {
+          writeCachedChats(workspaceUuid, next);
+          void writeIndexedCachedChats(workspaceUuid, next);
+        }
+        return next;
+      });
+    };
+
     window.addEventListener(CHAT_NAME_UPDATED_EVENT, onChatNameUpdated);
     window.addEventListener(CHAT_STREAM_STATUS_EVENT, onChatStreamStatus);
+    window.addEventListener("avenire:chat-message-sent", onChatMessageSent);
     return () => {
       window.removeEventListener(CHAT_NAME_UPDATED_EVENT, onChatNameUpdated);
       window.removeEventListener(CHAT_STREAM_STATUS_EVENT, onChatStreamStatus);
+      window.removeEventListener("avenire:chat-message-sent", onChatMessageSent);
     };
-  }, [loadChats]);
+  }, [loadChats, workspaceUuid]);
 
   const sortedChats = useMemo(
     () =>
@@ -1750,6 +1876,7 @@ export function DashboardSidebar({
           setChats(patched);
           if (workspaceUuid) {
             writeCachedChats(workspaceUuid, patched);
+            void writeIndexedCachedChats(workspaceUuid, patched);
           }
           return;
         }
@@ -1771,7 +1898,10 @@ export function DashboardSidebar({
   }, [chats, loadChats, workspaceUuid]);
 
   const createChat = () => {
-    navigate(createFreshNewChatHref());
+    if (pathname === "/workspace/chats/new") {
+      requestNewChatReset();
+    }
+    navigate(createNewChatHref());
   };
 
   const updateChat = async (
@@ -1807,11 +1937,17 @@ export function DashboardSidebar({
       return;
     }
 
+    void deleteCachedChatMessages(chatSlug);
+
     const remaining = chats.filter((chat) => chat.slug !== chatSlug);
     setChats(remaining);
+    if (workspaceUuid) {
+      writeCachedChats(workspaceUuid, remaining);
+      void writeIndexedCachedChats(workspaceUuid, remaining);
+    }
 
     if (activeChatSlug === chatSlug) {
-      navigate(createFreshNewChatHref(), { replace: true });
+      navigate(createNewChatHref(), { replace: true });
     }
   };
 
@@ -2353,7 +2489,7 @@ export function DashboardSidebar({
                             <>
                               <ContextMenuItem
                                 onClick={() =>
-                                  navigate(createFreshNewChatHref())
+                                  navigate(createNewChatHref())
                                 }
                               >
                                 <MessageSquare className="mr-2 size-3.5" />
@@ -2361,7 +2497,7 @@ export function DashboardSidebar({
                               </ContextMenuItem>
                               <ContextMenuItem
                                 onClick={() =>
-                                  navigate(createFreshNewChatHref(), {
+                                  navigate(createNewChatHref(), {
                                     openInNewPane: true,
                                   })
                                 }
@@ -2371,7 +2507,7 @@ export function DashboardSidebar({
                               </ContextMenuItem>
                               <ContextMenuItem
                                 onClick={() =>
-                                  navigate(createFreshNewChatHref(), {
+                                  navigate(createNewChatHref(), {
                                     openInNewTab: true,
                                   })
                                 }
@@ -2387,12 +2523,12 @@ export function DashboardSidebar({
                           onClick={(event) => {
                             closeMobileSidebar();
                             if (event.ctrlKey && event.shiftKey) {
-                              navigate(createFreshNewChatHref(), {
+                              navigate(createNewChatHref(), {
                                 openInNewTab: true,
                               });
                               return;
                             }
-                            navigate(createFreshNewChatHref(), {
+                            navigate(createNewChatHref(), {
                               openInNewPane: !isMobile && event.altKey,
                             });
                           }}

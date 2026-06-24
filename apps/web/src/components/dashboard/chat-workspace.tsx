@@ -39,6 +39,8 @@ import {
   CHAT_STREAM_STATUS_EVENT,
   type ChatNameUpdatedDetail,
   type ChatStreamStatusDetail,
+  isActiveChatStreamStatus,
+  isChatStreamActive,
 } from "@/lib/chat-events";
 import { isChatIconName } from "@/lib/chat-icons";
 import { usePanePathname } from "@/lib/workspace-panes";
@@ -52,6 +54,7 @@ interface ChatWorkspaceProps {
   initialMessages: UIMessage[];
   initialPrompt?: string | null;
   isReadonly?: boolean;
+  newChatKey?: string;
   userName?: string;
   workspaceUuid: string;
 }
@@ -91,6 +94,7 @@ export function ChatWorkspace({
   initialMessages,
   initialPrompt,
   isReadonly = false,
+  newChatKey,
   workspaceUuid,
   userName,
 }: ChatWorkspaceProps) {
@@ -106,8 +110,9 @@ export function ChatWorkspace({
     slug: string;
     title: string;
   } | null>(null);
-  const [isPending, setIsPending] = useState(false);
-  const [prevChatSlug, setPrevChatSlug] = useState(chatSlug);
+  const [isPending, setIsPending] = useState(() =>
+    isChatStreamActive(chatSlug)
+  );
 
   const resetShareState = useCallback(() => {
     setShareEmail("");
@@ -117,12 +122,11 @@ export function ChatWorkspace({
     setIsShareDialogOpen(false);
   }, []);
 
-  if (chatSlug !== prevChatSlug) {
-    setPrevChatSlug(chatSlug);
+  useEffect(() => {
     setChatMetaOverride(null);
     resetShareState();
-    setIsPending(false);
-  }
+    setIsPending(isChatStreamActive(chatSlug));
+  }, [chatSlug, resetShareState]);
 
   const currentChatSlug = chatSlug;
   const title =
@@ -181,9 +185,7 @@ export function ChatWorkspace({
       if (currentChatSlug !== "new" && detail.chatId !== currentChatSlug) {
         return;
       }
-      setIsPending(
-        detail.status === "submitted" || detail.status === "streaming"
-      );
+      setIsPending(isActiveChatStreamStatus(detail.status));
     };
 
     window.addEventListener(CHAT_STREAM_STATUS_EVENT, onChatStreamStatus);
@@ -385,6 +387,7 @@ export function ChatWorkspace({
             initialMessages={initialMessages}
             initialPrompt={initialPrompt}
             isReadonly={isReadonly}
+            newChatKey={newChatKey}
             selectedModel="apollo-apex"
             userName={userName}
             workspaceUuid={workspaceUuid}

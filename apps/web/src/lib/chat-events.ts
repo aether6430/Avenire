@@ -6,21 +6,28 @@ export interface ChatNameUpdatedDetail {
   icon?: string | null;
   id: string;
   name: string;
+  workspaceUuid: string;
 }
 
 export interface ChatStreamFinishedDetail {
   chatId: string;
 }
 
+export type ChatStreamStatus = "error" | "ready" | "streaming" | "submitted";
+
 export interface ChatStreamStatusDetail {
   chatId: string;
-  status: string;
+  status: ChatStreamStatus;
 }
 
 const activeChatStreamIds = new Set<string>();
 
+export function isActiveChatStreamStatus(status: ChatStreamStatus | null) {
+  return status === "submitted" || status === "streaming";
+}
+
 export function rememberChatStreamStatus(detail: ChatStreamStatusDetail) {
-  if (detail.status === "submitted" || detail.status === "streaming") {
+  if (isActiveChatStreamStatus(detail.status)) {
     activeChatStreamIds.add(detail.chatId);
     return;
   }

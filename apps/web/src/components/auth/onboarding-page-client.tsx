@@ -56,24 +56,27 @@ export function OnboardingPageClient({
   countryCode?: string | null;
 }) {
   const router = useRouter();
-  const initialHelloLocale = resolveAppleHelloLocaleFromCountry(countryCode);
+  const resolveInitialHelloLocale = () => {
+    const countryLocale = resolveAppleHelloLocaleFromCountry(countryCode);
+    if (countryLocale) {
+      return countryLocale;
+    }
+
+    return typeof navigator === "undefined"
+      ? "en"
+      : resolveAppleHelloLocale(navigator.languages);
+  };
   const [step, setStep] = useState(0);
   const [isFinishing, setIsFinishing] = useState(false);
   const [showFlush, setShowFlush] = useState(false);
   const [isHelloLeaving, setIsHelloLeaving] = useState(false);
   const [helloLocale, setHelloLocale] = useState<
     ReturnType<typeof resolveAppleHelloLocale>
-  >(initialHelloLocale ?? "en");
+  >(() => resolveInitialHelloLocale());
   const [petName, setPetName] = useState("Auri");
   const [petAccessory, setPetAccessory] = useState<PetAccessory>("none");
   const current = STEPS[step] ?? STEPS[0];
   const isPetStep = step === 1;
-
-  useEffect(() => {
-    setHelloLocale(
-      initialHelloLocale ?? resolveAppleHelloLocale(navigator.languages)
-    );
-  }, [initialHelloLocale]);
 
   useEffect(() => {
     let cancelled = false;
@@ -142,9 +145,7 @@ export function OnboardingPageClient({
         keepalive: true,
       });
 
-      setHelloLocale(
-        initialHelloLocale ?? resolveAppleHelloLocale(navigator.languages)
-      );
+      setHelloLocale(resolveInitialHelloLocale());
       setShowFlush(true);
     } catch {
       setIsFinishing(false);

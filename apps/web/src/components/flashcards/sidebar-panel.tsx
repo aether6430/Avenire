@@ -44,6 +44,7 @@ import {
   ChatCenteredText as MessageSquareDashed,
   Plus,
   PlusCircle,
+  Trash,
 } from "@phosphor-icons/react";
 import type { Route } from "next";
 import {
@@ -246,8 +247,68 @@ export function FlashcardsSidebarPanel({
     },
     [isMobile, navigateToFlashcards]
   );
+  const deleteSet = useCallback(
+    async (setId: string) => {
+      try {
+        const response = await fetch(`/api/flashcards/sets/${setId}`, {
+          method: "DELETE",
+        });
+        if (!response.ok) {
+          return;
+        }
+
+        setSets((current) => current.filter((set) => set.id !== setId));
+        window.dispatchEvent(
+          new CustomEvent("avenire:workspace-data-invalidated", {
+            detail: { kind: "flashcards", workspaceUuid },
+          })
+        );
+        if (activeSetId === setId) {
+          navigateToFlashcards("/workspace/flashcards" as Route);
+        }
+      } catch {
+        // Silently ignore network failures from menu actions.
+      }
+    },
+    [activeSetId, navigateToFlashcards, workspaceUuid]
+  );
+
+  const deleteMisconception = useCallback(
+    async (misconception: MisconceptionRecord) => {
+      try {
+        const response = await fetch("/api/misconceptions/delete", {
+          body: JSON.stringify({
+            concept: misconception.concept,
+            subject: misconception.subject,
+            topic: misconception.topic,
+          }),
+          headers: { "Content-Type": "application/json" },
+          method: "POST",
+        });
+        if (!response.ok) {
+          return;
+        }
+
+        setActiveMisconceptions((current) =>
+          current.filter((item) => item.id !== misconception.id)
+        );
+        window.dispatchEvent(
+          new CustomEvent("avenire:workspace-data-invalidated", {
+            detail: { kind: "flashcards", workspaceUuid },
+          })
+        );
+      } catch {
+        // Silently ignore network failures from menu actions.
+      }
+    },
+    [workspaceUuid]
+  );
+
   const renderOpenContextMenu = useCallback(
-    (href: Route) => (
+    (
+      href: Route,
+      options?: { onDelete?: () => void; deleteLabel?: string }
+    ) => (
       <>
         <ContextMenuItem onClick={() => navigateToFlashcards(href)}>
           <MessageSquareDashed className="mr-2 size-3.5" />
@@ -265,6 +326,15 @@ export function FlashcardsSidebarPanel({
           <Plus className="mr-2 size-3.5" />
           Open in new tab
         </ContextMenuItem>
+        {options?.onDelete ? (
+          <ContextMenuItem
+            className="text-destructive focus:text-destructive"
+            onClick={options.onDelete}
+          >
+            <Trash className="mr-2 size-3.5" />
+            {options.deleteLabel ?? "Delete"}
+          </ContextMenuItem>
+        ) : null}
       </>
     ),
     [navigateToFlashcards]
@@ -473,7 +543,10 @@ export function FlashcardsSidebarPanel({
                           </SidebarMenuButton>
                         </ContextMenuTrigger>
                         <ContextMenuContent>
-                          {renderOpenContextMenu(href)}
+                          {renderOpenContextMenu(href, {
+                            deleteLabel: "Delete knowledge gap",
+                            onDelete: () => deleteMisconception(misconception),
+                          })}
                         </ContextMenuContent>
                       </ContextMenu>
                     );
@@ -560,7 +633,10 @@ export function FlashcardsSidebarPanel({
                           </SidebarMenuButton>
                         </ContextMenuTrigger>
                         <ContextMenuContent>
-                          {renderOpenContextMenu(href)}
+                          {renderOpenContextMenu(href, {
+                            deleteLabel: "Delete deck",
+                            onDelete: () => deleteSet(set.id),
+                          })}
                         </ContextMenuContent>
                       </ContextMenu>
                     );
