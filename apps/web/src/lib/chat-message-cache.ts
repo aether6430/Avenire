@@ -99,7 +99,9 @@ export function reconcileChatMessages(
     (message, index) => cachedMessages[index]?.id === message.id
   );
 
-  return serverMatchesCache ? cachedMessages : serverMessages;
+  return serverMatchesCache
+    ? serverMessages.concat(cachedMessages.slice(serverMessages.length))
+    : serverMessages;
 }
 
 export async function readCachedChatMessages(chatId: string): Promise<UIMessage[]> {

@@ -488,14 +488,18 @@ export const chatToolSchemas = {
     }),
   },
   generate_flashcards: {
-    input: z.object({
-      count: z.number().int().min(1).max(24).optional(),
-      fileId: z.string().min(1).optional(),
-      query: z.string().min(1).optional(),
-      sourceText: z.string().min(1).optional(),
-      tags: z.array(z.string()).max(12).optional(),
-      title: z.string().min(1).optional(),
-    }),
+    input: z
+      .object({
+        count: z.number().int().min(1).max(24).optional(),
+        fileId: z.string().min(1).optional(),
+        query: z.string().min(1).optional(),
+        sourceText: z.string().min(1).optional(),
+        tags: z.array(z.string()).max(12).optional(),
+        title: z.string().min(1).optional(),
+      })
+      .refine((input) => input.fileId || input.query || input.sourceText, {
+        message: "Provide fileId, query, or sourceText.",
+      }),
     output: z.object({
       cards: z.array(flashcardSchema),
       setId: z.string(),
@@ -515,14 +519,18 @@ export const chatToolSchemas = {
     }),
   },
   quiz_me: {
-    input: z.object({
-      count: z.number().int().min(3).max(5).optional(),
-      fileId: z.string().min(1).optional(),
-      query: z.string().min(1).optional(),
-      sourceText: z.string().min(1).optional(),
-      tags: z.array(z.string()).max(12).optional(),
-      title: z.string().min(1).optional(),
-    }),
+    input: z
+      .object({
+        count: z.number().int().min(3).max(5).optional(),
+        fileId: z.string().min(1).optional(),
+        query: z.string().min(1).optional(),
+        sourceText: z.string().min(1).optional(),
+        tags: z.array(z.string()).max(12).optional(),
+        title: z.string().min(1).optional(),
+      })
+      .refine((input) => input.fileId || input.query || input.sourceText, {
+        message: "Provide fileId, query, or sourceText.",
+      }),
     output: z.object({
       questionCount: z.number().int(),
       questions: z.array(quizQuestionSchema),

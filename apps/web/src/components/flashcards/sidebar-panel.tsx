@@ -249,21 +249,25 @@ export function FlashcardsSidebarPanel({
   );
   const deleteSet = useCallback(
     async (setId: string) => {
-      const response = await fetch(`/api/flashcards/sets/${setId}`, {
-        method: "DELETE",
-      });
-      if (!response.ok) {
-        return;
-      }
+      try {
+        const response = await fetch(`/api/flashcards/sets/${setId}`, {
+          method: "DELETE",
+        });
+        if (!response.ok) {
+          return;
+        }
 
-      setSets((current) => current.filter((set) => set.id !== setId));
-      window.dispatchEvent(
-        new CustomEvent("avenire:workspace-data-invalidated", {
-          detail: { kind: "flashcards", workspaceUuid },
-        })
-      );
-      if (activeSetId === setId) {
-        navigateToFlashcards("/workspace/flashcards" as Route);
+        setSets((current) => current.filter((set) => set.id !== setId));
+        window.dispatchEvent(
+          new CustomEvent("avenire:workspace-data-invalidated", {
+            detail: { kind: "flashcards", workspaceUuid },
+          })
+        );
+        if (activeSetId === setId) {
+          navigateToFlashcards("/workspace/flashcards" as Route);
+        }
+      } catch {
+        // Silently ignore network failures from menu actions.
       }
     },
     [activeSetId, navigateToFlashcards, workspaceUuid]
@@ -271,27 +275,31 @@ export function FlashcardsSidebarPanel({
 
   const deleteMisconception = useCallback(
     async (misconception: MisconceptionRecord) => {
-      const response = await fetch("/api/misconceptions/delete", {
-        body: JSON.stringify({
-          concept: misconception.concept,
-          subject: misconception.subject,
-          topic: misconception.topic,
-        }),
-        headers: { "Content-Type": "application/json" },
-        method: "POST",
-      });
-      if (!response.ok) {
-        return;
-      }
+      try {
+        const response = await fetch("/api/misconceptions/delete", {
+          body: JSON.stringify({
+            concept: misconception.concept,
+            subject: misconception.subject,
+            topic: misconception.topic,
+          }),
+          headers: { "Content-Type": "application/json" },
+          method: "POST",
+        });
+        if (!response.ok) {
+          return;
+        }
 
-      setActiveMisconceptions((current) =>
-        current.filter((item) => item.id !== misconception.id)
-      );
-      window.dispatchEvent(
-        new CustomEvent("avenire:workspace-data-invalidated", {
-          detail: { kind: "flashcards", workspaceUuid },
-        })
-      );
+        setActiveMisconceptions((current) =>
+          current.filter((item) => item.id !== misconception.id)
+        );
+        window.dispatchEvent(
+          new CustomEvent("avenire:workspace-data-invalidated", {
+            detail: { kind: "flashcards", workspaceUuid },
+          })
+        );
+      } catch {
+        // Silently ignore network failures from menu actions.
+      }
     },
     [workspaceUuid]
   );

@@ -1568,7 +1568,7 @@ export function DashboardSidebar({
       if (!(detail?.id && detail?.name)) {
         return;
       }
-      if (detail.workspaceUuid && detail.workspaceUuid !== workspaceUuid) {
+      if (!detail.workspaceUuid || detail.workspaceUuid !== workspaceUuid) {
         return;
       }
 
@@ -1898,7 +1898,7 @@ export function DashboardSidebar({
   }, [chats, loadChats, workspaceUuid]);
 
   const createChat = () => {
-    if (activeChatSlug === "new") {
+    if (pathname === "/workspace/chats/new") {
       requestNewChatReset();
     }
     navigate(createNewChatHref());

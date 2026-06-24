@@ -72,8 +72,8 @@ export function WorkspaceChatRoutePageClient({
   const isSlugResolving = resolvingChatIds.has(slug);
 
   useEffect(() => {
+    setCachedMessages([]);
     if (slug === "new") {
-      setCachedMessages([]);
       return;
     }
     let cancelled = false;

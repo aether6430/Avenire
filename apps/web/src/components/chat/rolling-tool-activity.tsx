@@ -882,7 +882,12 @@ export type ReasoningContentProps = ComponentProps<"div"> & {
 };
 
 export const ReasoningContent = memo(
-  ({ className, children, ...props }: ReasoningContentProps) => {
+  ({
+    className,
+    children,
+    workspaceUuid: _workspaceUuid,
+    ...props
+  }: ReasoningContentProps) => {
     const lines = children
       .split("\n")
       .map((line) => line.trimEnd())
