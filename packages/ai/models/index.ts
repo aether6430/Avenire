@@ -49,8 +49,7 @@ const fireworks = createFireworks({
   apiKey: process.env.FIREWORKS_API_KEY,
 });
 export const gemini = createGoogleGenerativeAI({
-  apiKey:
-    process.env.GEMINI_API_KEY ?? process.env.GOOGLE_GENERATIVE_AI_API_KEY,
+  apiKey: process.env.GEMINI_API_KEY,
 });
 const cohere = createCohere({
   apiKey: process.env.COHERE_API_KEY,
