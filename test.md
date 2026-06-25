@@ -1,0 +1,3 @@
+Pockets of complexity. 
+Modularize the UI components wherever there is usage of any primitives. Put them into package/UI. If there is anything that is not UI-related but is functional and is a UI component, modularize that and put that into the components folder in our app/web/source/... 
+We want to find any try-catch/await promise, all that bullsh*t, and clean it up into the codebase structure.

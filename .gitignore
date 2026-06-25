@@ -24,6 +24,8 @@ context
 docs/
 writings/
 plans/
+scripts/
+**/scripts/
 
 .vercel
 .env*.local
