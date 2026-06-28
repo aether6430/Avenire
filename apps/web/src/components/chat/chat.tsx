@@ -18,11 +18,6 @@ import { toast } from "sonner";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { getChatErrorMessage } from "@/lib/chat-errors";
 import {
-  readCachedChatMessages,
-  reconcileChatMessages,
-  writeCachedChatMessages,
-} from "@/lib/chat-message-cache";
-import {
   CHAT_NAME_UPDATED_EVENT,
   CHAT_STREAM_FINISHED_EVENT,
   CHAT_STREAM_STATUS_EVENT,
@@ -34,6 +29,11 @@ import {
   isChatStreamActive,
   rememberChatStreamStatus,
 } from "@/lib/chat-events";
+import {
+  readCachedChatMessages,
+  reconcileChatMessages,
+  writeCachedChatMessages,
+} from "@/lib/chat-message-cache";
 import { normalizeMediaType } from "@/lib/media-type";
 import { emitPetNotification } from "@/lib/pet-preferences";
 import { usePaneRouter } from "@/lib/workspace-panes";
@@ -96,6 +96,7 @@ export function Chat({
   const lastCompletedMessageIdRef = useRef<string | null>(null);
   const previousStatusRef = useRef<string | null>(null);
   const publishedStreamStatusRef = useRef<ChatStreamStatus | null>(null);
+  const lastFinishedStreamEventRef = useRef<string | null>(null);
   const hasPushedNewChatUrlRef = useRef(id !== "new");
   const autoPromptSentRef = useRef<string | null>(null);
   const previousNewChatKeyRef = useRef(newChatKey);
@@ -113,6 +114,36 @@ export function Chat({
       animation: "failed",
     });
   }, []);
+
+  const publishChatStreamStatus = useCallback(
+    (nextStatus: ChatStreamStatus) => {
+      const detail = { chatId, status: nextStatus };
+      rememberChatStreamStatus(detail);
+      window.dispatchEvent(
+        new CustomEvent<ChatStreamStatusDetail>(CHAT_STREAM_STATUS_EVENT, {
+          detail,
+        })
+      );
+      publishedStreamStatusRef.current = nextStatus;
+    },
+    [chatId]
+  );
+
+  const publishChatStreamFinished = useCallback(
+    (messageId?: string | null) => {
+      const eventKey = `${chatId}:${messageId ?? "unknown"}`;
+      if (lastFinishedStreamEventRef.current === eventKey) {
+        return;
+      }
+      lastFinishedStreamEventRef.current = eventKey;
+      window.dispatchEvent(
+        new CustomEvent<ChatStreamFinishedDetail>(CHAT_STREAM_FINISHED_EVENT, {
+          detail: { chatId },
+        })
+      );
+    },
+    [chatId]
+  );
 
   const transport = useMemo<ChatTransport<UIMessage>>(() => {
     const durableTransport = createDurableChatTransport<UIMessage>({
@@ -145,6 +176,7 @@ export function Chat({
     messages,
     setMessages,
     sendMessage: append,
+    addToolApprovalResponse,
     stop,
     status,
     resumeStream,
@@ -152,10 +184,23 @@ export function Chat({
   } = useChat<UIMessage>({
     id: chatId,
     transport,
+    resume: true,
     experimental_throttle: 100,
     messages: initialMessages,
     onError: handleError,
     sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithApprovalResponses,
+    onFinish: ({ isAbort, isError, message }) => {
+      if (isError) {
+        publishChatStreamStatus("error");
+        return;
+      }
+
+      setAgentActivity(null);
+      publishChatStreamStatus("ready");
+      if (!isAbort) {
+        publishChatStreamFinished(message.id);
+      }
+    },
     onData: (dataPart) => {
       if (dataPart.type === "data-chatName") {
         const detail = dataPart.data as ChatNameUpdatedDetail;
@@ -271,20 +316,6 @@ export function Chat({
     };
   }, [id, setMessages]);
 
-  const publishChatStreamStatus = useCallback(
-    (nextStatus: ChatStreamStatus) => {
-      const detail = { chatId, status: nextStatus };
-      rememberChatStreamStatus(detail);
-      window.dispatchEvent(
-        new CustomEvent<ChatStreamStatusDetail>(CHAT_STREAM_STATUS_EVENT, {
-          detail,
-        })
-      );
-      publishedStreamStatusRef.current = nextStatus;
-    },
-    [chatId]
-  );
-
   const promoteNewChatRoute = useCallback(() => {
     if (id !== "new" || hasPushedNewChatUrlRef.current) {
       return;
@@ -349,6 +380,7 @@ export function Chat({
   }, [chatId, messages]);
 
   const latestMessage = messages.at(-1);
+  const latestMessageId = latestMessage?.id ?? null;
   const latestMessageRole = latestMessage?.role ?? null;
   const latestUserMessageId =
     latestMessageRole === "user" ? (latestMessage?.id ?? null) : null;
@@ -426,7 +458,14 @@ export function Chat({
       window.removeEventListener("focus", resumeExistingStream);
       document.removeEventListener("visibilitychange", resumeExistingStream);
     };
-  }, [chatId, id, handleResumeStreamError, latestMessageRole, resumeStream, status]);
+  }, [
+    chatId,
+    id,
+    handleResumeStreamError,
+    latestMessageRole,
+    resumeStream,
+    status,
+  ]);
 
   useEffect(() => {
     if (id !== "new") {
@@ -461,13 +500,6 @@ export function Chat({
 
   useEffect(() => {
     const previousPublishedStatus = publishedStreamStatusRef.current;
-    if (
-      status === "ready" &&
-      latestMessageRole === "user" &&
-      isActiveChatStreamStatus(previousPublishedStatus)
-    ) {
-      return;
-    }
 
     const shouldClearRememberedStream =
       isChatStreamActive(chatId) && latestMessageRole !== "user";
@@ -487,11 +519,7 @@ export function Chat({
       status === "ready" &&
       isActiveChatStreamStatus(previousPublishedStatus)
     ) {
-      window.dispatchEvent(
-        new CustomEvent<ChatStreamFinishedDetail>(CHAT_STREAM_FINISHED_EVENT, {
-          detail: { chatId },
-        })
-      );
+      publishChatStreamFinished(latestMessageId);
     }
 
     if (status === "submitted") {
@@ -502,7 +530,14 @@ export function Chat({
         durationMs: 1800,
       });
     }
-  }, [chatId, latestMessageRole, publishChatStreamStatus, status]);
+  }, [
+    chatId,
+    latestMessageId,
+    latestMessageRole,
+    publishChatStreamFinished,
+    publishChatStreamStatus,
+    status,
+  ]);
 
   useEffect(() => {
     if (status !== "ready") {
@@ -800,6 +835,7 @@ export function Chat({
         {hasConversationSurface && (
           <Messages
             activeReplyMessageId={activeReplyMessageId}
+            addToolApprovalResponse={addToolApprovalResponse}
             agentActivity={agentActivity}
             bottomSpacerHeight={bottomSpacerHeight}
             chatId={chatId}
