@@ -501,7 +501,7 @@ export function WorkspacePaneRenderer() {
     (state) => state.setActivePaneId
   );
   const [paneStoreHydrated, setPaneStoreHydrated] = useState(() =>
-    useWorkspacePaneStore.persist.hasHydrated()
+    Boolean(useWorkspacePaneStore.persist?.hasHydrated?.())
   );
   const [dragPreview, setDragPreview] = useState<{
     activePaneId: string;
@@ -527,11 +527,17 @@ export function WorkspacePaneRenderer() {
       return;
     }
 
-    const unsubscribe = useWorkspacePaneStore.persist.onFinishHydration(() => {
+    const persistApi = useWorkspacePaneStore.persist;
+    if (!persistApi) {
+      setPaneStoreHydrated(true);
+      return;
+    }
+
+    const unsubscribe = persistApi.onFinishHydration(() => {
       setPaneStoreHydrated(true);
     });
 
-    if (useWorkspacePaneStore.persist.hasHydrated()) {
+    if (persistApi.hasHydrated()) {
       setPaneStoreHydrated(true);
     }
 
@@ -700,7 +706,7 @@ export function WorkspacePaneRenderer() {
       sensors={sensors}
     >
       <div className="flex h-full min-h-0 w-full flex-col bg-background">
-        {tabs.length > 0 ? (
+        {tabs.length > 1 ? (
           <div className="flex h-9 shrink-0 items-center gap-1 border-border/70 border-b bg-background px-1.5">
             <DndContext onDragEnd={handleTabDragEnd} sensors={sensors}>
               <div

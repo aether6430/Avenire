@@ -28,6 +28,7 @@ import { getChatErrorMessage } from "@/lib/chat-errors";
 
 interface MessagesProps {
   activeReplyMessageId?: string | null;
+  addToolApprovalResponse: UseChatHelpers<UIMessage>["addToolApprovalResponse"];
   agentActivity: AgentActivityData | null;
   bottomSpacerHeight: number;
   chatId: string;
@@ -148,6 +149,7 @@ function MessagesError({
 
 function PureMessages({
   activeReplyMessageId,
+  addToolApprovalResponse,
   agentActivity,
   bottomSpacerHeight,
   chatId,
@@ -290,6 +292,7 @@ function PureMessages({
                     }
                   >
                     <ChatMessageRow
+                      addToolApprovalResponse={addToolApprovalResponse}
                       agentActivity={null}
                       chatId={chatId}
                       isActiveReply={message.id === activeReplyMessageId}
@@ -335,6 +338,7 @@ function PureMessages({
 
                   return (
                     <ChatMessageRow
+                      addToolApprovalResponse={addToolApprovalResponse}
                       agentActivity={
                         message.role === "assistant" &&
                         message.id === activeReplyMessageId
@@ -387,6 +391,9 @@ export const Messages = memo(PureMessages, (prevProps, nextProps) => {
     return false;
   }
   if (prevProps.agentActivity !== nextProps.agentActivity) {
+    return false;
+  }
+  if (prevProps.addToolApprovalResponse !== nextProps.addToolApprovalResponse) {
     return false;
   }
   if (prevProps.onRegenerate !== nextProps.onRegenerate) {

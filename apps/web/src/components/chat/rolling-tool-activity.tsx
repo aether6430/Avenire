@@ -3,8 +3,15 @@
 import type { UIMessage } from "@avenire/ai/message-types";
 import { Collapsible } from "@avenire/ui/components/collapsible";
 import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from "@avenire/ui/components/context-menu";
+import {
   CaretDown as ChevronDown,
   CaretRight as ChevronRight,
+  ArrowSquareOut,
 } from "@phosphor-icons/react";
 import { m, useSpring } from "framer-motion";
 import {
@@ -20,7 +27,11 @@ import {
   useRef,
   useState,
 } from "react";
+import { ChatSpinnerGlyph } from "@/components/chat/spinner";
+import { getTreeFileIconComponent } from "@/components/files/tree-file-icon";
 import { cn } from "@/lib/utils";
+import { resolveWorkspaceFileRoute } from "@/lib/workspace-file-navigation";
+import { useWorkspacePaneNavigation } from "@/lib/workspace-panes";
 
 type ToolPart = Extract<UIMessage["parts"][number], { type: `tool-${string}` }>;
 
@@ -35,8 +46,11 @@ interface SearchPreview {
 }
 
 interface NotePreview {
+  content?: string;
+  fileId?: string;
   noteCount: number;
   operation: "created" | "listed" | "read" | "updated";
+  previousContent?: string;
   title?: string;
 }
 
@@ -166,6 +180,10 @@ const VISIBLE_ROWS = 3;
 const WINDOW_HEIGHT = ROW_HEIGHT * VISIBLE_ROWS;
 const MUTATION_ROW_ENTER_CLASS =
   "animate-in fade-in-0 slide-in-from-bottom-1 duration-200";
+const INLINE_MUTATION_TOOL_TYPES = new Set([
+  "tool-create_note",
+  "tool-update_note",
+]);
 
 function isOutputAvailable(part: ToolPart) {
   return part.state === "output-available";
@@ -185,6 +203,17 @@ function toPreviewContent(value: string | undefined) {
   }
 
   return value.trim();
+}
+
+function recordValue(value: unknown): Record<string, unknown> | null {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function stringField(record: Record<string, unknown> | null, key: string) {
+  const value = record?.[key];
+  return typeof value === "string" ? value : undefined;
 }
 
 function _toReadPreview(part: ToolPart): ReadPreview | undefined {
@@ -207,6 +236,12 @@ function _toReadPreview(part: ToolPart): ReadPreview | undefined {
   }
   // Granular read_file
   if (part.type === "tool-read_file" && isOutputAvailable(part)) {
+    return {
+      content: toPreviewContent(part.output.content),
+      path: part.output.workspacePath,
+    };
+  }
+  if (part.type === "tool-read_note" && isOutputAvailable(part)) {
     return {
       content: toPreviewContent(part.output.content),
       path: part.output.workspacePath,
@@ -250,9 +285,20 @@ function toNotePreview(part: ToolPart): NotePreview | undefined {
   // Granular note tools
   if (part.type === "tool-create_note" && isOutputAvailable(part)) {
     return {
+      content: part.output.content,
+      fileId: part.output.fileId,
       noteCount: 1,
       operation: "created",
       title: part.output.title,
+    };
+  }
+  if (part.type === "tool-create_note" && isPending(part)) {
+    const input = recordValue(part.input);
+    return {
+      content: stringField(input, "content"),
+      noteCount: 1,
+      operation: "created",
+      title: stringField(input, "title"),
     };
   }
   if (part.type === "tool-read_note" && isOutputAvailable(part)) {
@@ -264,17 +310,26 @@ function toNotePreview(part: ToolPart): NotePreview | undefined {
   }
   if (part.type === "tool-update_note" && isOutputAvailable(part)) {
     return {
+      content: part.output.content,
+      fileId: part.output.fileId,
       noteCount: 1,
       operation: "updated",
-      title: part.output.workspacePath,
+      previousContent: part.output.previousContent,
+      title: part.output.title ?? part.output.workspacePath,
+    };
+  }
+  if (part.type === "tool-update_note" && isPending(part)) {
+    const input = recordValue(part.input);
+    return {
+      content: stringField(input, "content"),
+      fileId: stringField(input, "fileId"),
+      noteCount: 1,
+      operation: "updated",
+      title: stringField(input, "fileId"),
     };
   }
   if (part.type === "tool-list_notes" && isOutputAvailable(part)) {
-    return {
-      noteCount: Array.isArray(part.output.notes) ? part.output.notes.length : 0,
-      operation: "listed",
-      title: part.output.notes[0]?.title,
-    };
+    return undefined;
   }
   return undefined;
 }
@@ -348,6 +403,9 @@ function toActionValue(part: ToolPart) {
     part.type === "tool-list_notes" ||
     part.type === "tool-update_note_tags"
   ) {
+    if (part.type === "tool-list_notes" && isOutputAvailable(part)) {
+      return `${part.output.totalCount} notes`;
+    }
     if (isOutputAvailable(part) && "workspacePath" in part.output) {
       return (part.output as { workspacePath?: string }).workspacePath ?? "note";
     }
@@ -482,9 +540,9 @@ function toAction(part: ToolPart): ActivityAction | null {
   }
   if (part.type === "tool-read_note") {
     return {
-      kind: "notes",
+      kind: "read",
       pending: isPending(part),
-      preview: toNotePreview(part),
+      preview: _toReadPreview(part),
       value: toActionValue(part),
     };
   }
@@ -498,9 +556,8 @@ function toAction(part: ToolPart): ActivityAction | null {
   }
   if (part.type === "tool-list_notes") {
     return {
-      kind: "notes",
+      kind: "list",
       pending: isPending(part),
-      preview: toNotePreview(part),
       value: toActionValue(part),
     };
   }
@@ -746,6 +803,21 @@ export type ReasoningProps = ComponentProps<typeof Collapsible> & {
 
 const AUTO_CLOSE_DELAY = 1000;
 const MS_IN_S = 1000;
+const MS_IN_MINUTE = 60_000;
+
+function formatThoughtDurationDetail(elapsedMs?: number | null) {
+  if (!(typeof elapsedMs === "number" && Number.isFinite(elapsedMs))) {
+    return "for a few seconds";
+  }
+
+  const seconds = Math.max(1, Math.round(elapsedMs / MS_IN_S));
+  if (seconds < 60) {
+    return `for ${seconds} ${seconds === 1 ? "second" : "seconds"}`;
+  }
+
+  const minutes = Math.max(1, Math.round(elapsedMs / MS_IN_MINUTE));
+  return `for ${minutes} ${minutes === 1 ? "minute" : "minutes"}`;
+}
 
 export const Reasoning = memo(
   ({
@@ -854,7 +926,8 @@ export const ReasoningTrigger = memo(
         ? "thinking..."
         : duration === undefined
           ? "for a few seconds"
-          : `took ${duration} seconds`;
+          : formatThoughtDurationDetail(duration * MS_IN_S);
+    const label = isStreaming ? "Thinking" : "Thought";
 
     return (
       <div
@@ -866,7 +939,7 @@ export const ReasoningTrigger = memo(
       >
         {children ?? (
           <>
-            <span className="font-semibold">Reasoning</span>
+            <span className="font-semibold">{label}</span>
             <span className="text-[11px] text-foreground/26">{detail}</span>
             {isStreaming ? <ThinkingDots /> : null}
           </>
@@ -999,18 +1072,27 @@ function ReasoningBlock({
   workspaceUuid,
 }: ReasoningActionProps) {
   const [open, setOpen] = useState(false);
+  const [elapsedMs, setElapsedMs] = useState<number | null>(null);
+  const startedAtRef = useRef<number | null>(null);
   const triggerId = useId();
   const panelId = useId();
   const summary = isStreaming
-    ? "thinking..."
+    ? "Thinking..."
     : content.length > 0
-      ? "ready"
+      ? formatThoughtDurationDetail(elapsedMs)
       : "";
 
   useEffect(() => {
     if (isStreaming) {
+      if (startedAtRef.current === null) {
+        startedAtRef.current = performance.now();
+      }
       setOpen(true);
       return;
+    }
+    if (startedAtRef.current !== null) {
+      setElapsedMs(performance.now() - startedAtRef.current);
+      startedAtRef.current = null;
     }
     setOpen(false);
   }, [isStreaming]);
@@ -1019,13 +1101,13 @@ function ReasoningBlock({
     <div className={cn("mb-0.5", className)}>
       {isStreaming ? (
         <div
-          aria-label={`Reasoning: ${summary || "starting"}`}
+          aria-label={`Thinking: ${summary || "starting"}`}
           aria-live="polite"
           className="flex h-7 items-center gap-2"
           role="status"
         >
           <span className="font-semibold text-foreground/32 text-sm">
-            Reasoning
+            Thinking
           </span>
           {summary ? (
             <span aria-hidden="true" className="text-[11px] text-foreground/26">
@@ -1048,7 +1130,7 @@ function ReasoningBlock({
           onClick={() => setOpen((current) => !current)}
           type="button"
         >
-          <span className="font-semibold text-sm">Reasoning</span>
+          <span className="font-semibold text-sm">Thought</span>
           {summary ? (
             <span className="text-[11px] text-foreground/26">{summary}</span>
           ) : null}
@@ -1520,7 +1602,253 @@ function ExploreBlock({
   );
 }
 
-function MutationBlock({ action }: { action: MutationAction }) {
+function splitPreviewLines(value: string) {
+  return value.replace(/\r\n/g, "\n").replace(/&nbsp;/g, "").split("\n");
+}
+
+function buildNotePreviewLines(preview: NotePreview) {
+  const contentLines = splitPreviewLines(preview.content ?? "");
+  if (
+    preview.operation !== "updated" ||
+    preview.previousContent === undefined
+  ) {
+    return contentLines.map((text) => ({ kind: "added" as const, text }));
+  }
+
+  const previousLines = splitPreviewLines(preview.previousContent);
+  const lines: Array<{
+    kind: "added" | "removed" | "unchanged";
+    text: string;
+  }> = [];
+  const max = Math.max(contentLines.length, previousLines.length);
+  for (let index = 0; index < max; index += 1) {
+    const next = contentLines[index];
+    const previous = previousLines[index];
+    if (next === previous) {
+      lines.push({ kind: "unchanged", text: next ?? "" });
+      continue;
+    }
+    if (previous !== undefined) {
+      lines.push({ kind: "removed", text: previous });
+    }
+    if (next !== undefined) {
+      lines.push({ kind: "added", text: next });
+    }
+  }
+  return lines;
+}
+
+function countChangedLines(preview: NotePreview) {
+  const previousLines = splitPreviewLines(preview.previousContent ?? "");
+  return splitPreviewLines(preview.content ?? "").filter(
+    (line, index) => line !== previousLines[index]
+  ).length;
+}
+
+function NoteMutationPreview({ preview }: { preview?: NotePreview }) {
+  if (!(preview?.content && preview.content.trim().length > 0)) {
+    return null;
+  }
+
+  const lines = buildNotePreviewLines(preview);
+  const addedCount = countChangedLines(preview);
+
+  return (
+    <div className="overflow-hidden border-border border-t bg-muted/20">
+      <div className="relative">
+        <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-8 bg-gradient-to-b from-card via-card/85 to-transparent" />
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-8 bg-gradient-to-t from-card via-card/85 to-transparent" />
+        <div className="max-h-80 overflow-auto py-1 font-mono text-[12px] leading-5">
+          {lines.map((line, index) => (
+            <div
+              className={cn(
+                "flex gap-2 px-3",
+                line.kind === "added" && "bg-emerald-500/10 text-foreground",
+                line.kind === "removed" &&
+                  "bg-destructive/10 text-muted-foreground line-through",
+                line.kind === "unchanged" && "text-muted-foreground"
+              )}
+              key={`${index}-${line.text}`}
+            >
+              <span className="w-3 shrink-0 select-none text-emerald-600 dark:text-emerald-400">
+                {line.kind === "added"
+                  ? "+"
+                  : line.kind === "removed"
+                    ? "-"
+                    : ""}
+              </span>
+              <span className="min-w-0 flex-1 whitespace-pre-wrap break-words">
+                {line.text || " "}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function NoteMutationHeader({
+  action,
+  addedCount,
+  route,
+  workspaceUuid,
+}: {
+  action: Extract<ActivityAction, { kind: "notes" }>;
+  addedCount: number;
+  route: string | null;
+  workspaceUuid?: string;
+}) {
+  const navigation = useWorkspacePaneNavigation();
+  const canOpen = Boolean(route && !action.pending);
+
+  const openRoute = (options?: {
+    openInNewPane?: boolean;
+    openInNewTab?: boolean;
+  }) => {
+    if (!route) {
+      return;
+    }
+    navigation.navigate(route, options);
+  };
+
+  const title = action.preview?.title || action.value || "Workspace note";
+  const FileIcon = getTreeFileIconComponent(title);
+
+  const header = (
+    <button
+      className={cn(
+        "flex h-9 w-full items-center gap-2 px-3 text-left transition-colors",
+        canOpen
+          ? "hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+          : "cursor-default"
+      )}
+      disabled={!canOpen}
+      onClick={() => openRoute()}
+      type="button"
+    >
+      {action.pending ? (
+        <ChatSpinnerGlyph className="size-4 shrink-0 place-content-center" />
+      ) : (
+        <FileIcon className="size-4 shrink-0" />
+      )}
+      <span className="min-w-0 flex-1 truncate font-mono text-[12px] text-muted-foreground">
+        {title}
+      </span>
+      {action.pending ? (
+        <span className="shrink-0 font-mono text-[11px] text-foreground/42">
+          writing
+          <ThinkingDots />
+        </span>
+      ) : null}
+      {addedCount > 0 ? (
+        <span className="shrink-0 font-mono text-[12px] text-emerald-600 dark:text-emerald-400">
+          +{addedCount}
+        </span>
+      ) : null}
+      {canOpen ? (
+        <ArrowSquareOut className="size-3.5 shrink-0 text-muted-foreground/55" />
+      ) : null}
+    </button>
+  );
+
+  if (!(route && workspaceUuid)) {
+    return header;
+  }
+
+  return (
+    <ContextMenu>
+      <ContextMenuTrigger render={<div className="contents" />}>
+        {header}
+      </ContextMenuTrigger>
+      <ContextMenuContent className="w-44 rounded-lg p-1">
+        <ContextMenuItem onClick={() => openRoute()}>
+          <ArrowSquareOut className="mr-2 size-3.5" />
+          Open
+        </ContextMenuItem>
+        <ContextMenuItem onClick={() => openRoute({ openInNewPane: true })}>
+          <ArrowSquareOut className="mr-2 size-3.5" />
+          Open in new pane
+        </ContextMenuItem>
+        <ContextMenuItem onClick={() => openRoute({ openInNewTab: true })}>
+          <ArrowSquareOut className="mr-2 size-3.5" />
+          Open in new tab
+        </ContextMenuItem>
+      </ContextMenuContent>
+    </ContextMenu>
+  );
+}
+
+function NoteMutationBlock({
+  action,
+  workspaceUuid,
+}: {
+  action: Extract<ActivityAction, { kind: "notes" }>;
+  workspaceUuid?: string;
+}) {
+  const summary = action.preview
+    ? `${action.preview.noteCount} note${action.preview.noteCount === 1 ? "" : "s"} ${action.preview.operation}`
+    : null;
+  const [route, setRoute] = useState<string | null>(null);
+  const fileId = action.preview?.fileId;
+  const addedCount = action.preview ? countChangedLines(action.preview) : 0;
+
+  useEffect(() => {
+    if (!(workspaceUuid && fileId)) {
+      setRoute(null);
+      return;
+    }
+
+    let cancelled = false;
+    void resolveWorkspaceFileRoute(workspaceUuid, fileId)
+      .then((resolvedRoute) => {
+        if (!cancelled) {
+          setRoute(resolvedRoute);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setRoute(null);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [fileId, workspaceUuid]);
+
+  return (
+    <div
+      className={cn(
+        "mb-1 overflow-hidden rounded-md border border-border/80 bg-card shadow-sm",
+        MUTATION_ROW_ENTER_CLASS
+      )}
+      role="listitem"
+    >
+      <NoteMutationHeader
+        action={action}
+        addedCount={addedCount}
+        route={route}
+        workspaceUuid={workspaceUuid}
+      />
+      {summary ? (
+        <span className="sr-only">
+          {action.preview?.operation === "updated" ? "+" : ""}
+          {summary}
+        </span>
+      ) : null}
+      <NoteMutationPreview preview={action.preview} />
+    </div>
+  );
+}
+
+function MutationBlock({
+  action,
+  workspaceUuid,
+}: {
+  action: MutationAction;
+  workspaceUuid?: string;
+}) {
   if (action.kind === "error") {
     return (
       <div
@@ -1568,42 +1896,8 @@ function MutationBlock({ action }: { action: MutationAction }) {
   }
 
   if (action.kind === "notes") {
-    const summary = action.preview
-      ? `${action.preview.noteCount} note${action.preview.noteCount === 1 ? "" : "s"} ${action.preview.operation}`
-      : null;
-
     return (
-      <div
-        className={cn(
-          "mb-1 overflow-hidden rounded-xl border border-foreground/[0.08] bg-foreground/[0.03]",
-          MUTATION_ROW_ENTER_CLASS
-        )}
-        role="listitem"
-      >
-        <div className="flex min-h-16 items-center justify-between gap-3 px-3 py-2.5">
-          <div className="min-w-0">
-            <p className="truncate text-[15px] text-foreground/72">
-              {action.pending ? "Generating notes" : "Notes updated"}
-            </p>
-            <p className="truncate font-semibold text-base text-foreground">
-              {action.preview?.title || action.value || "Workspace notes"}
-            </p>
-            {summary ? (
-              <p className="mt-0.5 font-mono text-[11px] text-foreground/35">
-                {summary}
-              </p>
-            ) : null}
-          </div>
-          {action.pending ? (
-            <div className="shrink-0 border-foreground/[0.08] border-l pl-3">
-              <span className="font-mono text-[11px] text-foreground/42">
-                writing
-                <ThinkingDots />
-              </span>
-            </div>
-          ) : null}
-        </div>
-      </div>
+      <NoteMutationBlock action={action} workspaceUuid={workspaceUuid} />
     );
   }
 
@@ -1709,7 +2003,30 @@ function MutationBlock({ action }: { action: MutationAction }) {
 }
 
 export function isRollingToolPart(part: ToolPart) {
+  if (INLINE_MUTATION_TOOL_TYPES.has(part.type)) {
+    return false;
+  }
   return toAction(part) !== null;
+}
+
+export function InlineToolMutationActivity({
+  part,
+  workspaceUuid,
+}: {
+  part: ToolPart;
+  workspaceUuid?: string;
+}) {
+  const action = toAction(part);
+
+  if (!action || isExploreAction(action)) {
+    return null;
+  }
+
+  return (
+    <div aria-label="Tool activity" className="mb-2 font-mono" role="list">
+      <MutationBlock action={action} workspaceUuid={workspaceUuid} />
+    </div>
+  );
 }
 
 export function RollingAgentActivity({
@@ -1766,9 +2083,11 @@ export function RollingAgentActivity({
 export function RollingToolActivity({
   isStreaming,
   parts,
+  workspaceUuid,
 }: {
   isStreaming: boolean;
   parts: ToolPart[];
+  workspaceUuid?: string;
 }) {
   const actions = useMemo(
     () => parts.map((part) => toAction(part)).filter((part) => part !== null),
@@ -1808,7 +2127,11 @@ export function RollingToolActivity({
         }
 
         return (
-          <MutationBlock action={group.action} key={`mutation-${index}`} />
+          <MutationBlock
+            action={group.action}
+            key={`mutation-${index}`}
+            workspaceUuid={workspaceUuid}
+          />
         );
       })}
     </div>

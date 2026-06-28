@@ -188,7 +188,7 @@ function getNestedValue(value: unknown, path: string[]): unknown {
 
   for (const key of path) {
     const record = asRecord(current);
-    if (!record || !(key in record)) {
+    if (!(record && key in record)) {
       return undefined;
     }
     current = record[key];
@@ -308,9 +308,7 @@ const TOOL_ACTIVITY_AGENT_TYPES = new Set([
   "tool-create_folder",
   "tool-get_file_info",
   // Granular note operations (handled by rolling activity)
-  "tool-create_note",
   "tool-read_note",
-  "tool-update_note",
   "tool-list_notes",
   "tool-update_note_tags",
 ]);
@@ -452,7 +450,11 @@ function GeneratedArtifacts({
                   .filter((note) => typeof note.fileId === "string")
               : [];
           }
-          const output = part.output as { fileId?: string; title?: string; workspacePath?: string };
+          const output = part.output as {
+            fileId?: string;
+            title?: string;
+            workspacePath?: string;
+          };
           return output.fileId
             ? [
                 {
@@ -570,6 +572,7 @@ const toAttachment = (part: MessagePart): Partial<Attachment> | null => {
 };
 
 const PurePreviewMessage = ({
+  addToolApprovalResponse,
   agentActivity,
   chatId,
   message,
@@ -582,6 +585,7 @@ const PurePreviewMessage = ({
   isReadonly,
   workspaceUuid,
 }: {
+  addToolApprovalResponse: UseChatHelpers<UIMessage>["addToolApprovalResponse"];
   agentActivity: AgentActivityData | null;
   chatId: string;
   message: UIMessage;
@@ -706,6 +710,7 @@ const PurePreviewMessage = ({
                 isStreaming={isStreaming}
                 key={`message-${message.id}-tool-activity`}
                 parts={visibleRollingToolParts}
+                workspaceUuid={workspaceUuid}
               />
             )}
             {fileParts.length > 0 && (
@@ -776,7 +781,11 @@ const PurePreviewMessage = ({
                 );
               }
 
-              if (isToolPart(part) && part.type === "tool-show_widget") {
+              if (
+                isToolPart(part) &&
+                part.type === "tool-show_widget" &&
+                part.state !== "approval-requested"
+              ) {
                 const input = asRecord(part.input);
                 const output = asRecord(part.output);
                 const inputWidget = asRecord(input?.widget);
@@ -881,7 +890,15 @@ const PurePreviewMessage = ({
                 ) {
                   return null;
                 }
-                return <ChatToolPart key={key} part={part} />;
+                return (
+                  <ChatToolPart
+                    addToolApprovalResponse={addToolApprovalResponse}
+                    chatId={chatId}
+                    key={key}
+                    part={part}
+                    workspaceUuid={workspaceUuid}
+                  />
+                );
               }
               return null;
             })}
@@ -982,6 +999,7 @@ export const PreviewMessage = memo(PurePreviewMessage, (prev, next) => {
 
   return (
     prevSignature === nextSignature &&
+    prev.addToolApprovalResponse === next.addToolApprovalResponse &&
     prev.isActiveReply === next.isActiveReply &&
     prev.isComplete === next.isComplete &&
     prev.replyMinHeight === next.replyMinHeight &&
