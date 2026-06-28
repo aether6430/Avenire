@@ -436,7 +436,7 @@ describe("chat tool misconception runtime", () => {
     ).toContain("through the low-latency cache");
     expect(
       (tools.list_misconceptions as { description?: string }).description
-    ).toContain("near the beginning of each substantive response");
+    ).toContain("server-provided misconception memory is absent");
   }, 15_000);
 
   it("resolves and improves misconceptions while recomputing mastery", async () => {
