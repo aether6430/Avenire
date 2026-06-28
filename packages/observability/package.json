@@ -13,9 +13,11 @@
     "format": "biome format --write ."
   },
   "dependencies": {
+    "@ai-sdk/otel": "^1.0.3",
     "@opentelemetry/resources": "^2.7.1",
     "@opentelemetry/sdk-node": "^0.218.0",
     "@posthog/ai": "^7.19.2",
+    "ai": "^7.0.2",
     "posthog-node": "^5.33.2"
   },
   "devDependencies": {

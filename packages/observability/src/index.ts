@@ -1,6 +1,8 @@
+import { OpenTelemetry } from "@ai-sdk/otel";
 import { resourceFromAttributes } from "@opentelemetry/resources";
 import { NodeSDK } from "@opentelemetry/sdk-node";
 import { PostHogSpanProcessor } from "@posthog/ai/otel";
+import { registerTelemetry } from "ai";
 import { PostHog } from "posthog-node";
 
 const service = process.env.OBSERVABILITY_SERVICE ?? "web";
@@ -11,7 +13,7 @@ const posthogHost =
   process.env.NEXT_PUBLIC_POSTHOG_HOST ??
   "https://us.i.posthog.com";
 
-const posthog = posthogKey
+const posthog = posthogKey && shouldEnableObservability()
   ? new PostHog(posthogKey, {
       host: posthogHost,
       enableExceptionAutocapture: true,
@@ -61,8 +63,18 @@ export interface AiTelemetryInput {
 
 export interface AiTelemetrySettings {
   functionId: string;
+  includeRuntimeContext: {
+    chatId: true;
+    conversationId: true;
+    feature: true;
+    model: true;
+    posthogDistinctId: true;
+    providerModel: true;
+    requestId: true;
+    service: true;
+    workspaceId: true;
+  };
   isEnabled: boolean;
-  metadata: Record<string, string | number | boolean>;
   recordInputs: boolean;
   recordOutputs: boolean;
 }
@@ -204,6 +216,8 @@ export function registerAiObservability() {
     return true;
   }
 
+  registerTelemetry(new OpenTelemetry());
+
   const sdk = new NodeSDK({
     resource: resourceFromAttributes({
       "service.name": service,
@@ -229,18 +243,17 @@ export function buildAiTelemetry(input: AiTelemetryInput): AiTelemetrySettings {
     recordInputs: shouldRecordAiInputs(),
     recordOutputs: shouldRecordAiOutputs(),
     functionId: input.functionId,
-    metadata: compactMetadata({
-      posthog_distinct_id: getAiDistinctId(input),
-      chat_id: input.chatId,
-      conversation_id: input.chatId,
-      feature: input.feature ?? "ai",
-      model: input.model,
-      provider_model: input.providerModel,
-      request_id: input.requestId,
-      service,
-      workspace_id: input.workspaceId,
-      ...input.metadata,
-    }),
+    includeRuntimeContext: {
+      chatId: true,
+      conversationId: true,
+      feature: true,
+      model: true,
+      posthogDistinctId: true,
+      providerModel: true,
+      requestId: true,
+      service: true,
+      workspaceId: true,
+    },
   };
 }
 
@@ -460,15 +473,21 @@ export async function logEvent(
 }
 
 export async function flushObservability() {
-  if (!posthog) {
+  if (!posthog || !shouldEnableObservability()) {
     return;
   }
 
-  await posthog.flush();
+  try {
+    await posthog.flush();
+  } catch (error) {
+    if (process.env.NODE_ENV === "production") {
+      throw error;
+    }
+  }
 }
 
 export function shutdownObservability(timeoutMs = 5000) {
-  if (!posthog) {
+  if (!posthog || !shouldEnableObservability()) {
     return;
   }
 

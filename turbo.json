@@ -33,6 +33,7 @@
         "POLAR_WEBHOOK_SECRET",
         "POLAR_ORGANIZATION_ID",
         "UPLOADTHING_TOKEN",
+        "TOOL_APPROVAL_SECRET",
         "REDIS_URL",
         "SSE_TOKEN_SECRET"
       ]
