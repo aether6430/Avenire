@@ -3,7 +3,7 @@ import { z } from "zod";
 import { AVAILABLE_STUDY_SKILLS, AVAILABLE_VISUAL_SKILLS } from "../skills";
 
 const sourceTypeSchema = z
-  .enum(["pdf", "image", "video", "audio", "markdown", "link"])
+  .enum(["pdf", "image", "video", "audio", "document", "markdown", "link"])
   .optional();
 
 const fileOperationResultSchema = z.object({

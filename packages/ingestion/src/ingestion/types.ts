@@ -3,6 +3,7 @@ export type IngestSourceType =
   | "image"
   | "video"
   | "audio"
+  | "document"
   | "markdown"
   | "link";
 

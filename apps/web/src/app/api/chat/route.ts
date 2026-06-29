@@ -42,6 +42,7 @@ import {
 } from "@/lib/chat-tools";
 import {
   CHAT_TOOL_APPROVAL_POLICY,
+  requiresChatToolApproval,
   stripUnconfiguredToolApprovalParts,
 } from "@/lib/chat-tool-approval-policy";
 import { invalidateChatReadCaches } from "@/lib/domain-cache";
@@ -271,6 +272,104 @@ function stableJson(value: unknown): string {
       .join(",")}}`;
   }
   return JSON.stringify(value);
+}
+
+const toolApprovalSignatureEncoder = new TextEncoder();
+
+function toBase64Url(bytes: Uint8Array) {
+  return Buffer.from(bytes)
+    .toString("base64")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/g, "");
+}
+
+async function signToolApprovalRequest(input: {
+  approvalId: string;
+  secret: string;
+  toolCallId: string;
+  toolName: string;
+  toolInput: unknown;
+}) {
+  const key = await crypto.subtle.importKey(
+    "raw",
+    toolApprovalSignatureEncoder.encode(input.secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+  const inputDigest = await crypto.subtle.digest(
+    "SHA-256",
+    toolApprovalSignatureEncoder.encode(stableJson(input.toolInput))
+  );
+  const payload = toolApprovalSignatureEncoder.encode(
+    `${input.approvalId}\n${input.toolCallId}\n${input.toolName}\n${toBase64Url(new Uint8Array(inputDigest))}`
+  );
+  const signature = await crypto.subtle.sign("HMAC", key, payload);
+  return toBase64Url(new Uint8Array(signature));
+}
+
+async function signMissingToolApprovalRequests(
+  messages: UIMessage[],
+  secret: string
+) {
+  let changed = false;
+
+  const nextMessages = await Promise.all(
+    messages.map(async (message) => {
+      let messageChanged = false;
+      const parts = await Promise.all(
+        message.parts.map(async (part) => {
+          const toolName = part.type.startsWith("tool-")
+            ? part.type.slice("tool-".length)
+            : null;
+          const approval =
+            "approval" in part &&
+            part.approval &&
+            typeof part.approval === "object"
+              ? (part.approval as { id?: unknown; signature?: unknown })
+              : null;
+          const toolCallId =
+            "toolCallId" in part && typeof part.toolCallId === "string"
+              ? part.toolCallId
+              : null;
+
+          if (
+            !toolName ||
+            !requiresChatToolApproval(toolName) ||
+            !("state" in part) ||
+            part.state !== "approval-requested" ||
+            !approval ||
+            typeof approval.id !== "string" ||
+            typeof approval.signature === "string" ||
+            !toolCallId
+          ) {
+            return part;
+          }
+
+          changed = true;
+          messageChanged = true;
+          return {
+            ...part,
+            approval: {
+              ...approval,
+              signature: await signToolApprovalRequest({
+                approvalId: approval.id,
+                secret,
+                toolCallId,
+                toolName,
+                toolInput: "input" in part ? part.input : undefined,
+              }),
+            },
+          } as typeof part;
+        })
+      );
+
+      return messageChanged ? { ...message, parts } : message;
+    })
+  );
+
+  return changed ? nextMessages : messages;
 }
 
 function getToolApprovalParts(messages: UIMessage[], state: string) {
@@ -1514,8 +1613,16 @@ export async function POST(request: Request) {
     }
     const idempotencyHeader = request.headers.get("idempotency-key")?.trim();
 
-    const originalMessages = stripUnconfiguredToolApprovalParts(
-      stripNonHttpFileParts(normalizeMessageFileMediaTypes(body.messages ?? []))
+    if (!process.env.TOOL_APPROVAL_SECRET) {
+      throw new Error(
+        "TOOL_APPROVAL_SECRET is required for signed tool approvals."
+      );
+    }
+    const originalMessages = await signMissingToolApprovalRequests(
+      stripUnconfiguredToolApprovalParts(
+        stripNonHttpFileParts(normalizeMessageFileMediaTypes(body.messages ?? []))
+      ),
+      process.env.TOOL_APPROVAL_SECRET
     );
     const modelContextMessages = trimMessagesForModelContext(originalMessages);
 
@@ -2081,10 +2188,7 @@ export async function POST(request: Request) {
           // Do not pass request.signal here. The client may disconnect during
           // navigation or refresh, but the resumable stream should continue so
           // `/api/chat/[id]/stream` can reconnect to it.
-          if (
-            process.env.NODE_ENV === "production" &&
-            !process.env.TOOL_APPROVAL_SECRET
-          ) {
+          if (!process.env.TOOL_APPROVAL_SECRET) {
             throw new Error(
               "TOOL_APPROVAL_SECRET is required for signed tool approvals."
             );
@@ -2100,8 +2204,7 @@ export async function POST(request: Request) {
             stopWhen: isStepCount(8),
             tools: modelTools,
             toolApproval: CHAT_TOOL_APPROVAL_POLICY,
-            experimental_toolApprovalSecret:
-              process.env.TOOL_APPROVAL_SECRET || undefined,
+            experimental_toolApprovalSecret: process.env.TOOL_APPROVAL_SECRET,
             runtimeContext: chatRuntimeContext,
             experimental_transform: smoothStream({
               delayInMs: null,

@@ -123,10 +123,56 @@ export function detectPreviewKind(file: FileRecord) {
   const videoExt = new Set([".mp4", ".webm", ".ogg", ".mov", ".m4v"]);
   const audioExt = new Set([".mp3", ".wav", ".ogg", ".aac", ".m4a", ".flac"]);
   const markdownExt = new Set([".md", ".mdx"]);
+  const documentExt = new Set([
+    ".doc",
+    ".docx",
+    ".odm",
+    ".odt",
+    ".ott",
+    ".rtf",
+  ]);
+  const presentationExt = new Set([".odp", ".otp", ".ppt", ".pptx"]);
+  const spreadsheetExt = new Set([".csv", ".ods", ".ots", ".xls", ".xlsx"]);
+  const libreOfficeOtherExt = new Set([".odb", ".odf", ".odg", ".otg"]);
+  const documentMime = new Set([
+    "application/msword",
+    "application/rtf",
+    "application/vnd.oasis.opendocument.text-master",
+    "application/vnd.oasis.opendocument.text-template",
+    "application/vnd.oasis.opendocument.text",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  ]);
+  const presentationMime = new Set([
+    "application/vnd.ms-powerpoint",
+    "application/vnd.oasis.opendocument.presentation",
+    "application/vnd.oasis.opendocument.presentation-template",
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  ]);
+  const spreadsheetMime = new Set([
+    "application/csv",
+    "application/vnd.ms-excel",
+    "application/vnd.oasis.opendocument.spreadsheet",
+    "application/vnd.oasis.opendocument.spreadsheet-template",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "text/csv",
+  ]);
+  const libreOfficeOtherMime = new Set([
+    "application/vnd.oasis.opendocument.database",
+    "application/vnd.oasis.opendocument.formula",
+    "application/vnd.oasis.opendocument.graphics",
+    "application/vnd.oasis.opendocument.graphics-template",
+  ]);
 
   return {
+    isDocument:
+      documentMime.has(mime) ||
+      libreOfficeOtherMime.has(mime) ||
+      documentExt.has(ext) ||
+      libreOfficeOtherExt.has(ext),
     isImage: mime.startsWith("image/") || imageExt.has(ext),
     isPdf: mime === "application/pdf" || ext === ".pdf",
+    isPresentation: presentationMime.has(mime) || presentationExt.has(ext),
+    isSpreadsheet: spreadsheetMime.has(mime) || spreadsheetExt.has(ext),
     isVideo: mime.startsWith("video/") || videoExt.has(ext),
     isAudio: mime.startsWith("audio/") || audioExt.has(ext),
     isMarkdown: mime.includes("markdown") || markdownExt.has(ext),

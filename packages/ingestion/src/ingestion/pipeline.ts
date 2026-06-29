@@ -6,6 +6,7 @@ import { ingestImage } from "./image";
 import { ingestLink } from "./link";
 import { ingestMarkdown } from "./markdown";
 import { ingestPdfs } from "./ocr";
+import { ingestOfficeDocument } from "./office";
 import { persistCanonicalResource } from "./persist";
 import type { CanonicalResource, IngestResponse } from "./types";
 import { ingestVideo } from "./video";
@@ -127,6 +128,30 @@ const inferMimeTypeFromName = (fileName: string): string | null => {
   if (normalizedName.endsWith(".url")) {
     return "application/url";
   }
+  if (normalizedName.endsWith(".docx")) {
+    return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+  }
+  if (normalizedName.endsWith(".pptx")) {
+    return "application/vnd.openxmlformats-officedocument.presentationml.presentation";
+  }
+  if (normalizedName.endsWith(".xlsx")) {
+    return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+  }
+  if (normalizedName.endsWith(".csv")) {
+    return "text/csv";
+  }
+  if (normalizedName.endsWith(".odt")) {
+    return "application/vnd.oasis.opendocument.text";
+  }
+  if (normalizedName.endsWith(".odp")) {
+    return "application/vnd.oasis.opendocument.presentation";
+  }
+  if (normalizedName.endsWith(".ods")) {
+    return "application/vnd.oasis.opendocument.spreadsheet";
+  }
+  if (normalizedName.endsWith(".rtf")) {
+    return "application/rtf";
+  }
 
   const imageExtensions = [
     ".png",
@@ -166,6 +191,38 @@ const inferMimeTypeFromName = (fileName: string): string | null => {
   }
 
   return null;
+};
+
+const isOfficeDocumentType = (input: {
+  fileName: string;
+  mimeType: string;
+}) => {
+  const fileName = input.fileName.toLowerCase();
+  const officeMimeTypes = new Set([
+    "application/rtf",
+    "application/vnd.oasis.opendocument.presentation",
+    "application/vnd.oasis.opendocument.spreadsheet",
+    "application/vnd.oasis.opendocument.text",
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "text/csv",
+  ]);
+  const officeExtensions = [
+    ".csv",
+    ".docx",
+    ".odp",
+    ".ods",
+    ".odt",
+    ".pptx",
+    ".rtf",
+    ".xlsx",
+  ];
+
+  return (
+    officeMimeTypes.has(input.mimeType) ||
+    officeExtensions.some((extension) => fileName.endsWith(extension))
+  );
 };
 
 const resolveEffectiveMimeType = (input: {
@@ -391,6 +448,19 @@ export const ingestStoredFile = async (input: {
     input.fileName.toLowerCase().endsWith(".pdf")
   ) {
     resources = await ingestPdfs([resolvedStorageUrl]);
+  } else if (
+    isOfficeDocumentType({
+      fileName: input.fileName,
+      mimeType: mime,
+    })
+  ) {
+    resources = [
+      await ingestOfficeDocument({
+        source: resolvedStorageUrl,
+        title: input.fileName,
+        url: resolvedStorageUrl,
+      }),
+    ];
   } else if (mime.startsWith("image/")) {
     resources = [
       await ingestImage({

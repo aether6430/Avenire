@@ -32,6 +32,7 @@
     "defuddle": "^0.15.0",
     "drizzle-orm": "0.45.2",
     "linkedom": "^0.18.12",
+    "officeparser": "7.2.3",
     "pdfjs-dist": "^5.4.624",
     "redis": "^5.11.0",
     "zod": "^4.3.6"

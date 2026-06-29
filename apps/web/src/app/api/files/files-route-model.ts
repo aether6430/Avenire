@@ -26,6 +26,64 @@ export function inferUploadThingServerFileContentType(name: string) {
     return "application/pdf";
   }
 
+  if (extension === "docx") {
+    return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+  }
+  if (extension === "doc") {
+    return "application/msword";
+  }
+  if (extension === "pptx") {
+    return "application/vnd.openxmlformats-officedocument.presentationml.presentation";
+  }
+  if (extension === "ppt") {
+    return "application/vnd.ms-powerpoint";
+  }
+  if (extension === "xlsx") {
+    return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+  }
+  if (extension === "xls") {
+    return "application/vnd.ms-excel";
+  }
+  if (extension === "csv") {
+    return "text/csv";
+  }
+  if (extension === "odt") {
+    return "application/vnd.oasis.opendocument.text";
+  }
+  if (extension === "ott") {
+    return "application/vnd.oasis.opendocument.text-template";
+  }
+  if (extension === "odm") {
+    return "application/vnd.oasis.opendocument.text-master";
+  }
+  if (extension === "odp") {
+    return "application/vnd.oasis.opendocument.presentation";
+  }
+  if (extension === "otp") {
+    return "application/vnd.oasis.opendocument.presentation-template";
+  }
+  if (extension === "ods") {
+    return "application/vnd.oasis.opendocument.spreadsheet";
+  }
+  if (extension === "ots") {
+    return "application/vnd.oasis.opendocument.spreadsheet-template";
+  }
+  if (extension === "odg") {
+    return "application/vnd.oasis.opendocument.graphics";
+  }
+  if (extension === "otg") {
+    return "application/vnd.oasis.opendocument.graphics-template";
+  }
+  if (extension === "odf") {
+    return "application/vnd.oasis.opendocument.formula";
+  }
+  if (extension === "odb") {
+    return "application/vnd.oasis.opendocument.database";
+  }
+  if (extension === "rtf") {
+    return "application/rtf";
+  }
+
   if (["txt", "md"].includes(extension)) {
     return "text/plain";
   }

@@ -2,6 +2,7 @@
 
 import type { UseChatHelpers } from "@ai-sdk/react";
 import type { UIMessage } from "@avenire/ai/message-types";
+import { Alert, AlertDescription } from "@avenire/ui/components/alert";
 import { Button } from "@avenire/ui/components/button";
 import {
   Card,
@@ -495,20 +496,14 @@ function ToolApprovalCard({
   };
 
   return (
-    <Card
-      className="mb-2 max-w-[38rem] overflow-hidden border-border bg-card"
-      size="sm"
-    >
-      <div className="flex h-10 items-center gap-2 border-border border-b bg-muted/25 px-3">
-        <span className="size-3 rounded-full border border-muted-foreground/30" />
-        <span className="min-w-0 flex-1 truncate font-medium text-sm">
+    <Alert className="mb-2 flex max-w-[38rem] flex-col gap-2 border-border bg-card px-3 py-3">
+      <AlertDescription className="inline text-foreground">
+        <span className="font-medium">
           {title}
         </span>
-      </div>
+      </AlertDescription>
       {previewLines.length > 0 ? (
-        <div className="relative border-border border-b bg-muted/20">
-          <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-6 bg-gradient-to-b from-muted/20 to-transparent" />
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-6 bg-gradient-to-t from-muted/20 to-transparent" />
+        <div className="relative overflow-hidden rounded-md border border-border/60 bg-muted/20">
           <div className="max-h-44 overflow-auto py-1 font-mono text-[12px] leading-5">
             {previewLines.map((line, index) => (
               <div
@@ -526,9 +521,9 @@ function ToolApprovalCard({
           </div>
         </div>
       ) : null}
-      <CardContent className="flex flex-wrap items-center justify-end gap-2 py-2">
+      <div className="flex flex-wrap items-center justify-end gap-2 self-end">
         <Button
-          className="h-8"
+          className="h-8 px-3 text-sm"
           disabled={!canRespond}
           onClick={() => respond(false)}
           size="sm"
@@ -539,7 +534,7 @@ function ToolApprovalCard({
           Reject
         </Button>
         <Button
-          className="h-8"
+          className="h-8 px-3 text-sm"
           disabled={!canRespond}
           onClick={() => respond(true)}
           size="sm"
@@ -548,8 +543,8 @@ function ToolApprovalCard({
           <Check className="mr-1 size-3.5" />
           Accept
         </Button>
-      </CardContent>
-    </Card>
+      </div>
+    </Alert>
   );
 }
 

@@ -45,7 +45,29 @@ function getFileIcon(fileName: string) {
     return <FileText {...iconProps} />;
   }
 
-  if (["doc", "docx", "txt"].includes(extension || "")) {
+  if (
+    [
+      "doc",
+      "docx",
+      "odb",
+      "odf",
+      "odg",
+      "odm",
+      "odp",
+      "ods",
+      "odt",
+      "otg",
+      "otp",
+      "ots",
+      "ott",
+      "ppt",
+      "pptx",
+      "rtf",
+      "txt",
+      "xls",
+      "xlsx",
+    ].includes(extension || "")
+  ) {
     return <FileText {...iconProps} />;
   }
 
