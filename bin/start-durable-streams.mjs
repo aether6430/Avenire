@@ -33,7 +33,9 @@ loadEnvFile(resolve(process.cwd(), "../../.env"));
 
 function parsePort(value, fallback) {
   const parsed = Number.parseInt(value ?? "", 10);
-  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
+  return Number.isInteger(parsed) && parsed >= 1 && parsed <= 65_535
+    ? parsed
+    : fallback;
 }
 
 function parseDurationMs(value, fallback) {

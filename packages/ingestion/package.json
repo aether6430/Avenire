@@ -20,7 +20,7 @@
     "format": "biome format --write ."
   },
   "dependencies": {
-    "@ai-sdk/groq": "latest",
+    "@ai-sdk/groq": "^3.0.27",
     "@avenire/ai": "workspace:*",
     "@avenire/database": "workspace:*",
     "@avenire/observability": "workspace:*",

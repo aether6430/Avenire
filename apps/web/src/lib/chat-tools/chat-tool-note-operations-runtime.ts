@@ -142,7 +142,7 @@ export async function executeReadNote(
     throw new Error(`File is not a markdown note: ${input.fileId}`);
   }
 
-  const content = await fetchWorkspaceFileText(file, 50_000);
+  const content = await fetchWorkspaceFileText(file);
   const trimmedContent = content.trim();
 
   if (!trimmedContent) {
@@ -150,7 +150,7 @@ export async function executeReadNote(
   }
 
   return {
-    content: trimmedContent.slice(0, 50_000),
+    content,
     contentSha256: sha256Hex(content),
     fileId: file.id,
     tags: getFileTags(file),
@@ -186,7 +186,7 @@ export async function executeUpdateNote(
     throw new Error("The requested note is read-only.");
   }
 
-  const currentContent = await fetchWorkspaceFileText(file, 50_000);
+  const currentContent = await fetchWorkspaceFileText(file);
   if (sha256Hex(currentContent) !== input.baseContentSha256) {
     throw new Error(
       "The note changed after the AI read it. Re-read the note and ask for approval again."

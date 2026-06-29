@@ -130,12 +130,11 @@ export function Chat({
   );
 
   const publishChatStreamFinished = useCallback(
-    (messageId?: string | null) => {
-      const eventKey = `${chatId}:${messageId ?? "unknown"}`;
-      if (lastFinishedStreamEventRef.current === eventKey) {
+    () => {
+      if (lastFinishedStreamEventRef.current === chatId) {
         return;
       }
-      lastFinishedStreamEventRef.current = eventKey;
+      lastFinishedStreamEventRef.current = chatId;
       window.dispatchEvent(
         new CustomEvent<ChatStreamFinishedDetail>(CHAT_STREAM_FINISHED_EVENT, {
           detail: { chatId },
@@ -189,7 +188,7 @@ export function Chat({
     messages: initialMessages,
     onError: handleError,
     sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithApprovalResponses,
-    onFinish: ({ isAbort, isError, message }) => {
+    onFinish: ({ isAbort, isError }) => {
       if (isError) {
         publishChatStreamStatus("error");
         return;
@@ -198,7 +197,7 @@ export function Chat({
       setAgentActivity(null);
       publishChatStreamStatus("ready");
       if (!isAbort) {
-        publishChatStreamFinished(message.id);
+        publishChatStreamFinished();
       }
     },
     onData: (dataPart) => {
@@ -380,7 +379,6 @@ export function Chat({
   }, [chatId, messages]);
 
   const latestMessage = messages.at(-1);
-  const latestMessageId = latestMessage?.id ?? null;
   const latestMessageRole = latestMessage?.role ?? null;
   const latestUserMessageId =
     latestMessageRole === "user" ? (latestMessage?.id ?? null) : null;
@@ -515,11 +513,15 @@ export function Chat({
 
     publishChatStreamStatus(status);
 
+    if (isActiveChatStreamStatus(status)) {
+      lastFinishedStreamEventRef.current = null;
+    }
+
     if (
       status === "ready" &&
       isActiveChatStreamStatus(previousPublishedStatus)
     ) {
-      publishChatStreamFinished(latestMessageId);
+      publishChatStreamFinished();
     }
 
     if (status === "submitted") {
@@ -532,7 +534,6 @@ export function Chat({
     }
   }, [
     chatId,
-    latestMessageId,
     latestMessageRole,
     publishChatStreamFinished,
     publishChatStreamStatus,

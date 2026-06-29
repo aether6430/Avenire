@@ -15,7 +15,13 @@ export function schedulePostStartMisconceptionSignalCheck(input: {
 
   input.schedule(async () => {
     const startedAtMs = now();
-    const signal = await input.detect();
+    let signal: MisconceptionSignalResult | null = null;
+
+    try {
+      signal = await input.detect();
+    } catch {
+      signal = null;
+    }
 
     input.onComplete({
       elapsedMs: Math.round((now() - startedAtMs) * 1000) / 1000,

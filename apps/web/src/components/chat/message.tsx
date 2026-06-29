@@ -57,6 +57,44 @@ interface RenderBlock {
   type: "part";
 }
 
+function stableSignatureValue(value: unknown): string {
+  if (Array.isArray(value)) {
+    return `[${value.map(stableSignatureValue).join(",")}]`;
+  }
+
+  if (value && typeof value === "object") {
+    return `{${Object.entries(value as Record<string, unknown>)
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(
+        ([key, entryValue]) =>
+          `${JSON.stringify(key)}:${stableSignatureValue(entryValue)}`
+      )
+      .join(",")}}`;
+  }
+
+  return JSON.stringify(value);
+}
+
+export function getToolApprovalPartSignature(
+  part: UIMessage["parts"][number] | undefined
+) {
+  if (!(part && "state" in part && part.state === "approval-requested")) {
+    return "";
+  }
+
+  const approval = "approval" in part ? part.approval : undefined;
+  const approvalId =
+    approval && typeof approval === "object" && "id" in approval
+      ? String(approval.id ?? "")
+      : "";
+  const toolCallId =
+    "toolCallId" in part ? String(part.toolCallId ?? "") : "";
+  const inputSignature =
+    "input" in part ? stableSignatureValue(part.input) : "";
+
+  return [approvalId, toolCallId, inputSignature].join("|");
+}
+
 const isReasoningPart = (part: MessagePart) =>
   part.type === "reasoning" ||
   part.type.startsWith("reasoning-") ||
@@ -987,6 +1025,7 @@ export const PreviewMessage = memo(PurePreviewMessage, (prev, next) => {
     prevLast?.type ?? "",
     prevLast && "text" in prevLast ? (prevLast.text ?? "") : "",
     prevLast && "state" in prevLast ? (prevLast.state ?? "") : "",
+    getToolApprovalPartSignature(prevLast),
   ].join("|");
   const nextSignature = [
     next.message.id,
@@ -995,6 +1034,7 @@ export const PreviewMessage = memo(PurePreviewMessage, (prev, next) => {
     nextLast?.type ?? "",
     nextLast && "text" in nextLast ? (nextLast.text ?? "") : "",
     nextLast && "state" in nextLast ? (nextLast.state ?? "") : "",
+    getToolApprovalPartSignature(nextLast),
   ].join("|");
 
   return (

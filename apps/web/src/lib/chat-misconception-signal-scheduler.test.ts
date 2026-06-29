@@ -80,6 +80,32 @@ describe("schedulePostStartMisconceptionSignalCheck", () => {
     expect(onComplete).toHaveBeenCalledTimes(1);
   });
 
+  it("completes with a null signal when detection rejects", async () => {
+    const tasks: Array<() => Promise<void>> = [];
+    const detect = vi.fn(async () => {
+      throw new Error("model unavailable");
+    });
+    const onComplete = vi.fn();
+    const times = [10, 11.25];
+
+    schedulePostStartMisconceptionSignalCheck({
+      detect,
+      now: () => times.shift() ?? 11.25,
+      onComplete,
+      schedule: (task) => {
+        tasks.push(task);
+      },
+    });
+
+    await expect(tasks[0]?.()).resolves.toBeUndefined();
+
+    expect(detect).toHaveBeenCalledTimes(1);
+    expect(onComplete).toHaveBeenCalledWith({
+      elapsedMs: 1.25,
+      signal: null,
+    });
+  });
+
   it("removes detector latency from the handoff path compared with serial startup", async () => {
     let resolveSerialDetection: (() => void) | null = null;
     const serialEvents: string[] = [];

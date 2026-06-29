@@ -447,6 +447,7 @@ function ToolApprovalCard({
 }) {
   const registerApproval = useToolApprovalStore((state) => state.register);
   const respondToApproval = useToolApprovalStore((state) => state.respond);
+  const unregisterApproval = useToolApprovalStore((state) => state.unregister);
   const approvalId = part.approval?.id ?? "";
   const label = getToolLabel(part.type);
   const canRespond = Boolean(addToolApprovalResponse && approvalId);
@@ -469,6 +470,10 @@ function ToolApprovalCard({
       toolType: part.type,
       workspaceUuid,
     });
+
+    return () => {
+      unregisterApproval(approvalId);
+    };
   }, [
     addToolApprovalResponse,
     approvalId,
@@ -478,6 +483,7 @@ function ToolApprovalCard({
     part.toolCallId,
     part.type,
     registerApproval,
+    unregisterApproval,
     workspaceUuid,
   ]);
 

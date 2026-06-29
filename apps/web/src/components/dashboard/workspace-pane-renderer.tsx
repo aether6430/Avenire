@@ -706,7 +706,7 @@ export function WorkspacePaneRenderer() {
       sensors={sensors}
     >
       <div className="flex h-full min-h-0 w-full flex-col bg-background">
-        {tabs.length > 1 ? (
+        {tabs.length > 0 ? (
           <div className="flex h-9 shrink-0 items-center gap-1 border-border/70 border-b bg-background px-1.5">
             <DndContext onDragEnd={handleTabDragEnd} sensors={sensors}>
               <div

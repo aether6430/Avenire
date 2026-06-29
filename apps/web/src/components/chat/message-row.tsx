@@ -3,7 +3,10 @@
 import type { UseChatHelpers } from "@ai-sdk/react";
 import type { AgentActivityData, UIMessage } from "@avenire/ai/message-types";
 import { memo } from "react";
-import { PreviewMessage } from "@/components/chat/message";
+import {
+  getToolApprovalPartSignature,
+  PreviewMessage,
+} from "@/components/chat/message";
 
 export interface ChatMessageRowProps {
   addToolApprovalResponse: UseChatHelpers<UIMessage>["addToolApprovalResponse"];
@@ -31,6 +34,7 @@ export function getMessageSignature(message: UIMessage) {
     lastPart?.type ?? "",
     lastPart && "text" in lastPart ? (lastPart.text ?? "") : "",
     lastPart && "state" in lastPart ? (lastPart.state ?? "") : "",
+    getToolApprovalPartSignature(lastPart),
   ].join("|");
 }
 

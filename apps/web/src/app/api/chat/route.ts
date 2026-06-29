@@ -307,6 +307,51 @@ function getToolApprovalParts(messages: UIMessage[], state: string) {
   );
 }
 
+function getUnresolvedToolApprovalRequests(messages: UIMessage[]) {
+  const unresolvedRequests = new Map<
+    string,
+    ReturnType<typeof getToolApprovalParts>[number]
+  >();
+
+  for (const message of messages) {
+    for (const part of message.parts ?? []) {
+      if (
+        !(part.type.startsWith("tool-") && "state" in part) ||
+        !("approval" in part) ||
+        !part.approval ||
+        typeof part.approval !== "object"
+      ) {
+        continue;
+      }
+
+      const approval = part.approval as { approved?: unknown; id?: unknown };
+      if (typeof approval.id !== "string") {
+        continue;
+      }
+
+      if (part.state === "approval-requested") {
+        unresolvedRequests.set(approval.id, {
+          approvalId: approval.id,
+          approved: approval.approved,
+          input: "input" in part ? part.input : undefined,
+          toolCallId:
+            "toolCallId" in part && typeof part.toolCallId === "string"
+              ? part.toolCallId
+              : null,
+          type: part.type,
+        });
+        continue;
+      }
+
+      if (part.state === "approval-responded") {
+        unresolvedRequests.delete(approval.id);
+      }
+    }
+  }
+
+  return unresolvedRequests;
+}
+
 async function validateApprovedToolCallsAgainstPersistedHistory(input: {
   chatSlug: string;
   messages: UIMessage[];
@@ -328,19 +373,20 @@ async function validateApprovedToolCallsAgainstPersistedHistory(input: {
       input.chatSlug,
       input.workspaceId
     )) ?? [];
-  const persistedRequests = new Map(
-    getToolApprovalParts(persistedMessages, "approval-requested").map(
-      (part) => [part.approvalId, part]
-    )
-  );
+  const persistedRequests = getUnresolvedToolApprovalRequests(persistedMessages);
 
   return approvedResponses.every((response) => {
     const request = persistedRequests.get(response.approvalId);
-    return (
+    const isValid =
       request?.type === response.type &&
       request.toolCallId === response.toolCallId &&
-      stableJson(request.input) === stableJson(response.input)
-    );
+      stableJson(request.input) === stableJson(response.input);
+
+    if (isValid) {
+      persistedRequests.delete(response.approvalId);
+    }
+
+    return isValid;
   });
 }
 
@@ -845,6 +891,7 @@ async function getCachedLearningPromptMemoryBlocks(input: {
 async function generateChatMetadata(
   latestUserText: string,
   abortSignal?: AbortSignal,
+  runtimeContext?: Record<string, string | null>,
   telemetry?: ReturnType<typeof buildAiTelemetry>
 ) {
   if (!latestUserText) {
@@ -875,6 +922,7 @@ async function generateChatMetadata(
       maxOutputTokens: 256,
       temperature: 0.2,
       abortSignal,
+      runtimeContext,
       telemetry,
     });
 
@@ -1606,6 +1654,9 @@ export async function POST(request: Request) {
       apiLogger.requestFailed(403, "Invalid tool approval", {
         chatId: chatSlug,
       });
+      if (idempotencyRedisKey && idempotencyLockAcquired) {
+        await clearIdempotencyKey(idempotencyRedisKey);
+      }
       return NextResponse.json(
         { error: "Invalid tool approval" },
         { status: 403 }
@@ -1621,6 +1672,17 @@ export async function POST(request: Request) {
       model: selectedModel,
       providerModel: APOLLO_LANGUAGE_MODEL_IDS[selectedModel],
       userId: session.user.id,
+      workspaceId: workspace.workspaceId,
+    };
+    const chatRuntimeContext = {
+      chatId: chatSlug,
+      conversationId: chatSlug,
+      feature: "chat",
+      model: selectedModel,
+      posthogDistinctId: session.user.id,
+      providerModel: APOLLO_LANGUAGE_MODEL_IDS[selectedModel],
+      requestId: request.headers.get("x-request-id") ?? null,
+      service: "web",
       workspaceId: workspace.workspaceId,
     };
     logInfo("Incoming chat request", {
@@ -1717,6 +1779,7 @@ export async function POST(request: Request) {
             const nextMeta = await generateChatMetadata(
               latestUserTextForMetadata,
               request.signal,
+              chatRuntimeContext,
               buildAiTelemetry({
                 ...chatTelemetryBase,
                 functionId: "chat.metadata",
@@ -2039,17 +2102,7 @@ export async function POST(request: Request) {
             toolApproval: CHAT_TOOL_APPROVAL_POLICY,
             experimental_toolApprovalSecret:
               process.env.TOOL_APPROVAL_SECRET || undefined,
-            runtimeContext: {
-              chatId: chatSlug,
-              conversationId: chatSlug,
-              feature: "chat",
-              model: selectedModel,
-              posthogDistinctId: session.user.id,
-              providerModel: APOLLO_LANGUAGE_MODEL_IDS[selectedModel],
-              requestId: request.headers.get("x-request-id") ?? null,
-              service: "web",
-              workspaceId: workspace.workspaceId,
-            },
+            runtimeContext: chatRuntimeContext,
             experimental_transform: smoothStream({
               delayInMs: null,
               chunking: "word",
