@@ -3,9 +3,13 @@
 import type { UseChatHelpers } from "@ai-sdk/react";
 import type { AgentActivityData, UIMessage } from "@avenire/ai/message-types";
 import { memo } from "react";
-import { PreviewMessage } from "@/components/chat/message";
+import {
+  getToolApprovalPartSignature,
+  PreviewMessage,
+} from "@/components/chat/message";
 
 export interface ChatMessageRowProps {
+  addToolApprovalResponse: UseChatHelpers<UIMessage>["addToolApprovalResponse"];
   agentActivity: AgentActivityData | null;
   chatId: string;
   isActiveReply: boolean;
@@ -30,10 +34,12 @@ export function getMessageSignature(message: UIMessage) {
     lastPart?.type ?? "",
     lastPart && "text" in lastPart ? (lastPart.text ?? "") : "",
     lastPart && "state" in lastPart ? (lastPart.state ?? "") : "",
+    getToolApprovalPartSignature(lastPart),
   ].join("|");
 }
 
 function PureChatMessageRow({
+  addToolApprovalResponse,
   agentActivity,
   chatId,
   isActiveReply,
@@ -48,6 +54,7 @@ function PureChatMessageRow({
 }: ChatMessageRowProps) {
   return (
     <PreviewMessage
+      addToolApprovalResponse={addToolApprovalResponse}
       agentActivity={agentActivity}
       chatId={chatId}
       isActiveReply={isActiveReply}
@@ -72,6 +79,7 @@ export const ChatMessageRow = memo(PureChatMessageRow, (prev, next) => {
     prev.isStreaming === next.isStreaming &&
     prev.replyMinHeight === next.replyMinHeight &&
     prev.workspaceUuid === next.workspaceUuid &&
+    prev.addToolApprovalResponse === next.addToolApprovalResponse &&
     prev.agentActivity === next.agentActivity &&
     prev.sendMessage === next.sendMessage &&
     prev.onRegenerate === next.onRegenerate &&

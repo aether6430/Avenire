@@ -30,6 +30,7 @@ export interface WorkspaceSearchResult {
     | "pdf"
     | "video"
     | "audio"
+    | "document"
     | "image"
     | "markdown"
     | "link";
@@ -103,7 +104,7 @@ async function runWorkspaceVectorSearchApi(
       page?: number | null;
       rerankScore?: number;
       score?: number;
-      sourceType?: "pdf" | "image" | "video" | "audio" | "markdown" | "link";
+      sourceType?: "pdf" | "image" | "video" | "audio" | "document" | "markdown" | "link";
       startMs?: number | null;
     }>;
   };

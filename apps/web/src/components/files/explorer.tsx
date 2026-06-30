@@ -1294,12 +1294,30 @@ function detectFileKind(file: FileRecord): FileKind {
     ".bz2",
     ".xz",
   ]);
-  const sheetExt = new Set([".csv", ".xls", ".xlsx"]);
+  const sheetExt = new Set([".csv", ".ods", ".ots", ".xls", ".xlsx"]);
+  const officeDocumentExt = new Set([
+    ".doc",
+    ".docx",
+    ".odb",
+    ".odf",
+    ".odg",
+    ".odm",
+    ".odt",
+    ".otg",
+    ".ott",
+    ".rtf",
+  ]);
+  const presentationExt = new Set([".odp", ".otp", ".ppt", ".pptx"]);
 
   if (mime.startsWith("image/") || imageExt.has(ext)) {
     return "image";
   }
-  if (mime === "application/pdf" || ext === ".pdf") {
+  if (
+    mime === "application/pdf" ||
+    ext === ".pdf" ||
+    officeDocumentExt.has(ext) ||
+    presentationExt.has(ext)
+  ) {
     return "document";
   }
   if (mime.includes("markdown") || markdownExt.has(ext)) {

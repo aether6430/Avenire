@@ -114,6 +114,18 @@ const PDFViewer = dynamic(() => import("@/components/files/pdf-viewer"), {
   ssr: false,
 });
 
+const OfficeViewer = dynamic(() => import("@/components/files/office-viewer"), {
+  loading: () => (
+    <div className="flex h-[70vh] items-center justify-center rounded-xl border border-border/70 bg-card text-sm">
+      <div className="inline-flex items-center gap-2 text-muted-foreground">
+        <Spinner className="size-4" />
+        Loading preview...
+      </div>
+    </div>
+  ),
+  ssr: false,
+});
+
 import { STATIC_ASSETS } from "@/lib/static-assets";
 const DEFAULT_NOTE_COVER_URL = STATIC_ASSETS.banner1;
 
@@ -928,8 +940,17 @@ export function FilePreviewPanel({
     };
   }, [activeFile, activeMediaSrc, activePlaybackDescriptor]);
 
-  const { isAudio, isImage, isPdf, isVideo, isMarkdown } =
-    detectPreviewKind(activeFile);
+  const {
+    isAudio,
+    isDocument,
+    isImage,
+    isPdf,
+    isPresentation,
+    isSpreadsheet,
+    isVideo,
+    isMarkdown,
+  } = detectPreviewKind(activeFile);
+  const isOfficePreview = isDocument || isPresentation || isSpreadsheet;
   const isOpenedCached = isFileOpenedCached(activeFile.id);
   const activeAudioPlaybackSource = buildProgressivePlaybackSource(
     activeMediaSrc ?? activeFile.storageUrl,
@@ -1213,6 +1234,7 @@ export function FilePreviewPanel({
     paneId,
     workspaceUuid,
     isImage,
+    isOfficePreview,
     isPdf,
     isVideo,
     activeFileIsMarkdown,
@@ -1556,6 +1578,24 @@ export function FilePreviewPanel({
             }
             invertColors={pdfInvertColors}
             key={activeFile.id}
+            source={
+              activeFile.storageUrl ||
+              `/api/workspaces/${workspaceUuid}/files/${activeFile.id}/stream`
+            }
+          />
+        </div>
+      ) : isOfficePreview ? (
+        <div className="min-h-0 flex-1 overflow-hidden">
+          <OfficeViewer
+            fileName={activeFile.name}
+            key={activeFile.id}
+            kind={
+              isSpreadsheet
+                ? "spreadsheet"
+                : isPresentation
+                  ? "presentation"
+                  : "document"
+            }
             source={
               activeFile.storageUrl ||
               `/api/workspaces/${workspaceUuid}/files/${activeFile.id}/stream`

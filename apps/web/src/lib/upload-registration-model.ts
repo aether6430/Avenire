@@ -36,6 +36,63 @@ export function inferMimeTypeFromName(name: string): string | null {
   if (normalizedName.endsWith(".url")) {
     return "application/url";
   }
+  if (normalizedName.endsWith(".docx")) {
+    return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+  }
+  if (normalizedName.endsWith(".doc")) {
+    return "application/msword";
+  }
+  if (normalizedName.endsWith(".pptx")) {
+    return "application/vnd.openxmlformats-officedocument.presentationml.presentation";
+  }
+  if (normalizedName.endsWith(".ppt")) {
+    return "application/vnd.ms-powerpoint";
+  }
+  if (normalizedName.endsWith(".xlsx")) {
+    return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+  }
+  if (normalizedName.endsWith(".xls")) {
+    return "application/vnd.ms-excel";
+  }
+  if (normalizedName.endsWith(".csv")) {
+    return "text/csv";
+  }
+  if (normalizedName.endsWith(".odt")) {
+    return "application/vnd.oasis.opendocument.text";
+  }
+  if (normalizedName.endsWith(".ott")) {
+    return "application/vnd.oasis.opendocument.text-template";
+  }
+  if (normalizedName.endsWith(".odm")) {
+    return "application/vnd.oasis.opendocument.text-master";
+  }
+  if (normalizedName.endsWith(".odp")) {
+    return "application/vnd.oasis.opendocument.presentation";
+  }
+  if (normalizedName.endsWith(".otp")) {
+    return "application/vnd.oasis.opendocument.presentation-template";
+  }
+  if (normalizedName.endsWith(".ods")) {
+    return "application/vnd.oasis.opendocument.spreadsheet";
+  }
+  if (normalizedName.endsWith(".ots")) {
+    return "application/vnd.oasis.opendocument.spreadsheet-template";
+  }
+  if (normalizedName.endsWith(".odg")) {
+    return "application/vnd.oasis.opendocument.graphics";
+  }
+  if (normalizedName.endsWith(".otg")) {
+    return "application/vnd.oasis.opendocument.graphics-template";
+  }
+  if (normalizedName.endsWith(".odf")) {
+    return "application/vnd.oasis.opendocument.formula";
+  }
+  if (normalizedName.endsWith(".odb")) {
+    return "application/vnd.oasis.opendocument.database";
+  }
+  if (normalizedName.endsWith(".rtf")) {
+    return "application/rtf";
+  }
 
   if (
     [".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".avif", ".heic"].some(
@@ -107,6 +164,27 @@ export function normalizeUploadThingStorageUrl(
   } catch {
     return storageUrl;
   }
+}
+
+export function assertTrustedUploadStorageUrl(
+  storageUrl: string,
+  storageKey: string
+) {
+  const normalized = normalizeUploadThingStorageUrl(storageUrl, storageKey);
+  let parsed: URL;
+
+  try {
+    parsed = new URL(normalized);
+  } catch {
+    throw new Error("Invalid uploaded file URL.");
+  }
+
+  const host = parsed.hostname.toLowerCase();
+  if (!(parsed.protocol === "https:" && (host === "utfs.io" || host.endsWith(".ufs.sh")))) {
+    throw new Error("Uploaded file URL is not from a trusted storage host.");
+  }
+
+  return normalized;
 }
 
 function inferFrontmatterProperty(value: unknown) {

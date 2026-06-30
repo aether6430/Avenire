@@ -1,6 +1,9 @@
 "use client";
 
+import type { UseChatHelpers } from "@ai-sdk/react";
 import type { UIMessage } from "@avenire/ai/message-types";
+import { Alert, AlertDescription } from "@avenire/ui/components/alert";
+import { Button } from "@avenire/ui/components/button";
 import {
   Card,
   CardAction,
@@ -9,15 +12,18 @@ import {
   CardHeader,
   CardTitle,
 } from "@avenire/ui/components/card";
+import { Check, X } from "@phosphor-icons/react";
 import { motion } from "motion/react";
-import { type ReactNode, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
 import {
   type ActivityAction,
+  InlineToolMutationActivity,
   RollingAgentActivity,
 } from "@/components/chat/rolling-tool-activity";
 import { ChatSpinnerGlyph } from "@/components/chat/spinner";
 import { FlashcardDeckStack } from "@/components/flashcards/deck-stack";
 import { cn } from "@/lib/utils";
+import { useToolApprovalStore } from "@/stores/toolApprovalStore";
 
 // Tool types that should be completely hidden from the UI
 const HIDDEN_TOOL_TYPES = new Set([
@@ -68,6 +74,15 @@ function getToolLabel(toolType: string): string {
 
 type ToolPart = Extract<UIMessage["parts"][number], { type: `tool-${string}` }>;
 type CompletedToolPart = Extract<ToolPart, { state: "output-available" }>;
+type AddToolApprovalResponse =
+  UseChatHelpers<UIMessage>["addToolApprovalResponse"];
+
+type ApprovalRequestedToolPart = ToolPart & {
+  approval?: { id?: string };
+  input?: unknown;
+  state: "approval-requested";
+  toolCallId?: string;
+};
 
 function extractQueryFromPart(part: ToolPart): string {
   if ("input" in part && part.input) {
@@ -394,10 +409,182 @@ function QuizToolOutput({
   );
 }
 
-export function ChatToolPart({ part }: { part: ToolPart }) {
+function asApprovalRecord(value: unknown): Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+function approvalPreviewLines(input: unknown) {
+  const record = asApprovalRecord(input);
+  const content = typeof record.content === "string" ? record.content : "";
+  if (content.trim()) {
+    return content.replace(/\r\n/g, "\n").split("\n").slice(0, 24);
+  }
+  return JSON.stringify(record, null, 2).split("\n").slice(0, 24);
+}
+
+function approvalTitle(input: unknown, fallback: string) {
+  const record = asApprovalRecord(input);
+  if (typeof record.title === "string" && record.title.trim()) {
+    return record.title;
+  }
+  if (typeof record.fileId === "string" && record.fileId.trim()) {
+    return fallback;
+  }
+  return fallback;
+}
+
+function ToolApprovalCard({
+  addToolApprovalResponse,
+  chatId,
+  part,
+  workspaceUuid,
+}: {
+  addToolApprovalResponse?: AddToolApprovalResponse;
+  chatId: string;
+  part: ApprovalRequestedToolPart;
+  workspaceUuid: string;
+}) {
+  const registerApproval = useToolApprovalStore((state) => state.register);
+  const respondToApproval = useToolApprovalStore((state) => state.respond);
+  const unregisterApproval = useToolApprovalStore((state) => state.unregister);
+  const approvalId = part.approval?.id ?? "";
+  const label = getToolLabel(part.type);
+  const canRespond = Boolean(addToolApprovalResponse && approvalId);
+  const previewLines = approvalPreviewLines(part.input);
+  const title = approvalTitle(part.input, label);
+
+  useEffect(() => {
+    if (!(canRespond && addToolApprovalResponse)) {
+      return;
+    }
+
+    registerApproval({
+      chatId,
+      id: approvalId,
+      input: part.input,
+      respond: (approved) => {
+        addToolApprovalResponse({ id: approvalId, approved });
+      },
+      toolCallId: part.toolCallId ?? approvalId,
+      toolType: part.type,
+      workspaceUuid,
+    });
+
+    return () => {
+      unregisterApproval(approvalId);
+    };
+  }, [
+    addToolApprovalResponse,
+    approvalId,
+    canRespond,
+    chatId,
+    part.input,
+    part.toolCallId,
+    part.type,
+    registerApproval,
+    unregisterApproval,
+    workspaceUuid,
+  ]);
+
+  const respond = (approved: boolean) => {
+    if (!(addToolApprovalResponse && approvalId)) {
+      return;
+    }
+    respondToApproval(approvalId, approved);
+  };
+
+  return (
+    <Alert className="mb-2 flex max-w-[38rem] flex-col gap-2 border-border bg-card px-3 py-3">
+      <AlertDescription className="inline text-foreground">
+        <span className="font-medium">
+          {title}
+        </span>
+      </AlertDescription>
+      {previewLines.length > 0 ? (
+        <div className="relative overflow-hidden rounded-md border border-border/60 bg-muted/20">
+          <div className="max-h-44 overflow-auto py-1 font-mono text-[12px] leading-5">
+            {previewLines.map((line, index) => (
+              <div
+                className="grid grid-cols-[2rem_minmax(0,1fr)] gap-2 px-3"
+                key={`${index}-${line}`}
+              >
+                <span className="select-none text-right text-muted-foreground/60">
+                  {index + 1}
+                </span>
+                <span className="min-w-0 whitespace-pre-wrap break-words text-foreground">
+                  {line || " "}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+      <div className="flex flex-wrap items-center justify-end gap-2 self-end">
+        <Button
+          className="h-8 px-3 text-sm"
+          disabled={!canRespond}
+          onClick={() => respond(false)}
+          size="sm"
+          type="button"
+          variant="outline"
+        >
+          <X className="mr-1 size-3.5" />
+          Reject
+        </Button>
+        <Button
+          className="h-8 px-3 text-sm"
+          disabled={!canRespond}
+          onClick={() => respond(true)}
+          size="sm"
+          type="button"
+        >
+          <Check className="mr-1 size-3.5" />
+          Accept
+        </Button>
+      </div>
+    </Alert>
+  );
+}
+
+function ToolDenied({ label }: { label: string }) {
+  return (
+    <ToolRow label={label}>
+      <span className="font-mono text-[11px] text-foreground/28">denied</span>
+    </ToolRow>
+  );
+}
+
+export function ChatToolPart({
+  addToolApprovalResponse,
+  chatId,
+  part,
+  workspaceUuid,
+}: {
+  addToolApprovalResponse?: AddToolApprovalResponse;
+  chatId: string;
+  part: ToolPart;
+  workspaceUuid: string;
+}) {
   // Suppress internal/infrastructure tools entirely
   if (HIDDEN_TOOL_TYPES.has(part.type)) {
     return null;
+  }
+
+  if (part.state === "approval-requested") {
+    return (
+      <ToolApprovalCard
+        addToolApprovalResponse={addToolApprovalResponse}
+        chatId={chatId}
+        part={part as ApprovalRequestedToolPart}
+        workspaceUuid={workspaceUuid}
+      />
+    );
+  }
+
+  if (part.state === "output-denied") {
+    return <ToolDenied label={getToolLabel(part.type)} />;
   }
 
   if (
@@ -413,6 +600,12 @@ export function ChatToolPart({ part }: { part: ToolPart }) {
         actions={actions}
         isStreaming={part.state !== "output-available"}
       />
+    );
+  }
+
+  if (part.type === "tool-create_note" || part.type === "tool-update_note") {
+    return (
+      <InlineToolMutationActivity part={part} workspaceUuid={workspaceUuid} />
     );
   }
 
@@ -625,7 +818,8 @@ export function ChatToolPart({ part }: { part: ToolPart }) {
         <div className="mb-2 space-y-1">
           <ToolRow label="Read file">
             <span className="font-mono text-[11px] text-foreground/28">
-              {completedPart.output.workspacePath ?? completedPart.output.fileId}
+              {completedPart.output.workspacePath ??
+                completedPart.output.fileId}
             </span>
           </ToolRow>
           <div className="ml-0 rounded-md border border-border/30 p-2">
@@ -667,38 +861,35 @@ export function ChatToolPart({ part }: { part: ToolPart }) {
           </span>
         </ToolRow>
       );
-    // Granular note operations
-    case "tool-create_note":
-      return (
-        <ToolRow label="Create note">
-          <span className="font-mono text-[11px] text-foreground/28">
-            {completedPart.output.title}
-          </span>
-        </ToolRow>
-      );
     case "tool-read_note":
       return (
-        <ToolRow label="Read note">
-          <span className="font-mono text-[11px] text-foreground/28">
-            {completedPart.output.title}
-          </span>
-        </ToolRow>
-      );
-    case "tool-update_note":
-      return (
-        <ToolRow label="Update note">
-          <span className="font-mono text-[11px] text-foreground/28">
-            {completedPart.output.workspacePath}
-          </span>
-        </ToolRow>
+        <RollingAgentActivity
+          actions={[
+            {
+              kind: "read",
+              pending: false,
+              preview: {
+                content: completedPart.output.content.slice(0, 600),
+                path: completedPart.output.workspacePath,
+              },
+              value: completedPart.output.workspacePath,
+            },
+          ]}
+          isStreaming={false}
+        />
       );
     case "tool-list_notes":
       return (
-        <ToolRow label="Notes">
-          <span className="font-mono text-[11px] text-foreground/28">
-            {completedPart.output.totalCount} note(s)
-          </span>
-        </ToolRow>
+        <RollingAgentActivity
+          actions={[
+            {
+              kind: "list",
+              pending: false,
+              value: `${completedPart.output.totalCount} notes`,
+            },
+          ]}
+          isStreaming={false}
+        />
       );
     case "tool-update_note_tags":
       return (

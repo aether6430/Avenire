@@ -22,13 +22,14 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@ai-sdk/cohere": "^3.0.25",
-    "@ai-sdk/fireworks": "^2.0.42",
+    "@ai-sdk/cohere": "^4.0.0",
+    "@ai-sdk/fireworks": "^3.0.0",
     "@ai-sdk/google": "latest",
     "@ai-sdk/groq": "latest",
-    "@ai-sdk/mistral": "^3.0.21",
+    "@ai-sdk/mistral": "^4.0.0",
+    "@ai-sdk/otel": "^1.0.2",
     "@openrouter/ai-sdk-provider": "latest",
-    "ai": "^6.0.141",
+    "ai": "^7.0.2",
     "ai-sdk-ollama": "^3.8.0",
     "zod": "^4.3.6"
   },

@@ -501,7 +501,7 @@ export function WorkspacePaneRenderer() {
     (state) => state.setActivePaneId
   );
   const [paneStoreHydrated, setPaneStoreHydrated] = useState(() =>
-    useWorkspacePaneStore.persist.hasHydrated()
+    Boolean(useWorkspacePaneStore.persist?.hasHydrated?.())
   );
   const [dragPreview, setDragPreview] = useState<{
     activePaneId: string;
@@ -527,11 +527,17 @@ export function WorkspacePaneRenderer() {
       return;
     }
 
-    const unsubscribe = useWorkspacePaneStore.persist.onFinishHydration(() => {
+    const persistApi = useWorkspacePaneStore.persist;
+    if (!persistApi) {
+      setPaneStoreHydrated(true);
+      return;
+    }
+
+    const unsubscribe = persistApi.onFinishHydration(() => {
       setPaneStoreHydrated(true);
     });
 
-    if (useWorkspacePaneStore.persist.hasHydrated()) {
+    if (persistApi.hasHydrated()) {
       setPaneStoreHydrated(true);
     }
 

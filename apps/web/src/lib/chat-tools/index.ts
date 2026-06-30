@@ -3,12 +3,28 @@ import type { AgentActivityData } from "@avenire/ai/message-types";
 import { chatToolSchemas } from "@avenire/ai/tools";
 import { executeGetDueCards } from "@/lib/chat-tools/chat-tool-due-cards-runtime";
 import {
+  executeCreateFolder,
+  executeDeleteFile,
+  executeGetFileInfo,
+  executeListFiles,
+  executeMoveFile,
+  executeReadFile,
+} from "@/lib/chat-tools/chat-tool-file-operations-runtime";
+import {
+  getActiveMisconceptionContext,
   improveMisconceptionForTool,
   listMisconceptionsForTool,
   logMisconceptionForTool,
   prewarmActiveMisconceptionsCache,
   resolveMisconceptionForTool,
 } from "@/lib/chat-tools/chat-tool-misconception-runtime";
+import {
+  executeCreateNote,
+  executeListNotes,
+  executeReadNote,
+  executeUpdateNote,
+  executeUpdateNoteTags,
+} from "@/lib/chat-tools/chat-tool-note-operations-runtime";
 import {
   generateFlashcardsFromMisconception,
   generateFlashcardsFromSource,
@@ -24,21 +40,6 @@ import {
   executeAvenireAgent,
   executeSearchMaterials,
 } from "@/lib/chat-tools/chat-tool-workspace-agent-runtime";
-import {
-  executeCreateFolder,
-  executeDeleteFile,
-  executeGetFileInfo,
-  executeListFiles,
-  executeMoveFile,
-  executeReadFile,
-} from "@/lib/chat-tools/chat-tool-file-operations-runtime";
-import {
-  executeCreateNote,
-  executeListNotes,
-  executeReadNote,
-  executeUpdateNote,
-  executeUpdateNoteTags,
-} from "@/lib/chat-tools/chat-tool-note-operations-runtime";
 
 interface ChatToolContext {
   agentActivityId: string;
@@ -50,7 +51,7 @@ interface ChatToolContext {
   workspaceId: string;
 }
 
-export { prewarmActiveMisconceptionsCache };
+export { getActiveMisconceptionContext, prewarmActiveMisconceptionsCache };
 
 function fileOpsCtx(ctx: ChatToolContext) {
   return {
@@ -157,7 +158,7 @@ export function createChatTools(ctx: ChatToolContext): ToolSet {
     }),
     update_note: tool({
       description:
-        "Update a markdown note's content by file ID. Requires a real file ID obtained from list_notes, list_files, or search_materials. In mode 'replace_entire' the new content replaces everything. In mode 'append' the new content is appended. Without a mode, the content is treated as an edit instruction and the LLM rewrites the note intelligently. Never invent file IDs — always discover them with list_notes or list_files first.",
+        "Update a markdown note's content by file ID. Requires a real file ID obtained from list_notes, list_files, or search_materials. First call read_note, then provide mode, explicit markdown content for that mode, and the returned contentSha256 as baseContentSha256. Never invent file IDs — always discover them with list_notes or list_files first.",
       inputSchema: toolSchema(chatToolSchemas.update_note.input),
       outputSchema: toolSchema(chatToolSchemas.update_note.output),
       execute: async (input) => executeUpdateNote(noteOpsCtx(ctx), input),
@@ -177,8 +178,6 @@ export function createChatTools(ctx: ChatToolContext): ToolSet {
       execute: async (input) => executeUpdateNoteTags(noteOpsCtx(ctx), input),
     }),
 
-
-
     log_misconception: tool({
       description:
         "Record a misconception only when the user explicitly reports a durable misunderstanding or the conversation clearly establishes a wrong mental model. Use confidence for the learner's current confidence with the concept, not classifier certainty. Do not use it for normal questions, feature checks, or one-off clarifications.",
@@ -188,7 +187,7 @@ export function createChatTools(ctx: ChatToolContext): ToolSet {
     }),
     list_misconceptions: tool({
       description:
-        "List the current active misconceptions in the workspace through the low-latency cache. Call this near the beginning of each substantive response after a brief first pass on the user's request.",
+        "List the current active misconceptions in the workspace through the low-latency cache. Use when server-provided misconception memory is absent, stale, or too broad, or when the user shows clear distress, confusion, or repeated struggle in a topic.",
       inputSchema: toolSchema(chatToolSchemas.list_misconceptions.input),
       outputSchema: toolSchema(chatToolSchemas.list_misconceptions.output),
       execute: async (input) => listMisconceptionsForTool(ctx, input),

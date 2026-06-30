@@ -57,6 +57,44 @@ interface RenderBlock {
   type: "part";
 }
 
+function stableSignatureValue(value: unknown): string {
+  if (Array.isArray(value)) {
+    return `[${value.map(stableSignatureValue).join(",")}]`;
+  }
+
+  if (value && typeof value === "object") {
+    return `{${Object.entries(value as Record<string, unknown>)
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(
+        ([key, entryValue]) =>
+          `${JSON.stringify(key)}:${stableSignatureValue(entryValue)}`
+      )
+      .join(",")}}`;
+  }
+
+  return JSON.stringify(value);
+}
+
+export function getToolApprovalPartSignature(
+  part: UIMessage["parts"][number] | undefined
+) {
+  if (!(part && "state" in part && part.state === "approval-requested")) {
+    return "";
+  }
+
+  const approval = "approval" in part ? part.approval : undefined;
+  const approvalId =
+    approval && typeof approval === "object" && "id" in approval
+      ? String(approval.id ?? "")
+      : "";
+  const toolCallId =
+    "toolCallId" in part ? String(part.toolCallId ?? "") : "";
+  const inputSignature =
+    "input" in part ? stableSignatureValue(part.input) : "";
+
+  return [approvalId, toolCallId, inputSignature].join("|");
+}
+
 const isReasoningPart = (part: MessagePart) =>
   part.type === "reasoning" ||
   part.type.startsWith("reasoning-") ||
@@ -188,7 +226,7 @@ function getNestedValue(value: unknown, path: string[]): unknown {
 
   for (const key of path) {
     const record = asRecord(current);
-    if (!record || !(key in record)) {
+    if (!(record && key in record)) {
       return undefined;
     }
     current = record[key];
@@ -308,9 +346,7 @@ const TOOL_ACTIVITY_AGENT_TYPES = new Set([
   "tool-create_folder",
   "tool-get_file_info",
   // Granular note operations (handled by rolling activity)
-  "tool-create_note",
   "tool-read_note",
-  "tool-update_note",
   "tool-list_notes",
   "tool-update_note_tags",
 ]);
@@ -452,7 +488,11 @@ function GeneratedArtifacts({
                   .filter((note) => typeof note.fileId === "string")
               : [];
           }
-          const output = part.output as { fileId?: string; title?: string; workspacePath?: string };
+          const output = part.output as {
+            fileId?: string;
+            title?: string;
+            workspacePath?: string;
+          };
           return output.fileId
             ? [
                 {
@@ -570,6 +610,7 @@ const toAttachment = (part: MessagePart): Partial<Attachment> | null => {
 };
 
 const PurePreviewMessage = ({
+  addToolApprovalResponse,
   agentActivity,
   chatId,
   message,
@@ -582,6 +623,7 @@ const PurePreviewMessage = ({
   isReadonly,
   workspaceUuid,
 }: {
+  addToolApprovalResponse: UseChatHelpers<UIMessage>["addToolApprovalResponse"];
   agentActivity: AgentActivityData | null;
   chatId: string;
   message: UIMessage;
@@ -706,6 +748,7 @@ const PurePreviewMessage = ({
                 isStreaming={isStreaming}
                 key={`message-${message.id}-tool-activity`}
                 parts={visibleRollingToolParts}
+                workspaceUuid={workspaceUuid}
               />
             )}
             {fileParts.length > 0 && (
@@ -776,7 +819,11 @@ const PurePreviewMessage = ({
                 );
               }
 
-              if (isToolPart(part) && part.type === "tool-show_widget") {
+              if (
+                isToolPart(part) &&
+                part.type === "tool-show_widget" &&
+                part.state !== "approval-requested"
+              ) {
                 const input = asRecord(part.input);
                 const output = asRecord(part.output);
                 const inputWidget = asRecord(input?.widget);
@@ -881,7 +928,15 @@ const PurePreviewMessage = ({
                 ) {
                   return null;
                 }
-                return <ChatToolPart key={key} part={part} />;
+                return (
+                  <ChatToolPart
+                    addToolApprovalResponse={addToolApprovalResponse}
+                    chatId={chatId}
+                    key={key}
+                    part={part}
+                    workspaceUuid={workspaceUuid}
+                  />
+                );
               }
               return null;
             })}
@@ -970,6 +1025,7 @@ export const PreviewMessage = memo(PurePreviewMessage, (prev, next) => {
     prevLast?.type ?? "",
     prevLast && "text" in prevLast ? (prevLast.text ?? "") : "",
     prevLast && "state" in prevLast ? (prevLast.state ?? "") : "",
+    getToolApprovalPartSignature(prevLast),
   ].join("|");
   const nextSignature = [
     next.message.id,
@@ -978,10 +1034,12 @@ export const PreviewMessage = memo(PurePreviewMessage, (prev, next) => {
     nextLast?.type ?? "",
     nextLast && "text" in nextLast ? (nextLast.text ?? "") : "",
     nextLast && "state" in nextLast ? (nextLast.state ?? "") : "",
+    getToolApprovalPartSignature(nextLast),
   ].join("|");
 
   return (
     prevSignature === nextSignature &&
+    prev.addToolApprovalResponse === next.addToolApprovalResponse &&
     prev.isActiveReply === next.isActiveReply &&
     prev.isComplete === next.isComplete &&
     prev.replyMinHeight === next.replyMinHeight &&

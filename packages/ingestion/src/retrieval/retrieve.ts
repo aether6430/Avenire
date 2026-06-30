@@ -22,7 +22,7 @@ const VISUAL_INTENT_PATTERN =
 const AUDIO_INTENT_PATTERN =
   /\b(audio|sound|voice|spoken|speech|podcast|music|transcript|listen|hear)\b/i;
 const DOCUMENT_INTENT_PATTERN =
-  /\b(pdf|document|paper|chapter|page|citation|quote|paragraph|text)\b/i;
+  /(?:\b(?:pdf|document|paper|chapter|page|citation|quote|paragraph|text|spreadsheet|libreoffice|opendocument|word document|word file|microsoft word document|microsoft word file|powerpoint deck|powerpoint presentation|powerpoint file|excel sheet|excel workbook|excel file)\b|\.(?:docx?|pptx?|xlsx?|od[tpmsgfb]|ot[tpmsg])\b)/i;
 const TOKEN_SPLIT_PATTERN = /\s+/;
 const NOISY_TEXT_PATTERN =
   /(x264|mpeg-4|h\.264|cabac|deblock|bframes|keyint|qcomp|rc_lookahead|threads=)/i;
@@ -69,7 +69,7 @@ interface RetrievalPathResult {
   results: Array<{
     resourceId: string;
     fileId: string | null;
-    sourceType: "pdf" | "image" | "video" | "audio" | "markdown" | "link";
+    sourceType: "pdf" | "image" | "video" | "audio" | "document" | "markdown" | "link";
     source: string;
     provider: string | null;
     title: string | null;
@@ -120,6 +120,7 @@ export interface RetrievalDecisionTelemetry {
       | "image"
       | "video"
       | "audio"
+      | "document"
       | "markdown"
       | "link"
       | null;
@@ -137,6 +138,7 @@ export interface RetrievalDecisionTelemetry {
     | "image"
     | "video"
     | "audio"
+    | "document"
     | "markdown"
     | "link"
     | null;
@@ -289,7 +291,7 @@ export const getPreferredSourceTypes = (intent: {
   visual: boolean;
   audio: boolean;
   document: boolean;
-}): Set<"pdf" | "image" | "video" | "audio" | "markdown" | "link"> | null => {
+}): Set<"pdf" | "image" | "video" | "audio" | "document" | "markdown" | "link"> | null => {
   const { visual, audio, document } = intent;
 
   if (visual && !audio && !document) {
@@ -301,7 +303,7 @@ export const getPreferredSourceTypes = (intent: {
   }
 
   if (document && !visual && !audio) {
-    return new Set(["pdf", "markdown", "link"]);
+    return new Set(["pdf", "document", "markdown", "link"]);
   }
 
   return null;
@@ -536,7 +538,7 @@ function buildRetrievalDecisionTelemetry(input: {
   normalizedQuery: string;
   options?: {
     provider?: string;
-    sourceType?: "pdf" | "image" | "video" | "audio" | "markdown" | "link";
+    sourceType?: "pdf" | "image" | "video" | "audio" | "document" | "markdown" | "link";
     userId?: string;
     workspaceId?: string;
   };
@@ -677,9 +679,9 @@ export const applyModalityScoreAdjustments = (
     audioIntent: boolean;
     documentIntent: boolean;
     preferredSourceTypes: Set<
-      "pdf" | "image" | "video" | "audio" | "markdown" | "link"
+      "pdf" | "image" | "video" | "audio" | "document" | "markdown" | "link"
     > | null;
-    sourceType?: "pdf" | "image" | "video" | "audio" | "markdown" | "link";
+    sourceType?: "pdf" | "image" | "video" | "audio" | "document" | "markdown" | "link";
     visualIntent: boolean;
   }
 ): number => {
@@ -690,6 +692,7 @@ export const applyModalityScoreAdjustments = (
       nextScore *= 1.85;
     } else if (
       candidate.sourceType === "pdf" ||
+      candidate.sourceType === "document" ||
       candidate.sourceType === "markdown" ||
       candidate.sourceType === "link"
     ) {
@@ -704,6 +707,7 @@ export const applyModalityScoreAdjustments = (
       nextScore *= 1.35;
     } else if (
       candidate.sourceType === "pdf" ||
+      candidate.sourceType === "document" ||
       candidate.sourceType === "markdown" ||
       candidate.sourceType === "link"
     ) {
@@ -713,7 +717,9 @@ export const applyModalityScoreAdjustments = (
 
   if (
     params.documentIntent &&
-    (candidate.sourceType === "pdf" || candidate.sourceType === "markdown")
+    (candidate.sourceType === "pdf" ||
+      candidate.sourceType === "document" ||
+      candidate.sourceType === "markdown")
   ) {
     nextScore *= 1.4;
   }
@@ -756,7 +762,9 @@ export const applyHeuristicScoreAdjustments = (
   nextScore += exactPhrase * 0.28;
 
   if (
-    (candidate.sourceType === "pdf" || candidate.sourceType === "markdown") &&
+    (candidate.sourceType === "pdf" ||
+      candidate.sourceType === "document" ||
+      candidate.sourceType === "markdown") &&
     lexicalScore >= 0.25 &&
     !params.visualIntent &&
     !params.audioIntent
@@ -787,9 +795,9 @@ const scoreRetrievedCandidate = (
     learnerBoost: number;
     normalizedQuery: string;
     preferredSourceTypes: Set<
-      "pdf" | "image" | "video" | "audio" | "markdown" | "link"
+      "pdf" | "image" | "video" | "audio" | "document" | "markdown" | "link"
     > | null;
-    sourceType?: "pdf" | "image" | "video" | "audio" | "markdown" | "link";
+    sourceType?: "pdf" | "image" | "video" | "audio" | "document" | "markdown" | "link";
     visualIntent: boolean;
   }
 ): FusionCandidate => {
@@ -813,7 +821,7 @@ const searchForQuery = async (params: {
   includeLexical?: boolean;
   metadata?: Record<string, unknown>;
   options?: {
-    sourceType?: "pdf" | "image" | "video" | "audio" | "markdown" | "link";
+    sourceType?: "pdf" | "image" | "video" | "audio" | "document" | "markdown" | "link";
     provider?: string;
   };
   query: string;
@@ -902,7 +910,7 @@ export const retrieveRelevantChunks = async (
     limit?: number;
     userId?: string;
     workspaceId?: string;
-    sourceType?: "pdf" | "image" | "video" | "audio" | "markdown" | "link";
+    sourceType?: "pdf" | "image" | "video" | "audio" | "document" | "markdown" | "link";
     provider?: string;
     corpus?: Awaited<ReturnType<VectorStore["corpusStats"]>>;
   }
@@ -914,7 +922,7 @@ export const retrieveRelevantChunks = async (
   results: Array<{
     resourceId: string;
     fileId: string | null;
-    sourceType: "pdf" | "image" | "video" | "audio" | "markdown" | "link";
+    sourceType: "pdf" | "image" | "video" | "audio" | "document" | "markdown" | "link";
     source: string;
     provider: string | null;
     title: string | null;
@@ -1272,7 +1280,7 @@ function buildQueryResultPreview(params: {
   normalizedQuery: string;
   options?: {
     provider?: string;
-    sourceType?: "pdf" | "image" | "video" | "audio" | "markdown" | "link";
+    sourceType?: "pdf" | "image" | "video" | "audio" | "document" | "markdown" | "link";
     userId?: string;
     workspaceId?: string;
   };
@@ -1437,7 +1445,7 @@ async function logCalibrationShadow(input: {
   normalizedQuery: string;
   options?: {
     provider?: string;
-    sourceType?: "pdf" | "image" | "video" | "audio" | "markdown" | "link";
+    sourceType?: "pdf" | "image" | "video" | "audio" | "document" | "markdown" | "link";
     userId?: string;
     workspaceId?: string;
   };
@@ -1507,7 +1515,7 @@ export const retrieveRelevantChunksAdaptive = async (
     limit?: number;
     mode?: "auto" | "fast" | "full";
     provider?: string;
-    sourceType?: "pdf" | "image" | "video" | "audio" | "markdown" | "link";
+    sourceType?: "pdf" | "image" | "video" | "audio" | "document" | "markdown" | "link";
     userId?: string;
     workspaceId?: string;
   }

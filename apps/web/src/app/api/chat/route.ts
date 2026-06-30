@@ -7,9 +7,9 @@ import {
   convertToModelMessages,
   createUIMessageStream,
   generateText,
+  isStepCount,
   type PromptMemoryBlock,
   smoothStream,
-  stepCountIs,
   streamText,
 } from "@avenire/ai";
 import type { AgentActivityData, UIMessage } from "@avenire/ai/message-types";
@@ -38,8 +38,13 @@ import {
 } from "@/lib/chat-icons";
 import {
   createChatTools,
-  prewarmActiveMisconceptionsCache,
+  getActiveMisconceptionContext,
 } from "@/lib/chat-tools";
+import {
+  CHAT_TOOL_APPROVAL_POLICY,
+  requiresChatToolApproval,
+  stripUnconfiguredToolApprovalParts,
+} from "@/lib/chat-tool-approval-policy";
 import { invalidateChatReadCaches } from "@/lib/domain-cache";
 import {
   buildChatStreamPath,
@@ -56,6 +61,12 @@ import {
 } from "@avenire/database";
 import { buildAiTelemetry } from "@avenire/observability";
 import { normalizeMediaType } from "@/lib/media-type";
+import {
+  ACTIVE_MISCONCEPTION_CONTEXT_TIMEOUT_MS,
+  CHAT_STARTUP_CONTEXT_TIMEOUT_MS,
+  MISCONCEPTION_SIGNAL_TIMEOUT_MS,
+} from "@/lib/chat-startup-latency-budgets";
+import { schedulePostStartMisconceptionSignalCheck } from "@/lib/chat-misconception-signal-scheduler";
 import { detectMisconceptionSignals } from "@/lib/misconception-signal-detector";
 import { createApiLogger } from "@/lib/observability";
 import {
@@ -86,8 +97,6 @@ const DEFAULT_APEX_MODEL_CREDIT_MULTIPLIER = 1.5;
 const DEFAULT_CHAT_TITLE_MODEL: ApolloModelName = "apollo-meta";
 const LEARNING_CONTEXT_CACHE_PREFIX = "chat-learning-context:v1:";
 const LEARNING_CONTEXT_CACHE_TTL_SECONDS = 60 * 60 * 3;
-const CHAT_STARTUP_CONTEXT_TIMEOUT_MS = 1200;
-const MISCONCEPTION_SIGNAL_TIMEOUT_MS = 900;
 const WHITESPACE_PATTERN = /\s+/g;
 const DEFAULT_THINKING_MESSAGES = [
   "Thinking through the details",
@@ -247,6 +256,237 @@ function formatError(error: unknown) {
     };
   }
   return { message: "Unknown error", value: error };
+}
+
+function stableJson(value: unknown): string {
+  if (Array.isArray(value)) {
+    return `[${value.map(stableJson).join(",")}]`;
+  }
+  if (value && typeof value === "object") {
+    return `{${Object.entries(value as Record<string, unknown>)
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(
+        ([key, entryValue]) =>
+          `${JSON.stringify(key)}:${stableJson(entryValue)}`
+      )
+      .join(",")}}`;
+  }
+  return JSON.stringify(value);
+}
+
+const toolApprovalSignatureEncoder = new TextEncoder();
+
+function toBase64Url(bytes: Uint8Array) {
+  return Buffer.from(bytes)
+    .toString("base64")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/g, "");
+}
+
+async function signToolApprovalRequest(input: {
+  approvalId: string;
+  secret: string;
+  toolCallId: string;
+  toolName: string;
+  toolInput: unknown;
+}) {
+  const key = await crypto.subtle.importKey(
+    "raw",
+    toolApprovalSignatureEncoder.encode(input.secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+  const inputDigest = await crypto.subtle.digest(
+    "SHA-256",
+    toolApprovalSignatureEncoder.encode(stableJson(input.toolInput))
+  );
+  const payload = toolApprovalSignatureEncoder.encode(
+    `${input.approvalId}\n${input.toolCallId}\n${input.toolName}\n${toBase64Url(new Uint8Array(inputDigest))}`
+  );
+  const signature = await crypto.subtle.sign("HMAC", key, payload);
+  return toBase64Url(new Uint8Array(signature));
+}
+
+async function signMissingToolApprovalRequests(
+  messages: UIMessage[],
+  secret: string
+) {
+  let changed = false;
+
+  const nextMessages = await Promise.all(
+    messages.map(async (message) => {
+      let messageChanged = false;
+      const parts = await Promise.all(
+        message.parts.map(async (part) => {
+          const toolName = part.type.startsWith("tool-")
+            ? part.type.slice("tool-".length)
+            : null;
+          const approval =
+            "approval" in part &&
+            part.approval &&
+            typeof part.approval === "object"
+              ? (part.approval as { id?: unknown; signature?: unknown })
+              : null;
+          const toolCallId =
+            "toolCallId" in part && typeof part.toolCallId === "string"
+              ? part.toolCallId
+              : null;
+
+          if (
+            !toolName ||
+            !requiresChatToolApproval(toolName) ||
+            !("state" in part) ||
+            part.state !== "approval-requested" ||
+            !approval ||
+            typeof approval.id !== "string" ||
+            typeof approval.signature === "string" ||
+            !toolCallId
+          ) {
+            return part;
+          }
+
+          changed = true;
+          messageChanged = true;
+          return {
+            ...part,
+            approval: {
+              ...approval,
+              signature: await signToolApprovalRequest({
+                approvalId: approval.id,
+                secret,
+                toolCallId,
+                toolName,
+                toolInput: "input" in part ? part.input : undefined,
+              }),
+            },
+          } as typeof part;
+        })
+      );
+
+      return messageChanged ? { ...message, parts } : message;
+    })
+  );
+
+  return changed ? nextMessages : messages;
+}
+
+function getToolApprovalParts(messages: UIMessage[], state: string) {
+  return messages.flatMap((message) =>
+    (message.parts ?? []).flatMap((part) => {
+      if (
+        !(part.type.startsWith("tool-") && "state" in part) ||
+        part.state !== state ||
+        !("approval" in part) ||
+        !part.approval ||
+        typeof part.approval !== "object"
+      ) {
+        return [];
+      }
+
+      const approval = part.approval as { approved?: unknown; id?: unknown };
+      if (typeof approval.id !== "string") {
+        return [];
+      }
+
+      return [
+        {
+          approvalId: approval.id,
+          approved: approval.approved,
+          input: "input" in part ? part.input : undefined,
+          toolCallId:
+            "toolCallId" in part && typeof part.toolCallId === "string"
+              ? part.toolCallId
+              : null,
+          type: part.type,
+        },
+      ];
+    })
+  );
+}
+
+function getUnresolvedToolApprovalRequests(messages: UIMessage[]) {
+  const unresolvedRequests = new Map<
+    string,
+    ReturnType<typeof getToolApprovalParts>[number]
+  >();
+
+  for (const message of messages) {
+    for (const part of message.parts ?? []) {
+      if (
+        !(part.type.startsWith("tool-") && "state" in part) ||
+        !("approval" in part) ||
+        !part.approval ||
+        typeof part.approval !== "object"
+      ) {
+        continue;
+      }
+
+      const approval = part.approval as { approved?: unknown; id?: unknown };
+      if (typeof approval.id !== "string") {
+        continue;
+      }
+
+      if (part.state === "approval-requested") {
+        unresolvedRequests.set(approval.id, {
+          approvalId: approval.id,
+          approved: approval.approved,
+          input: "input" in part ? part.input : undefined,
+          toolCallId:
+            "toolCallId" in part && typeof part.toolCallId === "string"
+              ? part.toolCallId
+              : null,
+          type: part.type,
+        });
+        continue;
+      }
+
+      if (part.state === "approval-responded") {
+        unresolvedRequests.delete(approval.id);
+      }
+    }
+  }
+
+  return unresolvedRequests;
+}
+
+async function validateApprovedToolCallsAgainstPersistedHistory(input: {
+  chatSlug: string;
+  messages: UIMessage[];
+  userId: string;
+  workspaceId: string;
+}) {
+  const approvedResponses = getToolApprovalParts(
+    input.messages,
+    "approval-responded"
+  ).filter((part) => part.approved === true);
+
+  if (approvedResponses.length === 0) {
+    return true;
+  }
+
+  const persistedMessages =
+    (await getMessagesByChatSlugForUser(
+      input.userId,
+      input.chatSlug,
+      input.workspaceId
+    )) ?? [];
+  const persistedRequests = getUnresolvedToolApprovalRequests(persistedMessages);
+
+  return approvedResponses.every((response) => {
+    const request = persistedRequests.get(response.approvalId);
+    const isValid =
+      request?.type === response.type &&
+      request.toolCallId === response.toolCallId &&
+      stableJson(request.input) === stableJson(response.input);
+
+    if (isValid) {
+      persistedRequests.delete(response.approvalId);
+    }
+
+    return isValid;
+  });
 }
 
 function getChatStreamErrorMessage(error: unknown) {
@@ -615,6 +855,26 @@ function buildPromptMemoryBlocks(input: {
   return blocks;
 }
 
+function buildMisconceptionPromptMemoryBlock(input: {
+  context: string | null;
+  subject: string | null;
+  topic: string | null;
+}): PromptMemoryBlock | null {
+  if (!input.context) {
+    return null;
+  }
+
+  return {
+    content: input.context,
+    freshness: "historical",
+    kind: "misconception",
+    scope: {
+      subject: input.subject,
+      topic: input.topic,
+    },
+  };
+}
+
 function isPromptMemoryBlockArray(
   value: unknown
 ): value is PromptMemoryBlock[] {
@@ -730,6 +990,7 @@ async function getCachedLearningPromptMemoryBlocks(input: {
 async function generateChatMetadata(
   latestUserText: string,
   abortSignal?: AbortSignal,
+  runtimeContext?: Record<string, string | null>,
   telemetry?: ReturnType<typeof buildAiTelemetry>
 ) {
   if (!latestUserText) {
@@ -760,7 +1021,8 @@ async function generateChatMetadata(
       maxOutputTokens: 256,
       temperature: 0.2,
       abortSignal,
-      experimental_telemetry: telemetry,
+      runtimeContext,
+      telemetry,
     });
 
     if (!text || text.trim().length === 0) {
@@ -1351,8 +1613,16 @@ export async function POST(request: Request) {
     }
     const idempotencyHeader = request.headers.get("idempotency-key")?.trim();
 
-    const originalMessages = stripNonHttpFileParts(
-      normalizeMessageFileMediaTypes(body.messages ?? [])
+    if (!process.env.TOOL_APPROVAL_SECRET) {
+      throw new Error(
+        "TOOL_APPROVAL_SECRET is required for signed tool approvals."
+      );
+    }
+    const originalMessages = await signMissingToolApprovalRequests(
+      stripUnconfiguredToolApprovalParts(
+        stripNonHttpFileParts(normalizeMessageFileMediaTypes(body.messages ?? []))
+      ),
+      process.env.TOOL_APPROVAL_SECRET
     );
     const modelContextMessages = trimMessagesForModelContext(originalMessages);
 
@@ -1480,6 +1750,25 @@ export async function POST(request: Request) {
       });
       return NextResponse.json({ error: "Read-only chat" }, { status: 403 });
     }
+    const approvalsAreValid =
+      await validateApprovedToolCallsAgainstPersistedHistory({
+        chatSlug,
+        messages: originalMessages,
+        userId: session.user.id,
+        workspaceId: workspace.workspaceId,
+      });
+    if (!approvalsAreValid) {
+      apiLogger.requestFailed(403, "Invalid tool approval", {
+        chatId: chatSlug,
+      });
+      if (idempotencyRedisKey && idempotencyLockAcquired) {
+        await clearIdempotencyKey(idempotencyRedisKey);
+      }
+      return NextResponse.json(
+        { error: "Invalid tool approval" },
+        { status: 403 }
+      );
+    }
     const requestStartedAt = new Date();
 
     const latestUserText = extractLatestUserText(originalMessages);
@@ -1490,6 +1779,17 @@ export async function POST(request: Request) {
       model: selectedModel,
       providerModel: APOLLO_LANGUAGE_MODEL_IDS[selectedModel],
       userId: session.user.id,
+      workspaceId: workspace.workspaceId,
+    };
+    const chatRuntimeContext = {
+      chatId: chatSlug,
+      conversationId: chatSlug,
+      feature: "chat",
+      model: selectedModel,
+      posthogDistinctId: session.user.id,
+      providerModel: APOLLO_LANGUAGE_MODEL_IDS[selectedModel],
+      requestId: request.headers.get("x-request-id") ?? null,
+      service: "web",
       workspaceId: workspace.workspaceId,
     };
     logInfo("Incoming chat request", {
@@ -1566,6 +1866,7 @@ export async function POST(request: Request) {
     }
     const stream = createUIMessageStream<UIMessage>({
       execute: async ({ writer }) => {
+        const streamSetupStartedAtMs = performance.now();
         const shouldGenerateChatTitle = shouldGenerateTitle(
           chat.title,
           originalMessages
@@ -1585,6 +1886,7 @@ export async function POST(request: Request) {
             const nextMeta = await generateChatMetadata(
               latestUserTextForMetadata,
               request.signal,
+              chatRuntimeContext,
               buildAiTelemetry({
                 ...chatTelemetryBase,
                 functionId: "chat.metadata",
@@ -1691,7 +1993,8 @@ export async function POST(request: Request) {
 
         let result: Awaited<ReturnType<typeof streamText>>;
         const agentActivityId = randomUUID();
-        const misconceptionActivityId = randomUUID();
+        let firstModelChunkLogged = false;
+        let firstTextDeltaLogged = false;
         const emitAgentActivity = (data: AgentActivityData) => {
           writer.write({
             type: "data-agent_activity",
@@ -1713,26 +2016,7 @@ export async function POST(request: Request) {
             ],
           });
         };
-        const emitMisconceptionActivity = (value: string) => {
-          emitAgentActivity({
-            id: misconceptionActivityId,
-            status: "running",
-            actions: [
-              {
-                kind: "misconception",
-                pending: true,
-                value,
-              },
-            ],
-          });
-        };
-        const clearMisconceptionActivity = () => {
-          emitAgentActivity({
-            id: misconceptionActivityId,
-            status: "done",
-            actions: [],
-          });
-        };
+        let scheduleMisconceptionSignalCheck: (() => void) | null = null;
         emitStartupActivity("Preparing chat context");
         const tools = createChatTools({
           chatSlug,
@@ -1821,18 +2105,43 @@ export async function POST(request: Request) {
               .join("\n\n"),
             resolvedSubject
           );
-          void prewarmActiveMisconceptionsCache({
-            subject: resolvedSubject,
-            topic: resolvedTopic,
-            userId: session.user.id,
-            workspaceId: workspace.workspaceId,
-          }).catch((error) => {
-            logWarn("Failed to prewarm active misconceptions cache", {
-              chatId: chat.id,
-              error: formatError(error),
+          const activeMisconceptionContextStartedAtMs = performance.now();
+          const activeMisconceptionContextPromise = withStartupTimeout(
+            getActiveMisconceptionContext({
               subject: resolvedSubject,
               topic: resolvedTopic,
+              userId: session.user.id,
+              workspaceId: workspace.workspaceId,
+            }).catch((error) => {
+              logWarn(
+                "Failed to load active misconception context; continuing without it",
+                {
+                  chatId: chat.id,
+                  error: formatError(error),
+                  subject: resolvedSubject,
+                  topic: resolvedTopic,
+                }
+              );
+              return null;
+            }),
+            "active-misconception-context",
+            null,
+            ACTIVE_MISCONCEPTION_CONTEXT_TIMEOUT_MS
+          ).then((context) => {
+            const elapsedMs =
+              Math.round(
+                (performance.now() - activeMisconceptionContextStartedAtMs) *
+                  1000
+              ) / 1000;
+            apiLogger.meter("meter.chat.active_misconception_context", {
+              chatId: chatSlug,
+              elapsedMs,
+              included: Boolean(context),
+              subject: resolvedSubject,
+              timeoutMs: ACTIVE_MISCONCEPTION_CONTEXT_TIMEOUT_MS,
+              topic: resolvedTopic,
             });
+            return context;
           });
           const promptMemoryBlocksPromise = withStartupTimeout(
             getCachedLearningPromptMemoryBlocks({
@@ -1848,10 +2157,23 @@ export async function POST(request: Request) {
             "learning-prompt-memory",
             []
           );
-          const [modelMessages, promptMemoryBlocks] = await Promise.all([
+          const [
+            modelMessages,
+            cachedPromptMemoryBlocks,
+            activeMisconceptionContext,
+          ] = await Promise.all([
             modelMessagesPromise,
             promptMemoryBlocksPromise,
+            activeMisconceptionContextPromise,
           ]);
+          const activeMisconceptionBlock = buildMisconceptionPromptMemoryBlock({
+            context: activeMisconceptionContext,
+            subject: resolvedSubject,
+            topic: resolvedTopic,
+          });
+          const promptMemoryBlocks = activeMisconceptionBlock
+            ? [...cachedPromptMemoryBlocks, activeMisconceptionBlock]
+            : cachedPromptMemoryBlocks;
           emitStartupActivity("Starting model response");
           logInfo("Resolved chat prompt context", {
             chatId: chatSlug,
@@ -1859,30 +2181,83 @@ export async function POST(request: Request) {
             resolvedSubject,
             resolvedTopic,
             promptMemoryBlockCount: promptMemoryBlocks.length,
+            activeMisconceptionContextIncluded: Boolean(
+              activeMisconceptionBlock
+            ),
           });
           // Do not pass request.signal here. The client may disconnect during
           // navigation or refresh, but the resumable stream should continue so
           // `/api/chat/[id]/stream` can reconnect to it.
+          if (!process.env.TOOL_APPROVAL_SECRET) {
+            throw new Error(
+              "TOOL_APPROVAL_SECRET is required for signed tool approvals."
+            );
+          }
           result = streamText({
             model: apollo.languageModel(selectedModel),
-            system: APOLLO_PROMPT(
+            instructions: APOLLO_PROMPT(
               body.userName ?? session.user.name ?? undefined,
               promptMemoryBlocks.length > 0 ? promptMemoryBlocks : undefined
             ),
             messages: modelMessages,
             maxOutputTokens: 20_000,
-            stopWhen: stepCountIs(8),
+            stopWhen: isStepCount(8),
             tools: modelTools,
+            toolApproval: CHAT_TOOL_APPROVAL_POLICY,
+            experimental_toolApprovalSecret: process.env.TOOL_APPROVAL_SECRET,
+            runtimeContext: chatRuntimeContext,
             experimental_transform: smoothStream({
               delayInMs: null,
               chunking: "word",
             }),
-            experimental_telemetry: buildAiTelemetry({
+            telemetry: buildAiTelemetry({
               ...chatTelemetryBase,
               functionId: "chat.response",
             }),
             onChunk: async ({ chunk }) => {
               try {
+                if (!firstModelChunkLogged) {
+                  firstModelChunkLogged = true;
+                  const firstChunkElapsedMs =
+                    Math.round(
+                      (performance.now() - streamSetupStartedAtMs) * 1000
+                    ) / 1000;
+                  logInfo("First model chunk received", {
+                    chatId: chatSlug,
+                    chunkType: chunk.type,
+                    elapsedMs: firstChunkElapsedMs,
+                    model: selectedModel,
+                    providerModel: APOLLO_LANGUAGE_MODEL_IDS[selectedModel],
+                  });
+                  apiLogger.meter("meter.chat.first_chunk", {
+                    chatId: chatSlug,
+                    chunkType: chunk.type,
+                    elapsedMs: firstChunkElapsedMs,
+                    model: selectedModel,
+                    providerModel: APOLLO_LANGUAGE_MODEL_IDS[selectedModel],
+                  });
+                }
+
+                if (chunk.type === "text-delta" && !firstTextDeltaLogged) {
+                  firstTextDeltaLogged = true;
+                  const firstTextDeltaElapsedMs =
+                    Math.round(
+                      (performance.now() - streamSetupStartedAtMs) * 1000
+                    ) / 1000;
+                  logInfo("First model text delta received", {
+                    chatId: chatSlug,
+                    elapsedMs: firstTextDeltaElapsedMs,
+                    model: selectedModel,
+                    providerModel: APOLLO_LANGUAGE_MODEL_IDS[selectedModel],
+                  });
+                  apiLogger.meter("meter.chat.first_text_delta", {
+                    chatId: chatSlug,
+                    elapsedMs: firstTextDeltaElapsedMs,
+                    model: selectedModel,
+                    providerModel: APOLLO_LANGUAGE_MODEL_IDS[selectedModel],
+                  });
+                }
+
                 if (chunk.type === "tool-call") {
                   logInfo("Streaming tool call chunk", {
                     chatId: chatSlug,
@@ -1920,43 +2295,53 @@ export async function POST(request: Request) {
               },
             ],
           });
-          void (async () => {
-            emitMisconceptionActivity("Checking misconception memory");
-            const misconceptionSignal = await withStartupTimeout(
-              detectMisconceptionSignals({
-                abortSignal: request.signal,
-                latestUserText,
-                subject: resolvedSubject,
-                topic: resolvedTopic,
-                userId: session.user.id,
-                workspaceId: workspace.workspaceId,
-              }).catch((error) => {
-                logWarn(
-                  "Failed to detect real-time misconception signal; continuing without it",
-                  {
-                    chatId: chat.id,
-                    error: formatError(error),
+          logInfo("Model stream initialized", {
+            chatId: chatSlug,
+            elapsedMs: Math.round(
+              (performance.now() - streamSetupStartedAtMs) * 1000
+            ) / 1000,
+          });
+          scheduleMisconceptionSignalCheck = () => {
+            schedulePostStartMisconceptionSignalCheck({
+              detect: () =>
+                withStartupTimeout(
+                  detectMisconceptionSignals({
+                    abortSignal: request.signal,
+                    latestUserText,
                     subject: resolvedSubject,
                     topic: resolvedTopic,
-                  }
-                );
-                return null;
-              }),
-              "misconception-signal-detector",
-              null,
-              MISCONCEPTION_SIGNAL_TIMEOUT_MS
-            );
-
-            clearMisconceptionActivity();
-            logInfo("Resolved post-start misconception signal", {
-              chatId: chatSlug,
-              misconceptionSignalCandidateCount:
-                misconceptionSignal?.candidates.length ?? 0,
-              misconceptionSignalMatched: misconceptionSignal?.matched ?? false,
-              resolvedSubject,
-              resolvedTopic,
+                    userId: session.user.id,
+                    workspaceId: workspace.workspaceId,
+                  }).catch((error) => {
+                    logWarn(
+                      "Failed to detect real-time misconception signal; continuing without it",
+                      {
+                        chatId: chat.id,
+                        error: formatError(error),
+                        subject: resolvedSubject,
+                        topic: resolvedTopic,
+                      }
+                    );
+                    return null;
+                  }),
+                  "misconception-signal-detector",
+                  null,
+                  MISCONCEPTION_SIGNAL_TIMEOUT_MS
+                ),
+              onComplete: ({ elapsedMs, signal }) => {
+                logInfo("Resolved post-start misconception signal", {
+                  chatId: chatSlug,
+                  elapsedMs,
+                  misconceptionSignalCandidateCount:
+                    signal?.candidates.length ?? 0,
+                  misconceptionSignalMatched: signal?.matched ?? false,
+                  resolvedSubject,
+                  resolvedTopic,
+                });
+              },
+              schedule: after,
             });
-          })();
+          };
         } catch (error) {
           await clearActiveStreamId(chatSlug, streamPath);
           if (idempotencyRedisKey && idempotencyLockAcquired) {
@@ -2077,7 +2462,7 @@ export async function POST(request: Request) {
                 }
 
                 try {
-                  const totalUsage = await result.totalUsage;
+                  const totalUsage = await result.usage;
                   const totalTokens = resolveTotalTokens(totalUsage);
                   const creditMultiplier =
                     getModelCreditMultiplier(selectedModel);
@@ -2169,6 +2554,7 @@ export async function POST(request: Request) {
           })
         );
 
+        scheduleMisconceptionSignalCheck?.();
         void streamChatMetadata();
       },
     });

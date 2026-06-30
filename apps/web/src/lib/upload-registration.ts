@@ -23,6 +23,7 @@ export interface UploadRegistrationResult {
 }
 
 export {
+  assertTrustedUploadStorageUrl,
   extractMarkdownNotePayload,
   inferMimeTypeFromName,
   isMarkdownUpload,

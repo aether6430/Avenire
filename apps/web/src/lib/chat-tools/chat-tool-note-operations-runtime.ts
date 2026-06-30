@@ -1,11 +1,9 @@
+import { createHash } from "node:crypto";
 import { deleteIngestionDataForFile } from "@avenire/database";
 import type { z } from "zod";
 import {
   enqueueIngestionForFile,
-  generateNoteDraftFromTask,
   resolveCreateNoteFolder,
-  rewriteNoteFromTask,
-  updateFileTags,
 } from "@/lib/chat-tools/chat-tool-note-runtime";
 import {
   buildNoteContent,
@@ -22,8 +20,8 @@ import {
   createWorkspaceNoteFile,
   getFileAssetById,
   listWorkspaceFiles,
-  updateNoteContent,
   updateFileAsset,
+  updateNoteContent,
   userCanEditFile,
 } from "@/lib/file-data";
 
@@ -52,6 +50,10 @@ type ListNotesInput = z.infer<
 type UpdateNoteTagsInput = z.infer<
   typeof import("@avenire/ai/tools").chatToolSchemas["update_note_tags"]["input"]
 >;
+
+function sha256Hex(value: string) {
+  return createHash("sha256").update(value, "utf8").digest("hex");
+}
 
 export async function executeCreateNote(
   ctx: NoteOperationContext,
@@ -118,6 +120,7 @@ export async function executeCreateNote(
   const newMaps = await buildWorkspacePathMaps(ctx.workspaceId, ctx.userId);
 
   return {
+    content,
     fileId: file.id,
     title: file.name,
     workspacePath: newMaps.filePathById.get(file.id) ?? file.name,
@@ -139,7 +142,7 @@ export async function executeReadNote(
     throw new Error(`File is not a markdown note: ${input.fileId}`);
   }
 
-  const content = await fetchWorkspaceFileText(file, 50_000);
+  const content = await fetchWorkspaceFileText(file);
   const trimmedContent = content.trim();
 
   if (!trimmedContent) {
@@ -147,7 +150,8 @@ export async function executeReadNote(
   }
 
   return {
-    content: trimmedContent.slice(0, 50_000),
+    content,
+    contentSha256: sha256Hex(content),
     fileId: file.id,
     tags: getFileTags(file),
     title: file.name,
@@ -182,17 +186,17 @@ export async function executeUpdateNote(
     throw new Error("The requested note is read-only.");
   }
 
-  const currentContent = await fetchWorkspaceFileText(file, 50_000);
+  const currentContent = await fetchWorkspaceFileText(file);
+  if (sha256Hex(currentContent) !== input.baseContentSha256) {
+    throw new Error(
+      "The note changed after the AI read it. Re-read the note and ask for approval again."
+    );
+  }
+
   const nextContent =
     input.mode === "append"
       ? `${currentContent}\n\n${input.content}`
-      : input.mode === "replace_entire"
-        ? input.content
-        : await rewriteNoteFromTask({
-            currentMarkdown: currentContent,
-            fileName: file.name,
-            task: input.content,
-          });
+      : input.content;
 
   const updated = await updateNoteContent({
     baseContent: currentContent,
@@ -219,7 +223,10 @@ export async function executeUpdateNote(
   });
 
   return {
+    content: nextContent,
     fileId: file.id,
+    previousContent: currentContent,
+    title: file.name,
     updatedAt: updated.updatedAt.toISOString(),
     workspacePath: maps.filePathById.get(file.id) ?? file.name,
   };
@@ -256,9 +263,7 @@ export async function executeListNotes(
         wordCount: content.split(/\s+/).length,
         workspacePath: maps.filePathById.get(file.id) ?? file.name,
       });
-    } catch {
-      continue;
-    }
+    } catch {}
   }
 
   return {
@@ -294,25 +299,21 @@ export async function executeUpdateNoteTags(
     properties: {},
   };
 
-  const updated = await updateFileAsset(
-    ctx.workspaceId,
-    file.id,
-    ctx.userId,
-    {
-      metadata: {
-        page: {
-          ...currentPage,
-          properties: {
-            ...(currentPage as { properties?: Record<string, unknown> }).properties,
-            tags: {
-              type: "multi_select" as const,
-              value: nextTags,
-            },
+  const updated = await updateFileAsset(ctx.workspaceId, file.id, ctx.userId, {
+    metadata: {
+      page: {
+        ...currentPage,
+        properties: {
+          ...(currentPage as { properties?: Record<string, unknown> })
+            .properties,
+          tags: {
+            type: "multi_select" as const,
+            value: nextTags,
           },
         },
       },
-    }
-  );
+    },
+  });
 
   if (!updated) {
     throw new Error("Unable to update note tags.");

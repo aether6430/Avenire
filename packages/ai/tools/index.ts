@@ -3,7 +3,7 @@ import { z } from "zod";
 import { AVAILABLE_STUDY_SKILLS, AVAILABLE_VISUAL_SKILLS } from "../skills";
 
 const sourceTypeSchema = z
-  .enum(["pdf", "image", "video", "audio", "markdown", "link"])
+  .enum(["pdf", "image", "video", "audio", "document", "markdown", "link"])
   .optional();
 
 const fileOperationResultSchema = z.object({
@@ -384,7 +384,7 @@ export const chatToolSchemas = {
   read_file: {
     input: z.object({
       fileId: z.string().min(1),
-      maxChars: z.number().int().min(100).max(50000).optional(),
+      maxChars: z.number().int().min(100).max(50_000).optional(),
     }),
     output: z.object({
       content: z.string(),
@@ -436,6 +436,7 @@ export const chatToolSchemas = {
       title: z.string().min(1).max(120),
     }),
     output: z.object({
+      content: z.string(),
       fileId: z.string(),
       title: z.string(),
       workspacePath: z.string(),
@@ -447,6 +448,7 @@ export const chatToolSchemas = {
     }),
     output: z.object({
       content: z.string(),
+      contentSha256: z.string(),
       fileId: z.string(),
       tags: z.array(z.string()),
       title: z.string(),
@@ -457,12 +459,17 @@ export const chatToolSchemas = {
   },
   update_note: {
     input: z.object({
-      content: z.string(),
+      baseContentSha256: z.string().regex(/^[a-f0-9]{64}$/),
+      changeSummary: z.string().max(280).optional(),
+      content: z.string().min(1),
       fileId: z.string().min(1),
-      mode: z.enum(["replace_entire", "append"]).optional(),
+      mode: z.enum(["replace_entire", "append"]),
     }),
     output: z.object({
+      content: z.string(),
       fileId: z.string(),
+      previousContent: z.string(),
+      title: z.string(),
       updatedAt: z.string(),
       workspacePath: z.string(),
     }),
@@ -542,9 +549,7 @@ export const chatToolSchemas = {
     input: z.object({
       skills: z
         .array(
-          z.enum(
-            AVAILABLE_STUDY_SKILLS as unknown as [string, ...string[]]
-          )
+          z.enum(AVAILABLE_STUDY_SKILLS as unknown as [string, ...string[]])
         )
         .min(1),
     }),
@@ -557,9 +562,7 @@ export const chatToolSchemas = {
     input: z.object({
       modules: z
         .array(
-          z.enum(
-            AVAILABLE_VISUAL_SKILLS as unknown as [string, ...string[]]
-          )
+          z.enum(AVAILABLE_VISUAL_SKILLS as unknown as [string, ...string[]])
         )
         .min(1),
     }),
