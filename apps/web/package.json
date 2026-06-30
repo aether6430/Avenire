@@ -6,7 +6,7 @@
     "dev": "bun --bun next dev --port 3000",
     "build": "([ \"$NODE_ENV\" = \"production\" ] || [ \"$VERCEL_ENV\" = \"production\" ]) && bun run check-types; next build",
     "start": "next start -p ${PORT:-3000}",
-    "start:durable-streams": "PORT=${DURABLE_STREAMS_PORT:-4437} node ../../bin/start-durable-streams.mjs",
+    "start:durable-streams": "node ../../bin/start-durable-streams.mjs",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "lint": "biome check .",
