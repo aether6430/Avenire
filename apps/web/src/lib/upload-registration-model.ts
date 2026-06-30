@@ -166,6 +166,27 @@ export function normalizeUploadThingStorageUrl(
   }
 }
 
+export function assertTrustedUploadStorageUrl(
+  storageUrl: string,
+  storageKey: string
+) {
+  const normalized = normalizeUploadThingStorageUrl(storageUrl, storageKey);
+  let parsed: URL;
+
+  try {
+    parsed = new URL(normalized);
+  } catch {
+    throw new Error("Invalid uploaded file URL.");
+  }
+
+  const host = parsed.hostname.toLowerCase();
+  if (!(parsed.protocol === "https:" && (host === "utfs.io" || host.endsWith(".ufs.sh")))) {
+    throw new Error("Uploaded file URL is not from a trusted storage host.");
+  }
+
+  return normalized;
+}
+
 function inferFrontmatterProperty(value: unknown) {
   if (typeof value === "boolean") {
     return { type: "checkbox" as const, value };

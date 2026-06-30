@@ -22,7 +22,7 @@ const VISUAL_INTENT_PATTERN =
 const AUDIO_INTENT_PATTERN =
   /\b(audio|sound|voice|spoken|speech|podcast|music|transcript|listen|hear)\b/i;
 const DOCUMENT_INTENT_PATTERN =
-  /\b(pdf|document|paper|chapter|page|citation|quote|paragraph|text|docx|word|powerpoint|ppt|pptx|excel|spreadsheet|xlsx|libreoffice|opendocument|odt|ods|odp)\b/i;
+  /(?:\b(?:pdf|document|paper|chapter|page|citation|quote|paragraph|text|spreadsheet|libreoffice|opendocument|word document|word file|microsoft word document|microsoft word file|powerpoint deck|powerpoint presentation|powerpoint file|excel sheet|excel workbook|excel file)\b|\.(?:docx?|pptx?|xlsx?|od[tpmsgfb]|ot[tpmsg])\b)/i;
 const TOKEN_SPLIT_PATTERN = /\s+/;
 const NOISY_TEXT_PATTERN =
   /(x264|mpeg-4|h\.264|cabac|deblock|bframes|keyint|qcomp|rc_lookahead|threads=)/i;

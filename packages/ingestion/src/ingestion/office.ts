@@ -44,16 +44,22 @@ const chunkingConfigForType = (
   };
 };
 
-async function fetchOfficeFile(url: string) {
+async function fetchOfficeFile(url: string, signal: AbortSignal) {
+  const response = await fetch(url, { signal });
+  if (!response.ok) {
+    throw new Error(`Failed to fetch office file (${response.status}).`);
+  }
+  return Buffer.from(await response.arrayBuffer());
+}
+
+async function withOfficeDeadline<T>(
+  task: (signal: AbortSignal) => Promise<T>
+) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), OFFICE_FETCH_TIMEOUT_MS);
 
   try {
-    const response = await fetch(url, { signal: controller.signal });
-    if (!response.ok) {
-      throw new Error(`Failed to fetch office file (${response.status}).`);
-    }
-    return Buffer.from(await response.arrayBuffer());
+    return await task(controller.signal);
   } finally {
     clearTimeout(timeout);
   }
@@ -115,17 +121,23 @@ export async function ingestOfficeDocument(input: {
   title?: string;
   url: string;
 }): Promise<CanonicalResource> {
-  const buffer = await fetchOfficeFile(input.url);
-  const ast = await OfficeParser.parseOffice(buffer, {
-    ignoreComments: false,
-    ignoreNotes: false,
-    newlineDelimiter: "\n",
-    outputErrorToConsole: false,
+  const { ast, generated } = await withOfficeDeadline(async (signal) => {
+    const buffer = await fetchOfficeFile(input.url, signal);
+    const parsed = await OfficeParser.parseOffice(buffer, {
+      abortSignal: signal,
+      ignoreComments: false,
+      ignoreNotes: false,
+      newlineDelimiter: "\n",
+      outputErrorToConsole: false,
+    });
+    const chunks = await parsed.to("chunks", {
+      abortSignal: signal,
+      chunksConfig: chunkingConfigForType(parsed.type),
+    });
+
+    return { ast: parsed, generated: chunks };
   });
   const provider = `officeparser:${ast.type}`;
-  const generated = await ast.to("chunks", {
-    chunksConfig: chunkingConfigForType(ast.type),
-  });
   const officeChunks = Array.isArray(generated.value)
     ? (generated.value as OfficeChunk[])
     : [];

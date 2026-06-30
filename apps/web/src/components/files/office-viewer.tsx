@@ -59,21 +59,28 @@ const supportedParserTypes = new Set<SupportedFileType>([
   "xlsx",
 ]);
 const documentParserHints = new Map<string, SupportedFileType>([
+  ["doc", "docx"],
   ["docx", "docx"],
+  ["odb", "odt"],
+  ["odf", "odt"],
+  ["odg", "odt"],
   ["odm", "odt"],
   ["odt", "odt"],
+  ["otg", "odt"],
   ["ott", "odt"],
   ["rtf", "rtf"],
 ]);
 const presentationParserHints = new Map<string, SupportedFileType>([
   ["odp", "odp"],
   ["otp", "odp"],
+  ["ppt", "pptx"],
   ["pptx", "pptx"],
 ]);
 const spreadsheetParserHints = new Map<string, SupportedFileType>([
   ["csv", "csv"],
   ["ods", "ods"],
   ["ots", "ods"],
+  ["xls", "xlsx"],
   ["xlsx", "xlsx"],
 ]);
 

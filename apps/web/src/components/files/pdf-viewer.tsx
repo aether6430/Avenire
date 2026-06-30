@@ -140,28 +140,35 @@ function PdfPagesView({
 function PdfFloatingDock() {
   const currentPage = usePdf((state) => state.currentPage);
   const pdfDocumentProxy = usePdf((state) => state.pdfDocumentProxy);
-  const totalPages = usePdf((state) => state.pdfDocumentProxy.numPages);
+  const totalPages = pdfDocumentProxy?.numPages ?? 0;
   const zoom = usePdf((state) => state.zoom);
   const updateZoom = usePdf((state) => state.updateZoom);
   const { jumpToPage } = usePdfJump();
   const viewportRef = usePdf((state) => state.viewportRef);
-  const isVisible = useScrollActivatedDock(viewportRef, Boolean(pdfDocumentProxy));
+  const hasDocument = Boolean(pdfDocumentProxy);
+  const isVisible = useScrollActivatedDock(viewportRef, hasDocument);
 
   return (
     <DocumentViewerDock
       currentPage={currentPage}
       isVisible={isVisible}
       onNextPage={() => {
-        if (totalPages > 0) {
+        if (hasDocument && totalPages > 0) {
           jumpToPage(Math.min(totalPages, currentPage + 1), {
             behavior: "smooth",
           });
         }
       }}
-      onPageChange={(page) => jumpToPage(page, { behavior: "smooth" })}
-      onPreviousPage={() =>
-        jumpToPage(Math.max(1, currentPage - 1), { behavior: "smooth" })
-      }
+      onPageChange={(page) => {
+        if (hasDocument) {
+          jumpToPage(page, { behavior: "smooth" });
+        }
+      }}
+      onPreviousPage={() => {
+        if (hasDocument) {
+          jumpToPage(Math.max(1, currentPage - 1), { behavior: "smooth" });
+        }
+      }}
       onZoomChange={(nextZoom) => updateZoom(nextZoom)}
       totalPages={totalPages}
       zoom={zoom || 1}

@@ -16,10 +16,10 @@ import type {
   UploadRegistrationResult,
 } from "@/lib/upload-registration";
 import {
+  assertTrustedUploadStorageUrl,
   extractMarkdownNotePayload,
   isMarkdownUpload,
   normalizeSha256,
-  normalizeUploadThingStorageUrl,
   resolveMimeType,
 } from "@/lib/upload-registration-model";
 import { publishWorkspaceStreamEvent } from "@/lib/workspace-event-stream";
@@ -210,11 +210,12 @@ export async function registerWorkspaceUploadedFile(
     mimeType: input.mimeType,
     name: input.name,
   });
+  const trustedStorageUrl = assertTrustedUploadStorageUrl(
+    input.storageUrl,
+    input.storageKey
+  );
   if (isMarkdownUpload({ mimeType: resolvedMimeType, name: input.name })) {
-    const response = await fetch(
-      normalizeUploadThingStorageUrl(input.storageUrl, input.storageKey),
-      { cache: "no-store" }
-    );
+    const response = await fetch(trustedStorageUrl, { cache: "no-store" });
     if (!response.ok) {
       throw new Error("Unable to read uploaded markdown file.");
     }
@@ -238,10 +239,7 @@ export async function registerWorkspaceUploadedFile(
     metadata: input.metadata,
     sizeBytes: input.sizeBytes,
     storageKey: input.storageKey,
-    storageUrl: normalizeUploadThingStorageUrl(
-      input.storageUrl,
-      input.storageKey
-    ),
+    storageUrl: trustedStorageUrl,
   };
   const normalizedHash = normalizeSha256(normalizedUpload.contentHashSha256);
 

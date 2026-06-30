@@ -58,6 +58,7 @@ vi.mock("@/lib/workspace-event-stream", () => ({
 }));
 
 vi.mock("@/lib/upload-registration-model", () => ({
+  assertTrustedUploadStorageUrl: vi.fn((url: string) => url),
   extractMarkdownNotePayload: vi.fn(
     (input: { rawContent: string; metadata?: Record<string, unknown> }) => ({
       content: input.rawContent,

@@ -128,11 +128,20 @@ const inferMimeTypeFromName = (fileName: string): string | null => {
   if (normalizedName.endsWith(".url")) {
     return "application/url";
   }
+  if (normalizedName.endsWith(".doc")) {
+    return "application/msword";
+  }
   if (normalizedName.endsWith(".docx")) {
     return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
   }
+  if (normalizedName.endsWith(".ppt")) {
+    return "application/vnd.ms-powerpoint";
+  }
   if (normalizedName.endsWith(".pptx")) {
     return "application/vnd.openxmlformats-officedocument.presentationml.presentation";
+  }
+  if (normalizedName.endsWith(".xls")) {
+    return "application/vnd.ms-excel";
   }
   if (normalizedName.endsWith(".xlsx")) {
     return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
@@ -143,11 +152,35 @@ const inferMimeTypeFromName = (fileName: string): string | null => {
   if (normalizedName.endsWith(".odt")) {
     return "application/vnd.oasis.opendocument.text";
   }
+  if (normalizedName.endsWith(".ott")) {
+    return "application/vnd.oasis.opendocument.text-template";
+  }
+  if (normalizedName.endsWith(".odm")) {
+    return "application/vnd.oasis.opendocument.text-master";
+  }
   if (normalizedName.endsWith(".odp")) {
     return "application/vnd.oasis.opendocument.presentation";
   }
+  if (normalizedName.endsWith(".otp")) {
+    return "application/vnd.oasis.opendocument.presentation-template";
+  }
   if (normalizedName.endsWith(".ods")) {
     return "application/vnd.oasis.opendocument.spreadsheet";
+  }
+  if (normalizedName.endsWith(".ots")) {
+    return "application/vnd.oasis.opendocument.spreadsheet-template";
+  }
+  if (normalizedName.endsWith(".odb")) {
+    return "application/vnd.oasis.opendocument.database";
+  }
+  if (normalizedName.endsWith(".odf")) {
+    return "application/vnd.oasis.opendocument.formula";
+  }
+  if (normalizedName.endsWith(".odg")) {
+    return "application/vnd.oasis.opendocument.graphics";
+  }
+  if (normalizedName.endsWith(".otg")) {
+    return "application/vnd.oasis.opendocument.graphics-template";
   }
   if (normalizedName.endsWith(".rtf")) {
     return "application/rtf";
@@ -199,10 +232,21 @@ const isOfficeDocumentType = (input: {
 }) => {
   const fileName = input.fileName.toLowerCase();
   const officeMimeTypes = new Set([
+    "application/msword",
     "application/rtf",
+    "application/vnd.ms-excel",
+    "application/vnd.ms-powerpoint",
+    "application/vnd.oasis.opendocument.database",
+    "application/vnd.oasis.opendocument.formula",
+    "application/vnd.oasis.opendocument.graphics",
+    "application/vnd.oasis.opendocument.graphics-template",
     "application/vnd.oasis.opendocument.presentation",
+    "application/vnd.oasis.opendocument.presentation-template",
     "application/vnd.oasis.opendocument.spreadsheet",
+    "application/vnd.oasis.opendocument.spreadsheet-template",
     "application/vnd.oasis.opendocument.text",
+    "application/vnd.oasis.opendocument.text-master",
+    "application/vnd.oasis.opendocument.text-template",
     "application/vnd.openxmlformats-officedocument.presentationml.presentation",
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -210,12 +254,23 @@ const isOfficeDocumentType = (input: {
   ]);
   const officeExtensions = [
     ".csv",
+    ".doc",
     ".docx",
+    ".odb",
+    ".odf",
+    ".odg",
+    ".odm",
     ".odp",
     ".ods",
     ".odt",
+    ".otg",
+    ".otp",
+    ".ots",
+    ".ott",
+    ".ppt",
     ".pptx",
     ".rtf",
+    ".xls",
     ".xlsx",
   ];
 
@@ -269,13 +324,23 @@ const normalizeUploadThingStorageUrl = (
   return `https://utfs.io/f/${encodeURIComponent(key)}`;
 };
 
+const isTrustedStorageUrl = (url: URL) => {
+  const host = url.hostname.toLowerCase();
+  return url.protocol === "https:" && (host === "utfs.io" || host.endsWith(".ufs.sh"));
+};
+
 const resolveIngestionStorageUrl = (
   storageUrl: string,
   storageKey?: string | null
-) =>
-  assertSafeUrl(
+) => {
+  const safeUrl = assertSafeUrl(
     normalizeUploadThingStorageUrl(storageUrl, storageKey)
-  ).toString();
+  );
+  if (!isTrustedStorageUrl(safeUrl)) {
+    throw new Error(`Untrusted storage URL host: ${safeUrl.hostname}`);
+  }
+  return safeUrl.toString();
+};
 
 async function readTextResponseWithLimit(
   response: Response,
