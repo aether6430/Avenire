@@ -290,7 +290,14 @@ async function queryWorkspaceRetrieval(input: {
       page?: number | null;
       rerankScore?: number;
       score?: number;
-      sourceType?: "audio" | "image" | "link" | "markdown" | "pdf" | "video";
+      sourceType?:
+        | "audio"
+        | "document"
+        | "image"
+        | "link"
+        | "markdown"
+        | "pdf"
+        | "video";
       startMs?: number | null;
       title?: string | null;
     }>;

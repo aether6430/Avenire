@@ -57,6 +57,32 @@ export function classifyStoredFileType(mimeType: string | null) {
   if (mimeType === "application/pdf") {
     return "pdf";
   }
+  if (
+    mimeType === "application/msword" ||
+    mimeType === "application/rtf" ||
+    mimeType === "application/vnd.ms-excel" ||
+    mimeType === "application/vnd.ms-powerpoint" ||
+    mimeType === "application/vnd.oasis.opendocument.database" ||
+    mimeType === "application/vnd.oasis.opendocument.formula" ||
+    mimeType === "application/vnd.oasis.opendocument.graphics" ||
+    mimeType === "application/vnd.oasis.opendocument.graphics-template" ||
+    mimeType === "application/vnd.oasis.opendocument.presentation" ||
+    mimeType === "application/vnd.oasis.opendocument.presentation-template" ||
+    mimeType === "application/vnd.oasis.opendocument.spreadsheet" ||
+    mimeType === "application/vnd.oasis.opendocument.spreadsheet-template" ||
+    mimeType === "application/vnd.oasis.opendocument.text" ||
+    mimeType === "application/vnd.oasis.opendocument.text-master" ||
+    mimeType === "application/vnd.oasis.opendocument.text-template" ||
+    mimeType ===
+      "application/vnd.openxmlformats-officedocument.presentationml.presentation" ||
+    mimeType ===
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
+    mimeType ===
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+    mimeType === "text/csv"
+  ) {
+    return "document";
+  }
   if (mimeType.startsWith("text/")) {
     return "text";
   }

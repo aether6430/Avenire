@@ -30,7 +30,8 @@ import { Tooltip } from "./tooltip";
 const useIsoLayoutEffect =
   typeof window !== "undefined" ? useLayoutEffect : useEffect;
 
-const DEFAULT_ACCEPT = "image/png,image/jpeg,application/pdf";
+const DEFAULT_ACCEPT =
+  "image/png,image/jpeg,application/pdf,.csv,.doc,.docx,.odb,.odf,.odg,.odm,.odp,.ods,.odt,.otg,.otp,.ots,.ott,.ppt,.pptx,.rtf,.xls,.xlsx";
 
 function getUuid() {
   try {

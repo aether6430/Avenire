@@ -22,7 +22,7 @@ const summarySchema = z.object({
       z.object({
         fileId: z.uuid({ version: "v4" }),
         sourceType: z
-          .enum(["pdf", "image", "video", "audio", "markdown", "link"])
+          .enum(["pdf", "image", "video", "audio", "document", "markdown", "link"])
           .optional(),
         snippet: z.string().min(1).optional(),
         title: z.string().min(1).optional(),
@@ -44,7 +44,7 @@ const FALLBACK_SUMMARY =
 const DEFAULT_ATTACHMENT_LIMIT = 3;
 const DEFAULT_ATTACHMENT_MAX_BYTES = 8 * 1024 * 1024;
 const DEFAULT_FETCH_TIMEOUT_MS = 20_000;
-const DOCUMENT_SOURCE_TYPES = new Set(["markdown", "pdf", "link"]);
+const DOCUMENT_SOURCE_TYPES = new Set(["document", "markdown", "pdf", "link"]);
 
 function summaryResponse(summary: string, stream?: boolean) {
   if (stream) {
@@ -216,6 +216,7 @@ export async function POST(request: Request) {
           | "image"
           | "video"
           | "audio"
+          | "document"
           | "markdown"
           | "link"
           | null;
@@ -401,7 +402,7 @@ export async function POST(request: Request) {
 
     const summaryPrompt = [
       "Answer the user's question using only the provided retrieval evidence.",
-      "For markdown/pdf/link files, use the provided retrieved chunks as the source of truth.",
+      "For document/markdown/pdf/link files, use the provided retrieved chunks as the source of truth.",
       "For attached media files, inspect the file content directly.",
       "Provide short per-file descriptions in bullet points (1-2 lines each).",
       "Do not claim details that are not present in evidence.",

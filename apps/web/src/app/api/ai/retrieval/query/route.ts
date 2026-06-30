@@ -10,7 +10,7 @@ const querySchema = z.object({
   limit: z.number().int().positive().max(50).optional(),
   mode: z.enum(["auto", "fast", "full"]).optional(),
   sourceType: z
-    .enum(["pdf", "image", "video", "audio", "markdown", "link"])
+    .enum(["pdf", "image", "video", "audio", "document", "markdown", "link"])
     .optional(),
   provider: z.string().optional(),
 });

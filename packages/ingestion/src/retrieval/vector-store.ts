@@ -1,6 +1,6 @@
 export interface VectorSearchFilter {
   provider?: string;
-  sourceType?: "pdf" | "image" | "video" | "audio" | "markdown" | "link";
+  sourceType?: "pdf" | "image" | "video" | "audio" | "document" | "markdown" | "link";
 }
 
 export interface SearchOptions {
@@ -21,7 +21,7 @@ export interface VectorSearchResult {
   resourceId: string;
   score: number;
   source: string;
-  sourceType: "pdf" | "image" | "video" | "audio" | "markdown" | "link";
+  sourceType: "pdf" | "image" | "video" | "audio" | "document" | "markdown" | "link";
   startMs: number | null;
   title: string | null;
 }

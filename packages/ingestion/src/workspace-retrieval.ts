@@ -19,6 +19,7 @@ export type RetrievalSourceType =
   | "image"
   | "video"
   | "audio"
+  | "document"
   | "markdown"
   | "link";
 
