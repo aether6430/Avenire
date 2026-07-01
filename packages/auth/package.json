@@ -27,15 +27,17 @@
     "@avenire/database": "workspace:*",
     "@avenire/emailer": "workspace:*",
     "@avenire/ui": "workspace:*",
-    "@better-auth/passkey": "1.4.21",
+    "@better-auth/passkey": "1.6.23",
+    "@better-fetch/fetch": "1.3.1",
     "@phosphor-icons/react": "^2.1.10",
-    "@polar-sh/better-auth": "latest",
-    "@polar-sh/sdk": "^0.46.4",
-    "better-auth": "1.4.21",
+    "@polar-sh/better-auth": "1.8.4",
+    "@polar-sh/sdk": "^0.47.1",
+    "better-auth": "1.6.23",
+    "better-call": "1.3.7",
     "next": "^16.2.6",
     "react": "^19.2.4",
     "sonner": "^2.0.7",
-    "zod": "latest"
+    "zod": "4.4.3"
   },
   "devDependencies": {
     "@avenire/env-types": "workspace:*",
