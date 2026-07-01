@@ -20,6 +20,7 @@ const articleHtml = `<!doctype html>
         <p><strong>Mythos Preview</strong> has already found thousands of high-severity vulnerabilities.</p>
         <p>Project Glasswing is an urgent attempt to put these capabilities to work for defensive purposes.</p>
         <p>For cyber defenders to come out ahead, we need to act now.</p>
+        <p><img src="https://www-cdn.anthropic.com/images/icon-163x98.svg" alt=""></p>
       </article>
     </main>
   </body>
@@ -38,10 +39,11 @@ describe("link ingestion", () => {
 
     const preview = await extractLinkPreview("https://anthropic.com/glasswing");
 
-    expect(preview.displayMode).toBe("reader");
+    expect(preview.displayMode).toBe("embed");
     expect(preview.kind).toBe("article");
     expect(preview.readerMarkdown).toContain("Introduction");
     expect(preview.readerMarkdown).toContain("**Mythos Preview**");
     expect(preview.readerMarkdown).not.toMatch(/<\/?(main|article|p|h2)\b/i);
+    expect(preview.readerMarkdown).not.toMatch(/\.svg/i);
   });
 });

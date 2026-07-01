@@ -172,6 +172,23 @@ const normalizeMarkdownDocument = (value: string): string =>
     .replace(/\n{3,}/g, "\n\n")
     .trim();
 
+const stripNoisyReaderMarkdownAssets = (value: string): string =>
+  normalizeMarkdownDocument(
+    value
+      .split("\n")
+      .filter((line) => {
+        const trimmed = line.trim();
+        if (!trimmed) {
+          return true;
+        }
+
+        return !/^(?:\\?!)?\[.*?\]\([^)]*\.svg(?:[?#][^)]*)?\)\s*$/i.test(
+          trimmed
+        );
+      })
+      .join("\n")
+  );
+
 const htmlFragmentToMarkdown = (html: string, sourceUrl: URL): string => {
   const { document } = parseHTML(`<article>${html}</article>`);
   const root = document.querySelector("article");
@@ -395,13 +412,14 @@ const extractDefuddleContent = async (
     const content = extracted.contentMarkdown
       ? normalizeMarkdownDocument(extracted.contentMarkdown)
       : normalizeReaderMarkdown(extracted.content ?? "", url);
-    if (!content) {
+    const readerContent = stripNoisyReaderMarkdownAssets(content);
+    if (!readerContent) {
       return null;
     }
 
     return {
       title: extracted.title?.trim() || null,
-      content,
+      content: readerContent,
     };
   } catch {
     return null;
@@ -479,7 +497,7 @@ export const extractLinkPreview = async (
       const imageUrl = getPageImageFromHtml(html);
       return {
         description,
-        displayMode: "reader",
+        displayMode: "embed",
         favicon,
         imageUrl,
         kind: "article",

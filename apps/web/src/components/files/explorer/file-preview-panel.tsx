@@ -35,13 +35,14 @@ import {
   FileImage,
   FileText,
   FolderPlus as FolderInput,
+  Globe,
   Info,
   LinkSimple,
   DotsThree as MoreHorizontal,
   Pencil,
-  Plus,
   PushPin as Pin,
   PushPinSlash as PinOff,
+  Plus,
   ArrowCounterClockwise as RotateCcw,
   ShareNetwork as Share2,
   SlidersHorizontal,
@@ -264,9 +265,18 @@ function LinkResourcePreview({
   const capturedAt = preview.snapshot?.capturedAt
     ? new Date(preview.snapshot.capturedAt).toLocaleString()
     : null;
+  const canShowWebPreview =
+    preview.displayMode === "embed" ||
+    (preview.kind === "article" && preview.sourceUrl.length > 0);
+  const canShowReader = Boolean(readerMarkdown);
+  const [viewMode, setViewMode] = useState<"reader" | "web">(() =>
+    canShowWebPreview ? "web" : "reader"
+  );
+  const activeViewMode =
+    viewMode === "web" && !canShowWebPreview ? "reader" : viewMode;
 
   return (
-    <div className="mx-auto flex w-full max-w-[980px] flex-col gap-5 px-4 py-6 sm:px-8">
+    <div className="mx-auto flex w-full max-w-[1120px] flex-col gap-5 px-4 py-6 sm:px-8">
       <div className="flex min-w-0 items-start gap-3">
         {preview.favicon ? (
           <span
@@ -310,10 +320,46 @@ function LinkResourcePreview({
         </div>
       </div>
 
-      {preview.displayMode === "embed" ? (
-        <div className="h-[68vh] min-h-[420px] overflow-hidden rounded-md border border-border/70 bg-background">
+      {canShowWebPreview && canShowReader ? (
+        <Tabs
+          className="items-start"
+          onValueChange={(value) => {
+            if (value === "web" || value === "reader") {
+              setViewMode(value);
+            }
+          }}
+          value={activeViewMode}
+        >
+          <TabsList
+            className="rounded-md border border-border/70 bg-background/80"
+            variant="default"
+          >
+            <TabsTrigger className="h-7 gap-1.5 px-2.5" value="web">
+              <Globe className="size-3.5" />
+              Web
+            </TabsTrigger>
+            <TabsTrigger className="h-7 gap-1.5 px-2.5" value="reader">
+              <FileText className="size-3.5" />
+              Reader
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+      ) : null}
+
+      {canShowWebPreview && activeViewMode === "web" ? (
+        <div className="h-[72vh] min-h-[520px] overflow-hidden rounded-md border border-border/70 bg-background shadow-sm">
+          <div className="flex h-9 items-center gap-2 border-border/70 border-b bg-muted/35 px-3">
+            <div aria-hidden="true" className="flex items-center gap-1.5">
+              <span className="size-2.5 rounded-full bg-muted-foreground/35" />
+              <span className="size-2.5 rounded-full bg-muted-foreground/25" />
+              <span className="size-2.5 rounded-full bg-muted-foreground/20" />
+            </div>
+            <div className="min-w-0 flex-1 truncate rounded-sm border border-border/60 bg-background/70 px-2 py-1 text-muted-foreground text-xs">
+              {preview.sourceUrl}
+            </div>
+          </div>
           <iframe
-            className="h-full w-full bg-background"
+            className="h-[calc(100%-2.25rem)] w-full bg-background"
             referrerPolicy="no-referrer"
             sandbox="allow-scripts allow-popups"
             src={preview.sourceUrl}
@@ -322,7 +368,7 @@ function LinkResourcePreview({
         </div>
       ) : null}
 
-      {preview.displayMode === "snapshot" ? (
+      {preview.displayMode === "snapshot" && activeViewMode !== "reader" ? (
         <div className="overflow-hidden rounded-md border border-border/70 bg-card">
           {imageUrl ? (
             <span
@@ -344,13 +390,13 @@ function LinkResourcePreview({
         </div>
       ) : null}
 
-      {readerMarkdown ? (
-        <div className="rounded-md border border-border/70 bg-background px-5 py-5 sm:px-8">
+      {readerMarkdown && activeViewMode === "reader" ? (
+        <div className="rounded-md border border-border/70 bg-background px-5 py-8 shadow-sm sm:px-10">
           <Markdown
-            className="mx-auto max-w-[760px]"
+            className="mx-auto max-w-[720px] text-[15px] leading-7 [&_blockquote]:border-muted-foreground/35 [&_h1]:text-3xl [&_h1]:leading-tight [&_h2]:mt-10 [&_h2]:text-2xl [&_img]:rounded [&_li]:my-1 [&_p]:my-4"
             content={readerMarkdown}
             id={`link-preview-${preview.sourceUrl}`}
-            textSize="small"
+            textSize="default"
             workspaceUuid={workspaceUuid}
           />
         </div>
@@ -1714,13 +1760,14 @@ export function FilePreviewPanel({
                   {activeLinkPreview ? (
                     <LinkResourcePreview
                       fileName={activeFile.name}
+                      key={`${activeFile.id}:${activeLinkPreview.sourceUrl}`}
                       preview={activeLinkPreview}
                       workspaceUuid={workspaceUuid}
                     />
                   ) : (
                     <AvenireEditor
                       defaultValue={markdownBody}
-                      key={activeFile.id}
+                      key={`${activeFile.id}:${_noteRemoteUpdatedAt ?? activeFileUpdatedAt ?? loadedMarkdownFileId}`}
                       noteTitle={noteDisplayTitle}
                       onChange={handleMarkdownBodyChange}
                       onOpenWikiLink={(page, options) => {
