@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   clearMisconceptionSignalEmbeddingCache,
   cosineSimilarity,
@@ -10,7 +10,8 @@ const baseMisconception: MisconceptionSignalRecord = {
   confidence: 0.82,
   concept: "Newton's third law",
   id: "misconception-1",
-  reason: "The learner thinks the heavier object applies a larger force in an interaction.",
+  reason:
+    "The learner thinks the heavier object applies a larger force in an interaction.",
   subject: "Physics",
   topic: "Forces",
   updatedAt: "2026-05-13T00:00:00.000Z",
@@ -20,6 +21,10 @@ describe("misconception signals", () => {
   beforeEach(() => {
     clearMisconceptionSignalEmbeddingCache();
     vi.restoreAllMocks();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("computes cosine similarity and rejects incompatible vectors", () => {
@@ -48,7 +53,8 @@ describe("misconception signals", () => {
     });
 
     const result = await detectMisconceptionSignals({
-      latestUserText: "I think the heavier cart pushes harder than the lighter cart.",
+      latestUserText:
+        "I think the heavier cart pushes harder than the lighter cart.",
       misconceptions: [
         baseMisconception,
         {
@@ -181,5 +187,51 @@ describe("misconception signals", () => {
     expect(result?.matched).toBe(false);
     expect(result?.candidates).toHaveLength(1);
     expect(result?.interventionBlock).toBeNull();
+  });
+
+  it("does not hard-abort provider calls by default", async () => {
+    vi.useFakeTimers();
+
+    const embedTexts = vi.fn(
+      ({ abortSignal, inputType }) =>
+        new Promise<number[][]>((resolve) => {
+          setTimeout(() => {
+            expect(abortSignal?.aborted).toBe(false);
+            resolve(inputType === "search_query" ? [[1, 0]] : [[1, 0]]);
+          }, 900);
+        })
+    );
+    const classifier = vi.fn(async ({ abortSignal }) => {
+      expect(abortSignal?.aborted).toBe(false);
+      return {
+        matched: false,
+        reason: null,
+      };
+    });
+
+    const resultPromise = detectMisconceptionSignals({
+      latestUserText: "The heavier cart pushes harder.",
+      misconceptions: [baseMisconception],
+      options: {
+        classifier,
+        embedTexts,
+      },
+      subject: "Physics",
+      topic: "Forces",
+    });
+
+    await vi.advanceTimersByTimeAsync(900);
+
+    await expect(resultPromise).resolves.toMatchObject({
+      candidates: [
+        {
+          misconception: baseMisconception,
+          score: 1,
+        },
+      ],
+      interventionBlock: null,
+      matched: false,
+    });
+    expect(classifier).toHaveBeenCalledTimes(1);
   });
 });

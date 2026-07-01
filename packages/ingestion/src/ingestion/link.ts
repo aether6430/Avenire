@@ -1,5 +1,5 @@
 import { tavily } from "@tavily/core";
-import Defuddle from "defuddle";
+import { Defuddle as parseDefuddle } from "defuddle/node";
 import { parseHTML } from "linkedom";
 import { config } from "../config";
 import { assertSafeUrl } from "../utils/safety";
@@ -143,6 +143,136 @@ const getWordCount = (value: string): number => {
   return trimmed.split(/\s+/).filter(Boolean).length;
 };
 
+const decodeHtmlEntities = (value: string): string => {
+  const { document } = parseHTML("<textarea></textarea>");
+  const textarea = document.querySelector("textarea");
+  if (!textarea) {
+    return value;
+  }
+  textarea.innerHTML = value;
+  return textarea.textContent ?? value;
+};
+
+const containsHtmlTags = (value: string): boolean =>
+  /<\/?[a-z][\s\S]*>/i.test(value);
+
+const markdownEscape = (value: string): string =>
+  value.replace(/([\\`*_{}[\]()#+.!|-])/g, "\\$1");
+
+const normalizeMarkdownText = (value: string): string =>
+  decodeHtmlEntities(value)
+    .replace(/[ \t\r\f\v]+/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+
+const htmlFragmentToMarkdown = (html: string, sourceUrl: URL): string => {
+  const { document } = parseHTML(`<article>${html}</article>`);
+  const root = document.querySelector("article");
+  if (!root) {
+    return normalizeMarkdownText(getPlainTextFromHtml(html));
+  }
+
+  const blockTags = new Set([
+    "ARTICLE",
+    "ASIDE",
+    "DIV",
+    "FIGURE",
+    "FOOTER",
+    "HEADER",
+    "MAIN",
+    "NAV",
+    "SECTION",
+  ]);
+
+  const walk = (node: Node): string => {
+    if (node.nodeType === node.TEXT_NODE) {
+      return markdownEscape(node.textContent ?? "");
+    }
+    if (node.nodeType !== node.ELEMENT_NODE) {
+      return "";
+    }
+
+    const element = node as Element;
+    const tagName = element.tagName.toUpperCase();
+    const children = Array.from(element.childNodes).map(walk).join("");
+    const text = normalizeMarkdownText(children);
+
+    if (!text && tagName !== "IMG" && tagName !== "BR") {
+      return "";
+    }
+
+    if (/^H[1-6]$/.test(tagName)) {
+      const level = Number.parseInt(tagName.slice(1), 10);
+      return `\n\n${"#".repeat(Math.max(2, level))} ${text}\n\n`;
+    }
+
+    switch (tagName) {
+      case "A": {
+        const href = element.getAttribute("href")?.trim();
+        if (!href) {
+          return text;
+        }
+        try {
+          const resolved = new URL(href, sourceUrl).toString();
+          return `[${text || resolved}](${resolved})`;
+        } catch {
+          return text;
+        }
+      }
+      case "BLOCKQUOTE":
+        return `\n\n${text
+          .split("\n")
+          .map((line) => `> ${line}`)
+          .join("\n")}\n\n`;
+      case "BR":
+        return "\n";
+      case "CODE":
+        return `\`${text}\``;
+      case "EM":
+      case "I":
+        return `_${text}_`;
+      case "IMG": {
+        const src = element.getAttribute("src")?.trim();
+        if (!src) {
+          return "";
+        }
+        const alt = element.getAttribute("alt")?.trim() ?? "";
+        try {
+          return `\n\n![${markdownEscape(alt)}](${new URL(src, sourceUrl).toString()})\n\n`;
+        } catch {
+          return "";
+        }
+      }
+      case "LI":
+        return `\n- ${text}`;
+      case "OL":
+      case "UL":
+        return `\n${text}\n\n`;
+      case "P":
+        return `\n\n${text}\n\n`;
+      case "PRE":
+        return `\n\n\`\`\`\n${node.textContent?.trim() ?? ""}\n\`\`\`\n\n`;
+      case "STRONG":
+      case "B":
+        return `**${text}**`;
+      default:
+        return blockTags.has(tagName) ? `\n\n${text}\n\n` : text;
+    }
+  };
+
+  return normalizeMarkdownText(Array.from(root.childNodes).map(walk).join(""));
+};
+
+const normalizeReaderMarkdown = (value: string, sourceUrl: URL): string => {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return "";
+  }
+  return containsHtmlTags(trimmed)
+    ? htmlFragmentToMarkdown(trimmed, sourceUrl)
+    : normalizeMarkdownText(trimmed);
+};
+
 const OFFICE_DOCUMENT_EXTENSIONS = new Set([
   ".csv",
   ".doc",
@@ -248,14 +378,15 @@ const extractDefuddleContent = async (
   html: string
 ): Promise<{ title: string | null; content: string } | null> => {
   try {
-    const { document } = parseHTML(html);
-    const defuddle = new Defuddle(document, {
-      url: url.toString(),
+    const extracted = await parseDefuddle(html, url.toString(), {
       markdown: true,
+      separateMarkdown: true,
       useAsync: false,
     });
-    const extracted = defuddle.parse();
-    const content = extracted.content.trim();
+    const content = normalizeReaderMarkdown(
+      extracted.contentMarkdown ?? extracted.content,
+      url
+    );
     if (!content) {
       return null;
     }
