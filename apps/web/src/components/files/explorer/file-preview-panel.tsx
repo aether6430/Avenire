@@ -131,7 +131,6 @@ import { STATIC_ASSETS } from "@/lib/static-assets";
 
 const DEFAULT_NOTE_COVER_URL = STATIC_ASSETS.banner1;
 
-
 function normalizeFilePageIcon(icon: string | null | undefined) {
   if (typeof icon !== "string") {
     return null;
@@ -203,7 +202,9 @@ function readStringArray(record: Record<string, unknown>, key: string) {
     : [];
 }
 
-function normalizeLinkDisplayMode(value: string | null): LinkPreviewDisplayMode {
+function normalizeLinkDisplayMode(
+  value: string | null
+): LinkPreviewDisplayMode {
   if (value === "embed" || value === "reader" || value === "snapshot") {
     return value;
   }
@@ -271,7 +272,9 @@ function LinkResourcePreview({
           <span
             aria-hidden="true"
             className="mt-1 size-8 rounded-md border border-border/70 bg-background bg-center bg-contain bg-no-repeat"
-            style={{ backgroundImage: `url(${JSON.stringify(preview.favicon)})` }}
+            style={{
+              backgroundImage: `url(${JSON.stringify(preview.favicon)})`,
+            }}
           />
         ) : (
           <div className="mt-1 flex size-8 items-center justify-center rounded-md border border-border/70 bg-muted text-muted-foreground">
@@ -312,7 +315,7 @@ function LinkResourcePreview({
           <iframe
             className="h-full w-full bg-background"
             referrerPolicy="no-referrer"
-            sandbox="allow-scripts allow-same-origin allow-popups"
+            sandbox="allow-scripts allow-popups"
             src={preview.sourceUrl}
             title={title}
           />
@@ -332,8 +335,8 @@ function LinkResourcePreview({
               <div className="max-w-md px-6 text-center">
                 <LinkSimple className="mx-auto size-8 text-muted-foreground" />
                 <p className="mt-3 text-muted-foreground text-sm">
-                  Snapshot metadata is stored for this page. A captured image can
-                  be attached when the browser screenshot worker is added.
+                  Snapshot metadata is stored for this page. A captured image
+                  can be attached when the browser screenshot worker is added.
                 </p>
               </div>
             </div>

@@ -147,7 +147,7 @@ function PdfFloatingDock() {
   const viewportRef = usePdf((state) => state.viewportRef);
   const hasDocument = Boolean(pdfDocumentProxy);
   const isScrollVisible = useScrollActivatedDock(viewportRef, hasDocument);
-  const isVisible = hasDocument || isScrollVisible;
+  const isVisible = isScrollVisible;
 
   return (
     <DocumentViewerDock

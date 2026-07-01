@@ -69,7 +69,6 @@ deploy_service() {
 
   echo "Deploying $service"
   railway up \
-    --detach \
     --project "$PROJECT_ID" \
     --environment "$ENVIRONMENT" \
     --service "$service" \
@@ -88,4 +87,4 @@ fi
 deploy_service "$WEB_SERVICE" "Deploy web from GitHub Actions"
 deploy_service "$BACKEND_SERVICE" "Deploy backend from GitHub Actions"
 
-echo "Deploys queued. Check Railway for terminal SUCCESS before treating production as updated."
+echo "Deploys completed."
