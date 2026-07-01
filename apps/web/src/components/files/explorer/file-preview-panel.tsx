@@ -60,6 +60,7 @@ import {
   useState,
 } from "react";
 import { toast } from "sonner";
+import { Markdown } from "@/components/chat/markdown";
 import type { WorkspaceInvalidationDetail } from "@/components/dashboard/workspace-realtime-bridge";
 import AvenireEditor from "@/components/editor";
 import { PropertiesTable } from "@/components/editor/properties-table";
@@ -127,6 +128,7 @@ const OfficeViewer = dynamic(() => import("@/components/files/office-viewer"), {
 });
 
 import { STATIC_ASSETS } from "@/lib/static-assets";
+
 const DEFAULT_NOTE_COVER_URL = STATIC_ASSETS.banner1;
 
 
@@ -158,6 +160,199 @@ function isRenderableIconUrl(icon: string) {
     icon.startsWith("https://") ||
     icon.startsWith("/") ||
     icon.startsWith("data:image/")
+  );
+}
+
+type LinkPreviewDisplayMode = "embed" | "reader" | "snapshot";
+
+interface LinkPreviewMetadata {
+  description: string | null;
+  displayMode: LinkPreviewDisplayMode;
+  favicon: string | null;
+  imageUrl: string | null;
+  kind: string | null;
+  mediaUrls: string[];
+  provider: string | null;
+  readerMarkdown: string | null;
+  snapshot: {
+    capturedAt: string | null;
+    contentText: string | null;
+    description: string | null;
+    imageUrl: string | null;
+    title: string | null;
+  } | null;
+  sourceUrl: string;
+  title: string | null;
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function readString(record: Record<string, unknown>, key: string) {
+  const value = record[key];
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function readStringArray(record: Record<string, unknown>, key: string) {
+  const value = record[key];
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string")
+    : [];
+}
+
+function normalizeLinkDisplayMode(value: string | null): LinkPreviewDisplayMode {
+  if (value === "embed" || value === "reader" || value === "snapshot") {
+    return value;
+  }
+  return "snapshot";
+}
+
+function getLinkPreviewMetadata(file: FileRecord): LinkPreviewMetadata | null {
+  const metadata = asRecord(file.metadata);
+  const link = metadata ? asRecord(metadata.link) : null;
+  const sourceUrl = link ? readString(link, "sourceUrl") : null;
+  if (!(link && sourceUrl)) {
+    return null;
+  }
+
+  const snapshotRecord = asRecord(link.snapshot);
+  return {
+    description: readString(link, "description"),
+    displayMode: normalizeLinkDisplayMode(readString(link, "displayMode")),
+    favicon: readString(link, "favicon"),
+    imageUrl: readString(link, "imageUrl"),
+    kind: readString(link, "kind"),
+    mediaUrls: readStringArray(link, "mediaUrls"),
+    provider: readString(link, "provider"),
+    readerMarkdown: readString(link, "readerMarkdown"),
+    snapshot: snapshotRecord
+      ? {
+          capturedAt: readString(snapshotRecord, "capturedAt"),
+          contentText: readString(snapshotRecord, "contentText"),
+          description: readString(snapshotRecord, "description"),
+          imageUrl: readString(snapshotRecord, "imageUrl"),
+          title: readString(snapshotRecord, "title"),
+        }
+      : null,
+    sourceUrl,
+    title: readString(link, "title"),
+  };
+}
+
+function LinkResourcePreview({
+  fileName,
+  preview,
+  workspaceUuid,
+}: {
+  fileName: string;
+  preview: LinkPreviewMetadata;
+  workspaceUuid: string;
+}) {
+  const title = preview.title || fileName.replace(/\.mdx?$/i, "");
+  const description =
+    preview.description ?? preview.snapshot?.description ?? preview.sourceUrl;
+  const readerMarkdown =
+    preview.readerMarkdown ??
+    (preview.snapshot?.contentText
+      ? `# ${preview.snapshot.title ?? title}\n\n${preview.snapshot.contentText}`
+      : null);
+  const imageUrl = preview.imageUrl ?? preview.snapshot?.imageUrl;
+  const capturedAt = preview.snapshot?.capturedAt
+    ? new Date(preview.snapshot.capturedAt).toLocaleString()
+    : null;
+
+  return (
+    <div className="mx-auto flex w-full max-w-[980px] flex-col gap-5 px-4 py-6 sm:px-8">
+      <div className="flex min-w-0 items-start gap-3">
+        {preview.favicon ? (
+          <span
+            aria-hidden="true"
+            className="mt-1 size-8 rounded-md border border-border/70 bg-background bg-center bg-contain bg-no-repeat"
+            style={{ backgroundImage: `url(${JSON.stringify(preview.favicon)})` }}
+          />
+        ) : (
+          <div className="mt-1 flex size-8 items-center justify-center rounded-md border border-border/70 bg-muted text-muted-foreground">
+            <LinkSimple className="size-4" />
+          </div>
+        )}
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2 text-muted-foreground text-xs">
+            <span className="capitalize">
+              {preview.kind ?? preview.displayMode} preview
+            </span>
+            {preview.provider ? <span>{preview.provider}</span> : null}
+            {capturedAt ? <span>Captured {capturedAt}</span> : null}
+          </div>
+          <h2 className="mt-1 text-balance font-semibold text-2xl text-foreground">
+            {title}
+          </h2>
+          <p className="mt-2 break-words text-muted-foreground text-sm">
+            {description}
+          </p>
+          <Button
+            className="mt-4 h-8 gap-2"
+            onClick={() =>
+              window.open(preview.sourceUrl, "_blank", "noopener,noreferrer")
+            }
+            size="sm"
+            type="button"
+            variant="secondary"
+          >
+            <LinkSimple className="size-3.5" />
+            Open source
+          </Button>
+        </div>
+      </div>
+
+      {preview.displayMode === "embed" ? (
+        <div className="h-[68vh] min-h-[420px] overflow-hidden rounded-md border border-border/70 bg-background">
+          <iframe
+            className="h-full w-full bg-background"
+            referrerPolicy="no-referrer"
+            sandbox="allow-scripts allow-same-origin allow-popups"
+            src={preview.sourceUrl}
+            title={title}
+          />
+        </div>
+      ) : null}
+
+      {preview.displayMode === "snapshot" ? (
+        <div className="overflow-hidden rounded-md border border-border/70 bg-card">
+          {imageUrl ? (
+            <span
+              aria-hidden="true"
+              className="block aspect-[16/7] w-full bg-center bg-cover"
+              style={{ backgroundImage: `url(${JSON.stringify(imageUrl)})` }}
+            />
+          ) : (
+            <div className="flex aspect-[16/7] w-full items-center justify-center bg-muted">
+              <div className="max-w-md px-6 text-center">
+                <LinkSimple className="mx-auto size-8 text-muted-foreground" />
+                <p className="mt-3 text-muted-foreground text-sm">
+                  Snapshot metadata is stored for this page. A captured image can
+                  be attached when the browser screenshot worker is added.
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+      ) : null}
+
+      {readerMarkdown ? (
+        <div className="rounded-md border border-border/70 bg-background px-5 py-5 sm:px-8">
+          <Markdown
+            className="mx-auto max-w-[760px]"
+            content={readerMarkdown}
+            id={`link-preview-${preview.sourceUrl}`}
+            textSize="small"
+            workspaceUuid={workspaceUuid}
+          />
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -344,20 +539,12 @@ export function FilePreviewPanel({
 
   const activeFileIsMarkdown = detectPreviewKind(activeFile).isMarkdown;
   const activeCustomIcon = normalizeFilePageIcon(activeFile.page?.icon);
-  const activeLinkSourceUrl =
-    activeFile.metadata &&
-    typeof activeFile.metadata === "object" &&
-    !Array.isArray(activeFile.metadata) &&
-    activeFile.metadata.link &&
-    typeof activeFile.metadata.link === "object" &&
-    !Array.isArray(activeFile.metadata.link) &&
-    typeof (activeFile.metadata.link as Record<string, unknown>).sourceUrl ===
-      "string"
-      ? ((activeFile.metadata.link as Record<string, unknown>)
-          .sourceUrl as string)
-      : null;
+  const activeLinkPreview = useMemo(
+    () => getLinkPreviewMetadata(activeFile),
+    [activeFile]
+  );
   const activeFileSourceUrl = activeFileIsMarkdown
-    ? (activeLinkSourceUrl ??
+    ? (activeLinkPreview?.sourceUrl ??
       `/api/workspaces/${workspaceUuid}/files/${activeFile.id}/stream`)
     : activeFile.storageUrl;
   const activePageFromFile = useMemo(
@@ -989,7 +1176,7 @@ export function FilePreviewPanel({
             ) : (
               <span className="text-base leading-none">{activeCustomIcon}</span>
             )
-          ) : activeLinkSourceUrl ? (
+          ) : activeLinkPreview ? (
             <LinkSimple className="size-4" />
           ) : (
             <FileText className="size-4" />
@@ -1209,7 +1396,7 @@ export function FilePreviewPanel({
     activeCustomIcon,
     activeFile.name,
     activeFile.readOnly,
-    activeLinkSourceUrl,
+    activeLinkPreview,
     allFolders,
     currentInfoEntries,
     openFileShareDialog,
@@ -1521,45 +1708,55 @@ export function FilePreviewPanel({
                   </div>
                 ) : null}
                 <div className="w-full min-w-0">
-                  <AvenireEditor
-                    defaultValue={markdownBody}
-                    key={activeFile.id}
-                    noteTitle={noteDisplayTitle}
-                    onChange={handleMarkdownBodyChange}
-                    onOpenWikiLink={(page, options) => {
-                      if (!options.openInNewPane) {
-                        openFileById(page.id);
-                        return;
-                      }
+                  {activeLinkPreview ? (
+                    <LinkResourcePreview
+                      fileName={activeFile.name}
+                      preview={activeLinkPreview}
+                      workspaceUuid={workspaceUuid}
+                    />
+                  ) : (
+                    <AvenireEditor
+                      defaultValue={markdownBody}
+                      key={activeFile.id}
+                      noteTitle={noteDisplayTitle}
+                      onChange={handleMarkdownBodyChange}
+                      onOpenWikiLink={(page, options) => {
+                        if (!options.openInNewPane) {
+                          openFileById(page.id);
+                          return;
+                        }
 
-                      const targetFile = allFiles.find(
-                        (file) => file.id === page.id
-                      );
-                      if (!targetFile) {
-                        return;
-                      }
+                        const targetFile = allFiles.find(
+                          (file) => file.id === page.id
+                        );
+                        if (!targetFile) {
+                          return;
+                        }
 
-                      const params = new URLSearchParams();
-                      params.set("file", page.id);
-                      openPane(
-                        `/workspace/files/${workspaceUuid}/folder/${targetFile.folderId}?${params.toString()}`,
-                        { sourcePaneId: paneId }
-                      );
-                    }}
-                    onPagePropertiesChange={(properties) => {
-                      setNotePage((current) => ({
-                        ...current,
-                        properties,
-                      }));
-                    }}
-                    onPropertyDefinitionsChange={setPropertyDefinitions}
-                    pageProperties={notePage.properties}
-                    propertyDefinitions={propertyDefinitions}
-                    saveState={activeFileIsMarkdown ? noteSaveState : undefined}
-                    scrollContainerRef={filePreviewScrollRef}
-                    wikiPages={wikiLinkableFiles}
-                    workspaceUuid={workspaceUuid}
-                  />
+                        const params = new URLSearchParams();
+                        params.set("file", page.id);
+                        openPane(
+                          `/workspace/files/${workspaceUuid}/folder/${targetFile.folderId}?${params.toString()}`,
+                          { sourcePaneId: paneId }
+                        );
+                      }}
+                      onPagePropertiesChange={(properties) => {
+                        setNotePage((current) => ({
+                          ...current,
+                          properties,
+                        }));
+                      }}
+                      onPropertyDefinitionsChange={setPropertyDefinitions}
+                      pageProperties={notePage.properties}
+                      propertyDefinitions={propertyDefinitions}
+                      saveState={
+                        activeFileIsMarkdown ? noteSaveState : undefined
+                      }
+                      scrollContainerRef={filePreviewScrollRef}
+                      wikiPages={wikiLinkableFiles}
+                      workspaceUuid={workspaceUuid}
+                    />
+                  )}
                 </div>
               </div>
             )}
@@ -1588,7 +1785,7 @@ export function FilePreviewPanel({
         <div className="min-h-0 flex-1 overflow-hidden">
           <OfficeViewer
             fileName={activeFile.name}
-            key={activeFile.id}
+            key={`${activeFile.id}:${activeRetrievalChunkId ?? ""}`}
             kind={
               isSpreadsheet
                 ? "spreadsheet"
@@ -1596,6 +1793,13 @@ export function FilePreviewPanel({
                   ? "presentation"
                   : "document"
             }
+            retrievalTarget={{
+              page: activeRetrievalResult?.page ?? null,
+              text:
+                activeRetrievalResult?.highlightText ??
+                activeRetrievalResult?.snippet ??
+                query,
+            }}
             source={
               activeFile.storageUrl ||
               `/api/workspaces/${workspaceUuid}/files/${activeFile.id}/stream`

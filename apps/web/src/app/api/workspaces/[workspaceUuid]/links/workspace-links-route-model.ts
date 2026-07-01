@@ -80,15 +80,23 @@ export function deriveWorkspaceLinkDocumentTitle(input: {
 }
 
 export function buildWorkspaceLinkNoteContent(input: {
+  displayMode?: string;
   title: string;
   url: string;
 }) {
+  const previewLabel =
+    input.displayMode === "reader"
+      ? "Reader preview"
+      : input.displayMode === "embed"
+        ? "Embedded preview"
+        : "Snapshot preview";
+
   return [
     `# ${input.title}`,
     "",
     `Source: [${input.url}](${input.url})`,
     "",
-    "> This link stays lightweight in the note. The extractor runs during ingestion so the extracted content is indexed, but not copied into this file.",
+    `> ${previewLabel}. The extractor runs during ingestion so the extracted content is indexed without copying the full page into this note.`,
     "",
   ].join("\n");
 }

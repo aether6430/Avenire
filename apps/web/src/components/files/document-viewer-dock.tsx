@@ -23,7 +23,7 @@ export function useScrollActivatedDock(
   viewportRef: RefObject<HTMLElement | null>,
   active = true
 ) {
-  const [isVisible, setIsVisible] = useState(false);
+  const [isVisible, setIsVisible] = useState(active);
   const hideTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -32,6 +32,8 @@ export function useScrollActivatedDock(
       setIsVisible(false);
       return;
     }
+
+    setIsVisible(true);
 
     const showDock = () => {
       setIsVisible(true);

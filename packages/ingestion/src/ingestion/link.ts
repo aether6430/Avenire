@@ -7,14 +7,31 @@ import { semanticChunkText } from "./chunking";
 import { extractFromSupportedProvider } from "./provider-extractors";
 import type { CanonicalResource } from "./types";
 
-type LinkExtractionMode = "provider" | "defuddle" | "tavily";
+export type LinkExtractionMode = "provider" | "reader" | "tavily";
+export type LinkPreviewKind = "article" | "provider" | "snapshot";
+export type LinkPreviewDisplayMode = "embed" | "reader" | "snapshot";
+
+export interface LinkSnapshotPreview {
+  capturedAt: string;
+  contentText: string;
+  description: string | null;
+  imageUrl: string | null;
+  sourceUrl: string;
+  title: string | null;
+}
 
 export interface LinkPreview {
   content: string;
+  description: string | null;
+  displayMode: LinkPreviewDisplayMode;
   favicon: string | null;
+  imageUrl: string | null;
+  kind: LinkPreviewKind;
   mediaUrls: string[];
   mode: LinkExtractionMode;
   provider?: string;
+  readerMarkdown: string | null;
+  snapshot: LinkSnapshotPreview | null;
   title: string | null;
 }
 
@@ -98,6 +115,14 @@ const getTitleFromHtml = (html: string): string | null => {
   return titleMatch?.[1] ? normalizeWhitespace(titleMatch[1]) : null;
 };
 
+const getPageImageFromHtml = (html: string): string | null =>
+  getMetaValue(html, "og:image") ?? getMetaValue(html, "twitter:image");
+
+const getDescriptionFromHtml = (html: string): string | null =>
+  getMetaValue(html, "description") ??
+  getMetaValue(html, "og:description") ??
+  getMetaValue(html, "twitter:description");
+
 const getPlainTextFromHtml = (html: string): string => {
   return normalizeWhitespace(
     html
@@ -116,6 +141,41 @@ const getWordCount = (value: string): number => {
   }
 
   return trimmed.split(/\s+/).filter(Boolean).length;
+};
+
+const OFFICE_DOCUMENT_EXTENSIONS = new Set([
+  ".csv",
+  ".doc",
+  ".docx",
+  ".odp",
+  ".ods",
+  ".odt",
+  ".ppt",
+  ".pptx",
+  ".rtf",
+  ".xls",
+  ".xlsx",
+]);
+
+const getUrlExtension = (url: URL): string => {
+  const segment = url.pathname.split("/").filter(Boolean).at(-1) ?? "";
+  const match = segment.toLowerCase().match(/\.[a-z0-9]+$/);
+  return match?.[0] ?? "";
+};
+
+const getTitleFromUrl = (url: URL): string => {
+  const segment = url.pathname.split("/").filter(Boolean).at(-1) ?? "";
+  const decoded = (() => {
+    try {
+      return decodeURIComponent(segment);
+    } catch {
+      return segment;
+    }
+  })();
+  return decoded
+    .replace(/\.[a-z0-9]+$/i, "")
+    .replace(/[-_]+/g, " ")
+    .trim();
 };
 
 const isProbablyLongFormPage = (html: string): boolean => {
@@ -205,6 +265,33 @@ export const extractLinkPreview = async (
   inputUrl: string
 ): Promise<LinkPreview> => {
   const safeUrl = assertSafeUrl(inputUrl);
+  if (OFFICE_DOCUMENT_EXTENSIONS.has(getUrlExtension(safeUrl))) {
+    const title = getTitleFromUrl(safeUrl) || safeUrl.hostname;
+    return {
+      content: `Document URL: ${safeUrl.toString()}`,
+      description:
+        "Linked document queued for the document ingestion pipeline.",
+      displayMode: "snapshot",
+      favicon: null,
+      imageUrl: null,
+      kind: "provider",
+      mediaUrls: [safeUrl.toString()],
+      mode: "provider",
+      provider: "office",
+      readerMarkdown: null,
+      snapshot: {
+        capturedAt: new Date().toISOString(),
+        contentText: `Document URL: ${safeUrl.toString()}`,
+        description:
+          "Linked document queued for the document ingestion pipeline.",
+        imageUrl: null,
+        sourceUrl: safeUrl.toString(),
+        title,
+      },
+      title,
+    };
+  }
+
   const providerExtraction = await extractFromSupportedProvider(
     safeUrl.toString()
   );
@@ -222,35 +309,67 @@ export const extractLinkPreview = async (
 
   if (providerExtraction) {
     return {
+      description: html ? getDescriptionFromHtml(html) : null,
+      displayMode: "embed",
       favicon,
+      imageUrl: html ? getPageImageFromHtml(html) : null,
+      kind: "provider",
       mode: "provider",
       title: providerExtraction.title ?? (html ? getTitleFromHtml(html) : null),
       content: providerExtraction.content,
       mediaUrls: providerExtraction.mediaUrls,
       provider: providerExtraction.provider,
+      readerMarkdown: null,
+      snapshot: null,
     };
   }
 
   if (html && isProbablyLongFormPage(html)) {
     const extracted = await extractDefuddleContent(safeUrl, html);
     if (extracted) {
+      const title = extracted.title ?? getTitleFromHtml(html);
+      const description = getDescriptionFromHtml(html);
+      const imageUrl = getPageImageFromHtml(html);
       return {
+        description,
+        displayMode: "reader",
         favicon,
-        mode: "defuddle",
-        title: extracted.title ?? getTitleFromHtml(html),
+        imageUrl,
+        kind: "article",
+        mode: "reader",
+        title,
         content: extracted.content,
         mediaUrls: [],
+        readerMarkdown: extracted.content,
+        snapshot: null,
       };
     }
   }
 
   const fallback = await extractViaTavily(safeUrl.toString());
+  const title = fallback.title ?? (html ? getTitleFromHtml(html) : null);
+  const description = html ? getDescriptionFromHtml(html) : null;
+  const imageUrl = html ? getPageImageFromHtml(html) : null;
+  const snapshot: LinkSnapshotPreview = {
+    capturedAt: new Date().toISOString(),
+    contentText: fallback.content.slice(0, 12_000),
+    description,
+    imageUrl,
+    sourceUrl: safeUrl.toString(),
+    title,
+  };
   return {
+    description,
+    displayMode: "snapshot",
     favicon,
+    imageUrl,
+    kind: "snapshot",
     mode: "tavily",
-    title: fallback.title ?? (html ? getTitleFromHtml(html) : null),
+    title,
     content: fallback.content,
     mediaUrls: [],
+    readerMarkdown: null,
+    snapshot,
   };
 };
 
@@ -279,6 +398,9 @@ export const ingestLink = async (
       title: preview.title ?? undefined,
       metadata: {
         favicon: preview.favicon,
+        imageUrl: preview.imageUrl,
+        previewDisplayMode: preview.displayMode,
+        previewKind: preview.kind,
         mediaUrls: preview.mediaUrls,
         extractionMode: preview.mode,
       },
@@ -309,7 +431,11 @@ export const ingestLink = async (
     title: preview.title ?? undefined,
     metadata: {
       favicon: preview.favicon,
+      imageUrl: preview.imageUrl,
+      previewDisplayMode: preview.displayMode,
+      previewKind: preview.kind,
       extractionMode: preview.mode,
+      snapshot: preview.snapshot,
     },
     chunks: semanticChunkText({
       text: content,

@@ -226,6 +226,14 @@ const inferMimeTypeFromName = (fileName: string): string | null => {
   return null;
 };
 
+const safeDecodeUrlSegment = (value: string): string => {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+};
+
 const isOfficeDocumentType = (input: {
   fileName: string;
   mimeType: string;
@@ -326,7 +334,10 @@ const normalizeUploadThingStorageUrl = (
 
 const isTrustedStorageUrl = (url: URL) => {
   const host = url.hostname.toLowerCase();
-  return url.protocol === "https:" && (host === "utfs.io" || host.endsWith(".ufs.sh"));
+  return (
+    url.protocol === "https:" &&
+    (host === "utfs.io" || host.endsWith(".ufs.sh"))
+  );
 };
 
 const resolveIngestionStorageUrl = (
@@ -496,10 +507,27 @@ export const ingestStoredFile = async (input: {
       metadataType === "link-note" ||
       metadataResourceType === "link-resource") &&
       Boolean(linkSourceUrl));
+  const linkSourceFileName = linkSourceUrl
+    ? safeDecodeUrlSegment(
+        new URL(linkSourceUrl).pathname.split("/").filter(Boolean).at(-1) ??
+          input.fileName
+      )
+    : input.fileName;
 
   let resources: CanonicalResource[] = [];
   if (shouldIngestAsLink && linkSourceUrl) {
-    resources = [await ingestLink(linkSourceUrl)];
+    resources = isOfficeDocumentType({
+      fileName: linkSourceFileName,
+      mimeType: inferMimeTypeFromName(linkSourceFileName) ?? "",
+    })
+      ? [
+          await ingestOfficeDocument({
+            source: linkSourceUrl,
+            title: input.fileName,
+            url: linkSourceUrl,
+          }),
+        ]
+      : [await ingestLink(linkSourceUrl)];
   } else if (typeof input.content === "string") {
     resources = [
       ingestMarkdown({
