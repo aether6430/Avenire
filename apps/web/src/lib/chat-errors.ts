@@ -55,3 +55,26 @@ export function categorizeChatError(error: Error): ChatErrorType {
 export function getChatErrorMessage(error: Error): string {
   return CHAT_ERROR_MESSAGES[categorizeChatError(error)];
 }
+
+export function getChatErrorSignature(error: Error): string {
+  return [error.name, error.message].join(":");
+}
+
+export function isRecoverableChatDisconnect(error: Error): boolean {
+  const message = error.message.toLowerCase();
+  const name = error.name.toLowerCase();
+
+  return (
+    name === "aborterror" ||
+    name === "networkerror" ||
+    message.includes("aborted") ||
+    message.includes("body stream") ||
+    message.includes("connection") ||
+    message.includes("failed to fetch") ||
+    message.includes("fetch failed") ||
+    message.includes("network") ||
+    message.includes("response aborted") ||
+    message.includes("readablestream") ||
+    message.includes("terminated")
+  );
+}

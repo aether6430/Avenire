@@ -20,6 +20,8 @@ const articleHtml = `<!doctype html>
         <p><strong>Mythos Preview</strong> has already found thousands of high-severity vulnerabilities.</p>
         <p>Project Glasswing is an urgent attempt to put these capabilities to work for defensive purposes.</p>
         <p>For cyber defenders to come out ahead, we need to act now.</p>
+        <p>\\## Escaped markdown heading should still parse</p>
+        <p>https://www-cdn.anthropic.com/images/asset-250x250.png?w=256</p>
         <p><img src="https://www-cdn.anthropic.com/images/icon-163x98.svg" alt=""></p>
       </article>
     </main>
@@ -43,7 +45,13 @@ describe("link ingestion", () => {
     expect(preview.kind).toBe("article");
     expect(preview.readerMarkdown).toContain("Introduction");
     expect(preview.readerMarkdown).toContain("**Mythos Preview**");
+    expect(preview.readerMarkdown).toContain(
+      "## Escaped markdown heading should still parse"
+    );
     expect(preview.readerMarkdown).not.toMatch(/<\/?(main|article|p|h2)\b/i);
     expect(preview.readerMarkdown).not.toMatch(/\.svg/i);
+    expect(preview.readerMarkdown).not.toMatch(
+      /www-cdn\.anthropic\.com\/images/i
+    );
   });
 });

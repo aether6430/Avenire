@@ -196,13 +196,13 @@ describe("misconception signals", () => {
       ({ abortSignal, inputType }) =>
         new Promise<number[][]>((resolve) => {
           setTimeout(() => {
-            expect(abortSignal?.aborted).toBe(false);
+            expect(abortSignal?.aborted ?? false).toBe(false);
             resolve(inputType === "search_query" ? [[1, 0]] : [[1, 0]]);
           }, 900);
         })
     );
     const classifier = vi.fn(async ({ abortSignal }) => {
-      expect(abortSignal?.aborted).toBe(false);
+      expect(abortSignal?.aborted ?? false).toBe(false);
       return {
         matched: false,
         reason: null,

@@ -172,19 +172,39 @@ const normalizeMarkdownDocument = (value: string): string =>
     .replace(/\n{3,}/g, "\n\n")
     .trim();
 
+const normalizeReaderMarkdownLine = (line: string): string =>
+  line
+    .replace(/^\\+(#{1,6}\s+)/, "$1")
+    .replace(/^\\+([-*+]\s+)/, "$1")
+    .replace(/^\\+(\d+\.\s+)/, "$1")
+    .replace(/^\\+(!?\[)/, "$1")
+    .replace(/\\([[\]()])/g, "$1");
+
+const isNoisyReaderAssetLine = (line: string): boolean => {
+  const trimmed = line.trim();
+  if (!trimmed) {
+    return false;
+  }
+
+  const normalized = trimmed.replace(/\\/g, "");
+  if (/^!\[\s*]\([^)]*\)\s*$/i.test(normalized)) {
+    return true;
+  }
+  if (/^!\[.*?]\([^)]*\.svg(?:[?#][^)]*)?\)\s*$/i.test(normalized)) {
+    return true;
+  }
+  return /^!?https?:\/\/\S+\.(?:svg|png|jpe?g|webp)(?:[?#]\S*)?$/i.test(
+    normalized
+  );
+};
+
 const stripNoisyReaderMarkdownAssets = (value: string): string =>
   normalizeMarkdownDocument(
     value
       .split("\n")
+      .map(normalizeReaderMarkdownLine)
       .filter((line) => {
-        const trimmed = line.trim();
-        if (!trimmed) {
-          return true;
-        }
-
-        return !/^(?:\\?!)?\[.*?\]\([^)]*\.svg(?:[?#][^)]*)?\)\s*$/i.test(
-          trimmed
-        );
+        return !isNoisyReaderAssetLine(line);
       })
       .join("\n")
   );

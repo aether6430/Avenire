@@ -244,110 +244,108 @@ function getLinkPreviewMetadata(file: FileRecord): LinkPreviewMetadata | null {
   };
 }
 
+type LinkPreviewMode = "reader" | "web";
+
+function getUrlDisplayLabel(url: string) {
+  try {
+    const parsed = new URL(url);
+    return `${parsed.hostname}${parsed.pathname === "/" ? "" : parsed.pathname}`;
+  } catch {
+    return url;
+  }
+}
+
+function getLinkReaderMarkdown(
+  preview: LinkPreviewMetadata,
+  fallbackTitle: string
+) {
+  const title = preview.title || fallbackTitle.replace(/\.mdx?$/i, "");
+  return (
+    preview.readerMarkdown ??
+    (preview.snapshot?.contentText
+      ? `# ${preview.snapshot.title ?? title}\n\n${preview.snapshot.contentText}`
+      : null)
+  );
+}
+
+function stripDuplicateReaderTitle(markdown: string, title: string) {
+  const normalizedTitle = title.replace(/\s+/g, " ").trim().toLowerCase();
+  const lines = markdown.split("\n");
+  const firstContentIndex = lines.findIndex((line) => line.trim().length > 0);
+  if (firstContentIndex < 0) {
+    return markdown;
+  }
+
+  const firstLine = lines[firstContentIndex]?.trim() ?? "";
+  const heading = firstLine.match(/^#{1,2}\s+(.+)$/);
+  const headingTitle = heading?.[1]?.replace(/\s+/g, " ").trim().toLowerCase();
+  if (!headingTitle || headingTitle !== normalizedTitle) {
+    return markdown;
+  }
+
+  const nextLines = lines.slice(firstContentIndex + 1);
+  while (nextLines[0]?.trim() === "") {
+    nextLines.shift();
+  }
+
+  return normalizeReaderPreviewMarkdown(
+    [...lines.slice(0, firstContentIndex), ...nextLines].join("\n")
+  );
+}
+
+function normalizeReaderPreviewMarkdown(markdown: string) {
+  return markdown.replace(/\n{3,}/g, "\n\n").trim();
+}
+
+function shouldUseLiveLinkEmbed(preview: LinkPreviewMetadata) {
+  return preview.displayMode === "embed" && preview.kind !== "article";
+}
+
 function LinkResourcePreview({
   fileName,
+  mode,
   preview,
   workspaceUuid,
 }: {
   fileName: string;
+  mode: LinkPreviewMode;
   preview: LinkPreviewMetadata;
   workspaceUuid: string;
 }) {
   const title = preview.title || fileName.replace(/\.mdx?$/i, "");
   const description =
     preview.description ?? preview.snapshot?.description ?? preview.sourceUrl;
-  const readerMarkdown =
-    preview.readerMarkdown ??
-    (preview.snapshot?.contentText
-      ? `# ${preview.snapshot.title ?? title}\n\n${preview.snapshot.contentText}`
-      : null);
-  const imageUrl = preview.imageUrl ?? preview.snapshot?.imageUrl;
-  const capturedAt = preview.snapshot?.capturedAt
-    ? new Date(preview.snapshot.capturedAt).toLocaleString()
+  const readerMarkdown = getLinkReaderMarkdown(preview, fileName);
+  const readerContent = readerMarkdown
+    ? stripDuplicateReaderTitle(readerMarkdown, title)
     : null;
-  const canShowWebPreview =
-    preview.displayMode === "embed" ||
-    (preview.kind === "article" && preview.sourceUrl.length > 0);
-  const canShowReader = Boolean(readerMarkdown);
-  const [viewMode, setViewMode] = useState<"reader" | "web">(() =>
-    canShowWebPreview ? "web" : "reader"
-  );
-  const activeViewMode =
-    viewMode === "web" && !canShowWebPreview ? "reader" : viewMode;
+  const imageUrl = preview.imageUrl ?? preview.snapshot?.imageUrl;
+  const sourceLabel = getUrlDisplayLabel(preview.sourceUrl);
+  const snapshotExcerpt =
+    preview.snapshot?.contentText?.replace(/\s+/g, " ").trim() ?? null;
+  const excerpt =
+    description !== preview.sourceUrl
+      ? description
+      : snapshotExcerpt
+        ? `${snapshotExcerpt.slice(0, 280)}${snapshotExcerpt.length > 280 ? "..." : ""}`
+        : preview.sourceUrl;
+  const liveEmbed = shouldUseLiveLinkEmbed(preview);
 
   return (
-    <div className="mx-auto flex w-full max-w-[1120px] flex-col gap-5 px-4 py-6 sm:px-8">
-      <div className="flex min-w-0 items-start gap-3">
-        {preview.favicon ? (
-          <span
-            aria-hidden="true"
-            className="mt-1 size-8 rounded-md border border-border/70 bg-background bg-center bg-contain bg-no-repeat"
-            style={{
-              backgroundImage: `url(${JSON.stringify(preview.favicon)})`,
-            }}
+    <div className="mx-auto w-full max-w-[1120px] px-4 py-6 sm:px-8">
+      {mode === "reader" && readerContent ? (
+        <article className="mx-auto w-full max-w-[760px] px-1 py-8 sm:px-4 sm:py-12">
+          <Markdown
+            className="max-w-none text-[16px] text-foreground/90 leading-8 [&_a]:text-foreground [&_blockquote]:my-7 [&_blockquote]:border-muted-foreground/35 [&_blockquote]:text-foreground/80 [&_h1]:mb-5 [&_h1]:text-[2rem] [&_h1]:leading-tight [&_h2]:mt-11 [&_h2]:mb-4 [&_h2]:text-[1.45rem] [&_h2]:leading-tight [&_h3]:mt-9 [&_h3]:mb-3 [&_h3]:text-[1.2rem] [&_h4]:mt-8 [&_img]:my-7 [&_img]:rounded [&_li]:my-1.5 [&_p]:my-5"
+            content={readerContent}
+            id={`link-preview-${preview.sourceUrl}`}
+            parseIncompleteMarkdown={false}
+            textSize="default"
+            workspaceUuid={workspaceUuid}
           />
-        ) : (
-          <div className="mt-1 flex size-8 items-center justify-center rounded-md border border-border/70 bg-muted text-muted-foreground">
-            <LinkSimple className="size-4" />
-          </div>
-        )}
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2 text-muted-foreground text-xs">
-            <span className="capitalize">
-              {preview.kind ?? preview.displayMode} preview
-            </span>
-            {preview.provider ? <span>{preview.provider}</span> : null}
-            {capturedAt ? <span>Captured {capturedAt}</span> : null}
-          </div>
-          <h2 className="mt-1 text-balance font-semibold text-2xl text-foreground">
-            {title}
-          </h2>
-          <p className="mt-2 break-words text-muted-foreground text-sm">
-            {description}
-          </p>
-          <Button
-            className="mt-4 h-8 gap-2"
-            onClick={() =>
-              window.open(preview.sourceUrl, "_blank", "noopener,noreferrer")
-            }
-            size="sm"
-            type="button"
-            variant="secondary"
-          >
-            <LinkSimple className="size-3.5" />
-            Open source
-          </Button>
-        </div>
-      </div>
-
-      {canShowWebPreview && canShowReader ? (
-        <Tabs
-          className="items-start"
-          onValueChange={(value) => {
-            if (value === "web" || value === "reader") {
-              setViewMode(value);
-            }
-          }}
-          value={activeViewMode}
-        >
-          <TabsList
-            className="rounded-md border border-border/70 bg-background/80"
-            variant="default"
-          >
-            <TabsTrigger className="h-7 gap-1.5 px-2.5" value="web">
-              <Globe className="size-3.5" />
-              Web
-            </TabsTrigger>
-            <TabsTrigger className="h-7 gap-1.5 px-2.5" value="reader">
-              <FileText className="size-3.5" />
-              Reader
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
-      ) : null}
-
-      {canShowWebPreview && activeViewMode === "web" ? (
-        <div className="h-[72vh] min-h-[520px] overflow-hidden rounded-md border border-border/70 bg-background shadow-sm">
+        </article>
+      ) : (
+        <div className="overflow-hidden rounded-md border border-border/70 bg-card shadow-sm">
           <div className="flex h-9 items-center gap-2 border-border/70 border-b bg-muted/35 px-3">
             <div aria-hidden="true" className="flex items-center gap-1.5">
               <span className="size-2.5 rounded-full bg-muted-foreground/35" />
@@ -355,52 +353,65 @@ function LinkResourcePreview({
               <span className="size-2.5 rounded-full bg-muted-foreground/20" />
             </div>
             <div className="min-w-0 flex-1 truncate rounded-sm border border-border/60 bg-background/70 px-2 py-1 text-muted-foreground text-xs">
-              {preview.sourceUrl}
+              {sourceLabel}
             </div>
           </div>
-          <iframe
-            className="h-[calc(100%-2.25rem)] w-full bg-background"
-            referrerPolicy="no-referrer"
-            sandbox="allow-scripts allow-popups"
-            src={preview.sourceUrl}
-            title={title}
-          />
-        </div>
-      ) : null}
-
-      {preview.displayMode === "snapshot" && activeViewMode !== "reader" ? (
-        <div className="overflow-hidden rounded-md border border-border/70 bg-card">
-          {imageUrl ? (
-            <span
-              aria-hidden="true"
-              className="block aspect-[16/7] w-full bg-center bg-cover"
-              style={{ backgroundImage: `url(${JSON.stringify(imageUrl)})` }}
+          {liveEmbed ? (
+            <iframe
+              className="h-[72vh] min-h-[520px] w-full bg-background"
+              referrerPolicy="no-referrer"
+              sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox"
+              src={preview.sourceUrl}
+              title={title}
             />
           ) : (
-            <div className="flex aspect-[16/7] w-full items-center justify-center bg-muted">
-              <div className="max-w-md px-6 text-center">
-                <LinkSimple className="mx-auto size-8 text-muted-foreground" />
-                <p className="mt-3 text-muted-foreground text-sm">
-                  Snapshot metadata is stored for this page. A captured image
-                  can be attached when the browser screenshot worker is added.
+            <div className="grid min-h-[520px] bg-background md:grid-cols-[minmax(0,1fr)_minmax(18rem,0.8fr)]">
+              <div className="flex min-w-0 flex-col justify-center px-7 py-10 sm:px-12">
+                <div className="mb-5 flex items-center gap-2 text-muted-foreground text-xs">
+                  {preview.favicon ? (
+                    <span
+                      aria-hidden="true"
+                      className="size-5 rounded-[4px] border border-border/70 bg-background bg-center bg-contain bg-no-repeat"
+                      style={{
+                        backgroundImage: `url(${JSON.stringify(preview.favicon)})`,
+                      }}
+                    />
+                  ) : (
+                    <LinkSimple className="size-4" />
+                  )}
+                  <span className="truncate">{sourceLabel}</span>
+                </div>
+                <h2 className="max-w-[42rem] text-balance font-semibold text-3xl text-foreground leading-tight">
+                  {title}
+                </h2>
+                <p className="mt-4 max-w-[43rem] text-muted-foreground text-sm leading-6">
+                  {excerpt}
                 </p>
+              </div>
+              <div className="border-border/70 border-t bg-muted/20 md:border-t-0 md:border-l">
+                {imageUrl ? (
+                  <span
+                    aria-hidden="true"
+                    className="block h-full min-h-[260px] bg-center bg-cover"
+                    style={{
+                      backgroundImage: `url(${JSON.stringify(imageUrl)})`,
+                    }}
+                  />
+                ) : (
+                  <div className="flex h-full min-h-[260px] items-center justify-center px-8 text-center">
+                    <div className="max-w-xs">
+                      <Globe className="mx-auto size-9 text-muted-foreground" />
+                      <p className="mt-3 text-muted-foreground text-sm leading-6">
+                        Web metadata and reader content are saved for this page.
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
         </div>
-      ) : null}
-
-      {readerMarkdown && activeViewMode === "reader" ? (
-        <div className="rounded-md border border-border/70 bg-background px-5 py-8 shadow-sm sm:px-10">
-          <Markdown
-            className="mx-auto max-w-[720px] text-[15px] leading-7 [&_blockquote]:border-muted-foreground/35 [&_h1]:text-3xl [&_h1]:leading-tight [&_h2]:mt-10 [&_h2]:text-2xl [&_img]:rounded [&_li]:my-1 [&_p]:my-4"
-            content={readerMarkdown}
-            id={`link-preview-${preview.sourceUrl}`}
-            textSize="default"
-            workspaceUuid={workspaceUuid}
-          />
-        </div>
-      ) : null}
+      )}
     </div>
   );
 }
@@ -575,6 +586,8 @@ export function FilePreviewPanel({
     "gallery" | "link" | "upload"
   >("gallery");
   const [noteCoverLinkDraft, setNoteCoverLinkDraft] = useState("");
+  const [linkPreviewMode, setLinkPreviewMode] =
+    useState<LinkPreviewMode>("web");
   const noteBannerInputRef = useRef<HTMLInputElement | null>(null);
   const noteSyncDebounceRef = useRef<number | null>(null);
   const noteSyncInFlightRef = useRef(false);
@@ -592,6 +605,12 @@ export function FilePreviewPanel({
     () => getLinkPreviewMetadata(activeFile),
     [activeFile]
   );
+  const activeLinkReaderMarkdown = activeLinkPreview
+    ? getLinkReaderMarkdown(activeLinkPreview, activeFile.name)
+    : null;
+  const activeLinkReaderAvailable = Boolean(activeLinkReaderMarkdown);
+  const activeLinkPreviewMode: LinkPreviewMode =
+    activeLinkPreview && activeLinkReaderAvailable ? linkPreviewMode : "web";
   const activeFileSourceUrl = activeFileIsMarkdown
     ? (activeLinkPreview?.sourceUrl ??
       `/api/workspaces/${workspaceUuid}/files/${activeFile.id}/stream`)
@@ -758,6 +777,7 @@ export function FilePreviewPanel({
 
   useEffect(() => {
     setPropertiesOpen(false);
+    setLinkPreviewMode("web");
   }, [activeFile.id]);
 
   const markdownBody = markdownDraft;
@@ -1272,6 +1292,20 @@ export function FilePreviewPanel({
                   PDF dark mode
                 </DropdownMenuCheckboxItem>
               ) : null}
+              {activeLinkPreview && activeLinkReaderAvailable ? (
+                <>
+                  <DropdownMenuCheckboxItem
+                    checked={activeLinkPreviewMode === "reader"}
+                    onCheckedChange={(checked) => {
+                      setLinkPreviewMode(checked ? "reader" : "web");
+                    }}
+                  >
+                    <FileText className="size-3.5" />
+                    Reader mode
+                  </DropdownMenuCheckboxItem>
+                  <DropdownMenuSeparator />
+                </>
+              ) : null}
               <DropdownMenuItem onClick={toggleCurrentPinnedItem}>
                 {isCurrentPinned ? (
                   <PinOff className="size-3.5" />
@@ -1446,6 +1480,8 @@ export function FilePreviewPanel({
     activeFile.name,
     activeFile.readOnly,
     activeLinkPreview,
+    activeLinkPreviewMode,
+    activeLinkReaderAvailable,
     allFolders,
     currentInfoEntries,
     openFileShareDialog,
@@ -1501,7 +1537,7 @@ export function FilePreviewPanel({
               onDefinitionsChange={setPropertyDefinitions}
               properties={notePage.properties}
             />
-            {activeFileIsMarkdown ? (
+            {activeFileIsMarkdown && !activeLinkPreview ? (
               <input
                 accept="image/*"
                 className="hidden"
@@ -1519,12 +1555,12 @@ export function FilePreviewPanel({
           ref={filePreviewScrollRef}
         >
           <div className="min-h-full w-full min-w-0">
-            {markdownError ? (
+            {markdownError && !activeLinkPreview ? (
               <div className="mx-auto flex h-[70vh] max-w-[820px] flex-col items-center justify-center gap-3 p-0 text-center sm:p-4">
                 <FileText className="size-8 text-muted-foreground" />
                 <p className="text-muted-foreground text-xs">{markdownError}</p>
               </div>
-            ) : markdownLoading || !isMarkdownReady ? (
+            ) : (markdownLoading || !isMarkdownReady) && !activeLinkPreview ? (
               <div className="mx-auto flex h-[70vh] max-w-[820px] items-center justify-center p-0 text-muted-foreground text-sm sm:p-4">
                 <div className="inline-flex items-center gap-2">
                   <Spinner className="size-4" />
@@ -1533,7 +1569,7 @@ export function FilePreviewPanel({
               </div>
             ) : (
               <div className="flex min-h-full w-full min-w-0 flex-col items-stretch">
-                {activeFileIsMarkdown ? (
+                {activeFileIsMarkdown && !activeLinkPreview ? (
                   <div className="w-full min-w-0 bg-background">
                     {noteBannerUrl ? (
                       <div className="group/banner relative w-full overflow-hidden border-border/60 bg-muted/30">
@@ -1761,6 +1797,7 @@ export function FilePreviewPanel({
                     <LinkResourcePreview
                       fileName={activeFile.name}
                       key={`${activeFile.id}:${activeLinkPreview.sourceUrl}`}
+                      mode={activeLinkPreviewMode}
                       preview={activeLinkPreview}
                       workspaceUuid={workspaceUuid}
                     />

@@ -68,6 +68,13 @@ function createDetectorAbortSignal(input: {
   parent?: AbortSignal;
   timeoutMs: number | null;
 }) {
+  if (!input.parent && typeof input.timeoutMs !== "number") {
+    return {
+      signal: undefined,
+      cleanup: () => {},
+    };
+  }
+
   const controller = new AbortController();
   const timeout =
     typeof input.timeoutMs === "number"
