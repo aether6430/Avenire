@@ -159,9 +159,16 @@ const containsHtmlTags = (value: string): boolean =>
 const markdownEscape = (value: string): string =>
   value.replace(/([\\`*_{}[\]()#+.!|-])/g, "\\$1");
 
-const normalizeMarkdownText = (value: string): string =>
+const normalizePlainText = (value: string): string =>
   decodeHtmlEntities(value)
     .replace(/[ \t\r\f\v]+/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+
+const normalizeMarkdownDocument = (value: string): string =>
+  value
+    .replace(/\r\n?/g, "\n")
+    .replace(/[ \t]+$/gm, "")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
 
@@ -169,7 +176,7 @@ const htmlFragmentToMarkdown = (html: string, sourceUrl: URL): string => {
   const { document } = parseHTML(`<article>${html}</article>`);
   const root = document.querySelector("article");
   if (!root) {
-    return normalizeMarkdownText(getPlainTextFromHtml(html));
+    return normalizePlainText(getPlainTextFromHtml(html));
   }
 
   const blockTags = new Set([
@@ -195,7 +202,7 @@ const htmlFragmentToMarkdown = (html: string, sourceUrl: URL): string => {
     const element = node as Element;
     const tagName = element.tagName.toUpperCase();
     const children = Array.from(element.childNodes).map(walk).join("");
-    const text = normalizeMarkdownText(children);
+    const text = normalizeMarkdownDocument(children);
 
     if (!text && tagName !== "IMG" && tagName !== "BR") {
       return "";
@@ -260,7 +267,9 @@ const htmlFragmentToMarkdown = (html: string, sourceUrl: URL): string => {
     }
   };
 
-  return normalizeMarkdownText(Array.from(root.childNodes).map(walk).join(""));
+  return normalizeMarkdownDocument(
+    Array.from(root.childNodes).map(walk).join("")
+  );
 };
 
 const normalizeReaderMarkdown = (value: string, sourceUrl: URL): string => {
@@ -270,7 +279,7 @@ const normalizeReaderMarkdown = (value: string, sourceUrl: URL): string => {
   }
   return containsHtmlTags(trimmed)
     ? htmlFragmentToMarkdown(trimmed, sourceUrl)
-    : normalizeMarkdownText(trimmed);
+    : normalizeMarkdownDocument(trimmed);
 };
 
 const OFFICE_DOCUMENT_EXTENSIONS = new Set([
@@ -383,10 +392,9 @@ const extractDefuddleContent = async (
       separateMarkdown: true,
       useAsync: false,
     });
-    const content = normalizeReaderMarkdown(
-      extracted.contentMarkdown ?? extracted.content,
-      url
-    );
+    const content = extracted.contentMarkdown
+      ? normalizeMarkdownDocument(extracted.contentMarkdown)
+      : normalizeReaderMarkdown(extracted.content ?? "", url);
     if (!content) {
       return null;
     }
