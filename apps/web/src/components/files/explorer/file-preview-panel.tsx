@@ -35,7 +35,6 @@ import {
   FileImage,
   FileText,
   FolderPlus as FolderInput,
-  Globe,
   Info,
   LinkSimple,
   DotsThree as MoreHorizontal,
@@ -246,15 +245,6 @@ function getLinkPreviewMetadata(file: FileRecord): LinkPreviewMetadata | null {
 
 type LinkPreviewMode = "reader" | "web";
 
-function getUrlDisplayLabel(url: string) {
-  try {
-    const parsed = new URL(url);
-    return `${parsed.hostname}${parsed.pathname === "/" ? "" : parsed.pathname}`;
-  } catch {
-    return url;
-  }
-}
-
 function getLinkReaderMarkdown(
   preview: LinkPreviewMetadata,
   fallbackTitle: string
@@ -297,10 +287,6 @@ function normalizeReaderPreviewMarkdown(markdown: string) {
   return markdown.replace(/\n{3,}/g, "\n\n").trim();
 }
 
-function shouldUseLiveLinkEmbed(preview: LinkPreviewMetadata) {
-  return preview.displayMode === "embed" && preview.kind !== "article";
-}
-
 function LinkResourcePreview({
   fileName,
   mode,
@@ -313,30 +299,22 @@ function LinkResourcePreview({
   workspaceUuid: string;
 }) {
   const title = preview.title || fileName.replace(/\.mdx?$/i, "");
-  const description =
-    preview.description ?? preview.snapshot?.description ?? preview.sourceUrl;
   const readerMarkdown = getLinkReaderMarkdown(preview, fileName);
   const readerContent = readerMarkdown
     ? stripDuplicateReaderTitle(readerMarkdown, title)
     : null;
-  const imageUrl = preview.imageUrl ?? preview.snapshot?.imageUrl;
-  const sourceLabel = getUrlDisplayLabel(preview.sourceUrl);
-  const snapshotExcerpt =
-    preview.snapshot?.contentText?.replace(/\s+/g, " ").trim() ?? null;
-  const excerpt =
-    description !== preview.sourceUrl
-      ? description
-      : snapshotExcerpt
-        ? `${snapshotExcerpt.slice(0, 280)}${snapshotExcerpt.length > 280 ? "..." : ""}`
-        : preview.sourceUrl;
-  const liveEmbed = shouldUseLiveLinkEmbed(preview);
+  const shouldUseStoredPreviewImage =
+    preview.kind === "article" || preview.displayMode === "snapshot";
+  const previewImageUrl = shouldUseStoredPreviewImage
+    ? (preview.snapshot?.imageUrl ?? preview.imageUrl)
+    : null;
 
   return (
     <div className="mx-auto w-full max-w-[1120px] px-4 py-6 sm:px-8">
       {mode === "reader" && readerContent ? (
-        <article className="mx-auto w-full max-w-[760px] px-1 py-8 sm:px-4 sm:py-12">
+        <article className="scribe-document-row">
           <Markdown
-            className="max-w-none text-[16px] text-foreground/90 leading-8 [&_a]:text-foreground [&_blockquote]:my-7 [&_blockquote]:border-muted-foreground/35 [&_blockquote]:text-foreground/80 [&_h1]:mb-5 [&_h1]:text-[2rem] [&_h1]:leading-tight [&_h2]:mt-11 [&_h2]:mb-4 [&_h2]:text-[1.45rem] [&_h2]:leading-tight [&_h3]:mt-9 [&_h3]:mb-3 [&_h3]:text-[1.2rem] [&_h4]:mt-8 [&_img]:my-7 [&_img]:rounded [&_li]:my-1.5 [&_p]:my-5"
+            className="scribe-surface max-w-full px-4 py-8 sm:px-10 sm:py-10 [&_img]:my-4 [&_img]:rounded-md [&_img]:border [&_img]:border-border/70"
             content={readerContent}
             id={`link-preview-${preview.sourceUrl}`}
             parseIncompleteMarkdown={false}
@@ -345,70 +323,24 @@ function LinkResourcePreview({
           />
         </article>
       ) : (
-        <div className="overflow-hidden rounded-md border border-border/70 bg-card shadow-sm">
-          <div className="flex h-9 items-center gap-2 border-border/70 border-b bg-muted/35 px-3">
-            <div aria-hidden="true" className="flex items-center gap-1.5">
-              <span className="size-2.5 rounded-full bg-muted-foreground/35" />
-              <span className="size-2.5 rounded-full bg-muted-foreground/25" />
-              <span className="size-2.5 rounded-full bg-muted-foreground/20" />
-            </div>
-            <div className="min-w-0 flex-1 truncate rounded-sm border border-border/60 bg-background/70 px-2 py-1 text-muted-foreground text-xs">
-              {sourceLabel}
-            </div>
-          </div>
-          {liveEmbed ? (
+        <div className="h-[72vh] min-h-[520px] overflow-hidden rounded-md border border-border/70 bg-background shadow-sm">
+          {previewImageUrl ? (
+            <span
+              aria-label={`${title} preview`}
+              className="block h-full w-full bg-background bg-contain bg-top bg-no-repeat"
+              role="img"
+              style={{
+                backgroundImage: `url(${JSON.stringify(previewImageUrl)})`,
+              }}
+            />
+          ) : (
             <iframe
-              className="h-[72vh] min-h-[520px] w-full bg-background"
+              className="h-full w-full bg-background"
               referrerPolicy="no-referrer"
               sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox"
               src={preview.sourceUrl}
               title={title}
             />
-          ) : (
-            <div className="grid min-h-[520px] bg-background md:grid-cols-[minmax(0,1fr)_minmax(18rem,0.8fr)]">
-              <div className="flex min-w-0 flex-col justify-center px-7 py-10 sm:px-12">
-                <div className="mb-5 flex items-center gap-2 text-muted-foreground text-xs">
-                  {preview.favicon ? (
-                    <span
-                      aria-hidden="true"
-                      className="size-5 rounded-[4px] border border-border/70 bg-background bg-center bg-contain bg-no-repeat"
-                      style={{
-                        backgroundImage: `url(${JSON.stringify(preview.favicon)})`,
-                      }}
-                    />
-                  ) : (
-                    <LinkSimple className="size-4" />
-                  )}
-                  <span className="truncate">{sourceLabel}</span>
-                </div>
-                <h2 className="max-w-[42rem] text-balance font-semibold text-3xl text-foreground leading-tight">
-                  {title}
-                </h2>
-                <p className="mt-4 max-w-[43rem] text-muted-foreground text-sm leading-6">
-                  {excerpt}
-                </p>
-              </div>
-              <div className="border-border/70 border-t bg-muted/20 md:border-t-0 md:border-l">
-                {imageUrl ? (
-                  <span
-                    aria-hidden="true"
-                    className="block h-full min-h-[260px] bg-center bg-cover"
-                    style={{
-                      backgroundImage: `url(${JSON.stringify(imageUrl)})`,
-                    }}
-                  />
-                ) : (
-                  <div className="flex h-full min-h-[260px] items-center justify-center px-8 text-center">
-                    <div className="max-w-xs">
-                      <Globe className="mx-auto size-9 text-muted-foreground" />
-                      <p className="mt-3 text-muted-foreground text-sm leading-6">
-                        Web metadata and reader content are saved for this page.
-                      </p>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
           )}
         </div>
       )}

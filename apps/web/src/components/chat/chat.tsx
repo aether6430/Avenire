@@ -385,9 +385,19 @@ export function Chat({
       }
     },
   });
+  const isRecoveringFromStreamDisconnect = Boolean(
+    error &&
+      getChatErrorSignature(error) ===
+        recoverableStreamErrorSignatureRef.current &&
+      canRecoverChatDisconnect(error)
+  );
+  const effectiveStatus: ChatStatus = isRecoveringFromStreamDisconnect
+    ? "submitted"
+    : status;
+
   const displayedMessages = useMemo(() => {
     const lastMessage = messages.at(-1);
-    if (!(status === "submitted" && lastMessage?.role === "user")) {
+    if (!(effectiveStatus === "submitted" && lastMessage?.role === "user")) {
       return messages;
     }
 
@@ -399,7 +409,7 @@ export function Chat({
         parts: [{ type: "text", text: "" }],
       } as UIMessage,
     ];
-  }, [messages, status]);
+  }, [effectiveStatus, messages]);
 
   useEffect(() => {
     latestChatStatusRef.current = status;
@@ -418,6 +428,7 @@ export function Chat({
     error &&
     getChatErrorSignature(error) !==
       recoverableStreamErrorSignatureRef.current &&
+    !isRecoveringFromStreamDisconnect &&
     !canRecoverChatDisconnect(error)
       ? error
       : undefined;
@@ -455,7 +466,7 @@ export function Chat({
   }, [messages, workspaceUuid]);
 
   const shouldFollowStreamingTail =
-    status === "streaming" || status === "submitted";
+    effectiveStatus === "streaming" || effectiveStatus === "submitted";
   const {
     bottomSpacerHeight,
     containerRef: messagesContainerRef,
@@ -620,11 +631,13 @@ export function Chat({
   const latestMessageRole = latestMessage?.role ?? null;
   const latestUserMessageId =
     latestMessageRole === "user" ? (latestMessage?.id ?? null) : null;
+  const canResumeStream =
+    status === "ready" || isRecoveringFromStreamDisconnect;
   const shouldResumeKnownStream =
-    id !== "new" && status === "ready" && isChatStreamActive(chatId);
+    id !== "new" && canResumeStream && isChatStreamActive(chatId);
 
   useEffect(() => {
-    if (id === "new" || status !== "ready") {
+    if (id === "new" || !canResumeStream) {
       return;
     }
     if (!(latestUserMessageId || shouldResumeKnownStream)) {
@@ -664,10 +677,10 @@ export function Chat({
   }, [
     handleResumeStreamError,
     id,
+    canResumeStream,
     latestUserMessageId,
     resumeStream,
     shouldResumeKnownStream,
-    status,
   ]);
 
   useEffect(() => {
@@ -678,7 +691,7 @@ export function Chat({
     const resumeExistingStream = () => {
       if (
         document.visibilityState === "hidden" ||
-        status !== "ready" ||
+        !canResumeStream ||
         !(latestMessageRole === "user" || isChatStreamActive(chatId))
       ) {
         return;
@@ -696,10 +709,10 @@ export function Chat({
   }, [
     chatId,
     id,
+    canResumeStream,
     handleResumeStreamError,
     latestMessageRole,
     resumeStream,
-    status,
   ]);
 
   useEffect(() => {
@@ -749,29 +762,29 @@ export function Chat({
     const shouldClearRememberedStream =
       isChatStreamActive(chatId) && latestMessageRole !== "user";
     const shouldPublish =
-      isActiveChatStreamStatus(status) ||
+      isActiveChatStreamStatus(effectiveStatus) ||
       isActiveChatStreamStatus(previousPublishedStatus) ||
       shouldClearRememberedStream;
 
     if (!shouldPublish) {
-      publishedStreamStatusRef.current = status;
+      publishedStreamStatusRef.current = effectiveStatus;
       return;
     }
 
-    publishChatStreamStatus(status);
+    publishChatStreamStatus(effectiveStatus);
 
-    if (isActiveChatStreamStatus(status)) {
+    if (isActiveChatStreamStatus(effectiveStatus)) {
       lastFinishedStreamEventRef.current = null;
     }
 
     if (
-      status === "ready" &&
+      effectiveStatus === "ready" &&
       isActiveChatStreamStatus(previousPublishedStatus)
     ) {
       publishChatStreamFinished();
     }
 
-    if (status === "submitted") {
+    if (effectiveStatus === "submitted") {
       emitPetNotification({
         message: "Thinking",
         tone: "working",
@@ -781,19 +794,19 @@ export function Chat({
     }
   }, [
     chatId,
+    effectiveStatus,
     latestMessageRole,
     publishChatStreamFinished,
     publishChatStreamStatus,
-    status,
   ]);
 
   useEffect(() => {
-    if (status !== "ready") {
-      previousStatusRef.current = status;
+    if (effectiveStatus !== "ready") {
+      previousStatusRef.current = effectiveStatus;
       return;
     }
     const previousStatus = previousStatusRef.current;
-    previousStatusRef.current = status;
+    previousStatusRef.current = effectiveStatus;
     if (previousStatus !== "submitted" && previousStatus !== "streaming") {
       return;
     }
@@ -811,25 +824,25 @@ export function Chat({
       tone: "success",
       animation: "waving",
     });
-  }, [messages, status]);
+  }, [effectiveStatus, messages]);
 
   useEffect(() => {
-    if (status === "submitted") {
+    if (effectiveStatus === "submitted") {
       setAgentActivity(null);
     }
-  }, [status]);
+  }, [effectiveStatus]);
 
   useEffect(() => {
     if (displayedMessages.length === 0) {
       return;
     }
 
-    followIfNeeded(status === "submitted" ? "smooth" : "auto");
-  }, [displayedMessages.length, followIfNeeded, status]);
+    followIfNeeded(effectiveStatus === "submitted" ? "smooth" : "auto");
+  }, [displayedMessages.length, effectiveStatus, followIfNeeded]);
 
   const regenerateFromMessage = useCallback(
     async (assistantMessageId: string) => {
-      if (status === "submitted" || status === "streaming") {
+      if (effectiveStatus === "submitted" || effectiveStatus === "streaming") {
         return;
       }
 
@@ -910,7 +923,7 @@ export function Chat({
       rememberRecoverableChatDisconnect,
       sendMessage,
       setMessages,
-      status,
+      effectiveStatus,
     ]
   );
 
@@ -1013,11 +1026,13 @@ export function Chat({
 
   const hasConversationSurface = displayedMessages.length > 0;
   const isEmptyState =
-    !hasConversationSurface && status !== "submitted" && status !== "streaming";
+    !hasConversationSurface &&
+    effectiveStatus !== "submitted" &&
+    effectiveStatus !== "streaming";
   const isTransitioningFromNewChat =
     id === "new" &&
     !hasConversationSurface &&
-    (status === "submitted" || status === "streaming");
+    (effectiveStatus === "submitted" || effectiveStatus === "streaming");
   const shouldUseCenteredComposerLayout =
     (!isMobile && isEmptyState) || isTransitioningFromNewChat;
   const showBottomComposer = !isMobile || mobileComposerOpen;
@@ -1038,7 +1053,7 @@ export function Chat({
         onTurboChange={setTurboEnabled}
         setAttachments={setAttachments}
         setInput={setInput}
-        status={status}
+        status={effectiveStatus}
         stop={handleStop}
         turboEnabled={turboEnabled}
         workspaceUuid={workspaceUuid}
@@ -1125,7 +1140,7 @@ export function Chat({
             onRegenerate={regenerateFromMessage}
             replyMinHeight={ACTIVE_REPLY_MIN_HEIGHT}
             sendMessage={sendMessage}
-            status={status}
+            status={effectiveStatus}
             workspaceUuid={workspaceUuid}
           />
         )}
