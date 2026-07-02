@@ -112,11 +112,15 @@ function outputRecordFromToolPart(part: UIMessage["parts"][number]) {
 
 function buildNoteMutationCacheKey(input: {
   fileId: string;
+  messageId: string;
   output: Record<string, unknown>;
+  partIndex: number;
   reason: NoteMutationReason;
   type: string;
 }) {
   return [
+    input.messageId,
+    input.partIndex,
     input.type,
     input.fileId,
     input.reason,
@@ -130,7 +134,7 @@ function collectNoteMutationEvents(messages: UIMessage[]): NoteMutationEvent[] {
   const events: NoteMutationEvent[] = [];
 
   for (const message of messages) {
-    for (const part of message.parts) {
+    for (const [partIndex, part] of message.parts.entries()) {
       const toolPart = outputRecordFromToolPart(part);
       if (!toolPart) {
         continue;
@@ -151,7 +155,9 @@ function collectNoteMutationEvents(messages: UIMessage[]): NoteMutationEvent[] {
         events.push({
           cacheKey: buildNoteMutationCacheKey({
             fileId,
+            messageId: message.id,
             output: toolPart.output,
+            partIndex,
             reason,
             type: toolPart.type,
           }),
@@ -174,7 +180,7 @@ function collectNoteMutationEvents(messages: UIMessage[]): NoteMutationEvent[] {
         ? toolPart.output.notes
         : [];
       const reason = operation === "created" ? "file.created" : "file.updated";
-      for (const note of notes) {
+      for (const [noteIndex, note] of notes.entries()) {
         const noteRecord = recordValue(note);
         const fileId = stringValue(noteRecord, "fileId");
         if (!fileId) {
@@ -182,6 +188,9 @@ function collectNoteMutationEvents(messages: UIMessage[]): NoteMutationEvent[] {
         }
         events.push({
           cacheKey: [
+            message.id,
+            partIndex,
+            noteIndex,
             toolPart.type,
             fileId,
             reason,
@@ -505,6 +514,7 @@ export function Chat({
         previousNewChatKeyRef.current !== newChatKey;
       previousNewChatKeyRef.current = newChatKey;
       if (shouldResetNewChat) {
+        publishedNoteMutationKeysRef.current.clear();
         hasPushedNewChatUrlRef.current = false;
         autoPromptSentRef.current = null;
         publishedStreamStatusRef.current = null;
@@ -521,6 +531,7 @@ export function Chat({
 
     hasPushedNewChatUrlRef.current = true;
     if (id !== chatId) {
+      publishedNoteMutationKeysRef.current.clear();
       publishedStreamStatusRef.current = null;
       setChatId(id);
     }
@@ -532,6 +543,7 @@ export function Chat({
     }
 
     const resetNewChat = () => {
+      publishedNoteMutationKeysRef.current.clear();
       hasPushedNewChatUrlRef.current = false;
       autoPromptSentRef.current = null;
       publishedStreamStatusRef.current = null;
@@ -590,6 +602,7 @@ export function Chat({
   );
 
   const handleStop = useCallback(() => {
+    latestChatStatusRef.current = "ready";
     pendingStreamRequestRef.current = false;
     recoverableStreamErrorSignatureRef.current = null;
     setAgentActivity(null);
@@ -731,9 +744,11 @@ export function Chat({
     autoPromptSentRef.current = prompt;
     pendingStreamRequestRef.current = true;
     promoteNewChatRoute();
-    void sendMessage({ text: prompt }).catch((error: Error) => {
-      if (canRecoverChatDisconnect(error)) {
-        rememberRecoverableChatDisconnect(error);
+    void sendMessage({ text: prompt }).catch((error) => {
+      const normalizedError =
+        error instanceof Error ? error : new Error("Failed to send message");
+      if (canRecoverChatDisconnect(normalizedError)) {
+        rememberRecoverableChatDisconnect(normalizedError);
         return;
       }
 
@@ -741,7 +756,7 @@ export function Chat({
       pendingStreamRequestRef.current = false;
       recoverableStreamErrorSignatureRef.current = null;
       publishChatStreamStatus("error");
-      handleError(error);
+      handleError(normalizedError);
     });
   }, [
     id,
