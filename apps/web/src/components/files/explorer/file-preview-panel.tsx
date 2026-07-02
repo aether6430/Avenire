@@ -20,10 +20,6 @@ import {
   DropdownMenuTrigger,
 } from "@avenire/ui/components/dropdown-menu";
 import {
-  NativeSelect,
-  NativeSelectOption,
-} from "@avenire/ui/components/native-select";
-import {
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -33,8 +29,6 @@ import { Tabs, TabsList, TabsTrigger } from "@avenire/ui/components/tabs";
 import { FileMediaPlayer } from "@avenire/ui/media";
 import {
   DownloadSimple as ArrowDownToLine,
-  ArrowsInLineHorizontal,
-  ArrowsOutLineHorizontal,
   ArrowUp,
   Columns as Columns3,
   Copy,
@@ -43,9 +37,7 @@ import {
   FolderPlus as FolderInput,
   Info,
   LinkSimple,
-  Minus,
   DotsThree as MoreHorizontal,
-  Palette,
   Pencil,
   PushPin as Pin,
   PushPinSlash as PinOff,
@@ -53,8 +45,6 @@ import {
   ArrowCounterClockwise as RotateCcw,
   ShareNetwork as Share2,
   SlidersHorizontal,
-  TextAlignJustify,
-  TextAlignLeft,
   Trash as Trash2,
   X,
 } from "@phosphor-icons/react";
@@ -254,22 +244,6 @@ function getLinkPreviewMetadata(file: FileRecord): LinkPreviewMetadata | null {
   };
 }
 
-type LinkReaderTheme = "default" | "flexoki";
-
-interface LinkReaderSettings {
-  fontSize: number;
-  lineHeight: number;
-  theme: LinkReaderTheme;
-  width: number;
-}
-
-const DEFAULT_LINK_READER_SETTINGS: LinkReaderSettings = {
-  fontSize: 16,
-  lineHeight: 1.6,
-  theme: "default",
-  width: 38,
-};
-
 interface LinkReaderTocItem {
   id: string;
   isActive: boolean;
@@ -294,6 +268,11 @@ function normalizeReaderPreviewMarkdownLine(line: string) {
   return line
     .replace(/&num;|&#35;|&#x23;/gi, "#")
     .replace(/&amp;/gi, "&")
+    .replace(
+      /^(\s*)((?:\\#){1,6})(\s+)/,
+      (_match, leading, hashes, spacing) =>
+        `${leading}${hashes.replace(/\\/g, "")}${spacing}`
+    )
     .replace(/^(\s*)\\+(#{1,6}\s+)/, "$1$2")
     .replace(/^(\s*)\\+([-*+]\s+)/, "$1$2")
     .replace(/^(\s*)\\+(\d+\.\s+)/, "$1$2")
@@ -378,155 +357,6 @@ function normalizeReaderPreviewMarkdown(markdown: string) {
     .trim();
 }
 
-function clampReaderSetting(value: number, min: number, max: number) {
-  return Math.min(max, Math.max(min, value));
-}
-
-function LinkReaderSettingsBar({
-  onChange,
-  onReset,
-  settings,
-}: {
-  onChange: (updates: Partial<LinkReaderSettings>) => void;
-  onReset: () => void;
-  settings: LinkReaderSettings;
-}) {
-  return (
-    <aside aria-label="Reader settings" className="link-reader-settings-bar">
-      <ButtonGroup className="w-full">
-        <Button
-          aria-label="Decrease font size"
-          className="flex-1"
-          onClick={() =>
-            onChange({
-              fontSize: clampReaderSetting(settings.fontSize - 1, 12, 24),
-            })
-          }
-          size="icon-lg"
-          title="Decrease font size"
-          type="button"
-          variant="outline"
-        >
-          <Minus className="size-4" />
-        </Button>
-        <Button
-          aria-label="Increase font size"
-          className="flex-1"
-          onClick={() =>
-            onChange({
-              fontSize: clampReaderSetting(settings.fontSize + 1, 12, 24),
-            })
-          }
-          size="icon-lg"
-          title="Increase font size"
-          type="button"
-          variant="outline"
-        >
-          <Plus className="size-4" />
-        </Button>
-      </ButtonGroup>
-      <ButtonGroup className="w-full">
-        <Button
-          aria-label="Narrow reader width"
-          className="flex-1"
-          onClick={() =>
-            onChange({
-              width: clampReaderSetting(settings.width - 2, 30, 60),
-            })
-          }
-          size="icon-lg"
-          title="Narrow reader width"
-          type="button"
-          variant="outline"
-        >
-          <ArrowsInLineHorizontal className="size-4" />
-        </Button>
-        <Button
-          aria-label="Widen reader width"
-          className="flex-1"
-          onClick={() =>
-            onChange({
-              width: clampReaderSetting(settings.width + 2, 30, 60),
-            })
-          }
-          size="icon-lg"
-          title="Widen reader width"
-          type="button"
-          variant="outline"
-        >
-          <ArrowsOutLineHorizontal className="size-4" />
-        </Button>
-      </ButtonGroup>
-      <ButtonGroup className="w-full">
-        <Button
-          aria-label="Decrease line height"
-          className="flex-1"
-          onClick={() =>
-            onChange({
-              lineHeight: clampReaderSetting(
-                Math.round((settings.lineHeight - 0.1) * 10) / 10,
-                1.2,
-                2
-              ),
-            })
-          }
-          size="icon-lg"
-          title="Decrease line height"
-          type="button"
-          variant="outline"
-        >
-          <TextAlignJustify className="size-4" />
-        </Button>
-        <Button
-          aria-label="Increase line height"
-          className="flex-1"
-          onClick={() =>
-            onChange({
-              lineHeight: clampReaderSetting(
-                Math.round((settings.lineHeight + 0.1) * 10) / 10,
-                1.2,
-                2
-              ),
-            })
-          }
-          size="icon-lg"
-          title="Increase line height"
-          type="button"
-          variant="outline"
-        >
-          <TextAlignLeft className="size-4" />
-        </Button>
-      </ButtonGroup>
-      <label className="flex h-8 items-center gap-2 text-muted-foreground text-xs">
-        <Palette className="size-4 shrink-0" />
-        <NativeSelect
-          aria-label="Reader theme"
-          className="min-w-0 flex-1"
-          onChange={(event) =>
-            onChange({ theme: event.currentTarget.value as LinkReaderTheme })
-          }
-          size="sm"
-          value={settings.theme}
-        >
-          <NativeSelectOption value="default">Default</NativeSelectOption>
-          <NativeSelectOption value="flexoki">Flexoki</NativeSelectOption>
-        </NativeSelect>
-      </label>
-      <Button
-        className="w-full justify-start"
-        leadingIcon={RotateCcw}
-        onClick={onReset}
-        size="sm"
-        title="Reset reader settings"
-        type="button"
-        variant="outline"
-      >
-        Reset
-      </Button>
-    </aside>
-  );
-}
-
 function LinkReaderTocRail({
   items,
   onSelect,
@@ -535,14 +365,16 @@ function LinkReaderTocRail({
   onSelect: (id: string) => void;
 }) {
   const visibleItems = items.filter((item) => item.text.trim().length > 0);
-  const getMarkerWidth = (item: LinkReaderTocItem) => {
-    if (item.level <= 1) {
-      return 46;
-    }
-    if (item.level === 2) {
-      return 34;
-    }
-    return 24;
+  const activeIndex = Math.max(
+    0,
+    visibleItems.findIndex((item) => item.isActive)
+  );
+  const getMarkerWidth = (item: LinkReaderTocItem, itemIndex: number) => {
+    const distance = Math.abs(itemIndex - activeIndex);
+    const levelInset = Math.max(0, item.level - 1) * 3;
+    const width = 34 - distance * 4 - levelInset;
+
+    return Math.max(8, Math.min(34, width));
   };
 
   if (visibleItems.length === 0) {
@@ -553,27 +385,12 @@ function LinkReaderTocRail({
     <aside className="editor-toc-rail link-reader-toc-rail pointer-events-none">
       <div className="pointer-events-auto">
         <div className="editor-toc-rail__inner">
-          <div aria-hidden className="editor-toc-rail__collapsed">
-            {visibleItems.slice(0, 14).map((item) => (
-              <span
-                className={cn(
-                  "editor-toc-rail__tick",
-                  item.isActive && "is-active"
-                )}
-                key={item.id}
-                style={{
-                  width: `${getMarkerWidth(item)}px`,
-                }}
-              />
-            ))}
-          </div>
-
           <nav
             aria-label="Table of contents"
             className="editor-toc-rail__panel"
           >
             <ol className="editor-toc-rail__list">
-              {visibleItems.map((item) => (
+              {visibleItems.map((item, itemIndex) => (
                 <li key={item.id}>
                   <button
                     className={cn(
@@ -581,12 +398,18 @@ function LinkReaderTocRail({
                       item.isActive && "is-active"
                     )}
                     onClick={() => onSelect(item.id)}
-                    style={{
-                      paddingLeft: `${12 + Math.max(0, item.level - 1) * 10}px`,
-                    }}
+                    style={
+                      {
+                        "--toc-tick-width": `${getMarkerWidth(item, itemIndex)}px`,
+                        "--toc-label-offset": `${Math.max(0, item.level - 1) * 8}px`,
+                      } as CSSProperties
+                    }
                     type="button"
                   >
-                    {item.text}
+                    <span aria-hidden className="editor-toc-rail__tick" />
+                    <span className="editor-toc-rail__label">
+                      {item.text}
+                    </span>
                   </button>
                 </li>
               ))}
@@ -600,15 +423,11 @@ function LinkReaderTocRail({
 
 function LinkResourcePreview({
   fileName,
-  onReaderSettingsChange,
   preview,
-  readerSettings,
   workspaceUuid,
 }: {
   fileName: string;
-  onReaderSettingsChange: (updates: Partial<LinkReaderSettings>) => void;
   preview: LinkPreviewMetadata;
-  readerSettings: LinkReaderSettings;
   workspaceUuid: string;
 }) {
   const title = preview.title || fileName.replace(/\.mdx?$/i, "");
@@ -620,9 +439,7 @@ function LinkResourcePreview({
   const [activeTocId, setActiveTocId] = useState<string | null>(null);
   const [tocItems, setTocItems] = useState<LinkReaderTocItem[]>([]);
   const readerStyle = {
-    "--link-reader-font-size": `${readerSettings.fontSize}px`,
-    "--link-reader-line-height": String(readerSettings.lineHeight),
-    "--link-reader-line-width": `${readerSettings.width}em`,
+    "--link-reader-line-width": "52em",
   } as CSSProperties;
   const handleTocSelect = useCallback((id: string) => {
     const heading = articleRef.current?.querySelector(`#${id}`);
@@ -721,15 +538,9 @@ function LinkResourcePreview({
   );
 
   return (
-    <div className="mx-auto w-full max-w-[1120px] px-4 py-6 sm:px-8">
+    <div className="mx-auto w-full max-w-[1360px] px-4 py-6 sm:px-8">
       {readerContent ? (
-        <div
-          className={cn(
-            "link-reader-shell",
-            `link-reader-theme-${readerSettings.theme}`
-          )}
-          style={readerStyle}
-        >
+        <div className="link-reader-shell" style={readerStyle}>
           <LinkReaderTocRail
             items={resolvedTocItems}
             onSelect={handleTocSelect}
@@ -746,11 +557,6 @@ function LinkResourcePreview({
               workspaceUuid={workspaceUuid}
             />
           </article>
-          <LinkReaderSettingsBar
-            onChange={onReaderSettingsChange}
-            onReset={() => onReaderSettingsChange(DEFAULT_LINK_READER_SETTINGS)}
-            settings={readerSettings}
-          />
         </div>
       ) : (
         <div className="flex min-h-[420px] flex-col items-center justify-center gap-3 bg-background p-6 text-center text-muted-foreground text-sm">
@@ -942,8 +748,6 @@ export function FilePreviewPanel({
     "gallery" | "link" | "upload"
   >("gallery");
   const [noteCoverLinkDraft, setNoteCoverLinkDraft] = useState("");
-  const [linkReaderSettings, setLinkReaderSettings] =
-    useState<LinkReaderSettings>(DEFAULT_LINK_READER_SETTINGS);
   const noteBannerInputRef = useRef<HTMLInputElement | null>(null);
   const noteSyncDebounceRef = useRef<number | null>(null);
   const noteSyncInFlightRef = useRef(false);
@@ -2132,14 +1936,7 @@ export function FilePreviewPanel({
                     <LinkResourcePreview
                       fileName={activeFile.name}
                       key={`${activeFile.id}:${activeLinkPreview.sourceUrl}`}
-                      onReaderSettingsChange={(updates) =>
-                        setLinkReaderSettings((current) => ({
-                          ...current,
-                          ...updates,
-                        }))
-                      }
                       preview={activeLinkPreview}
-                      readerSettings={linkReaderSettings}
                       workspaceUuid={workspaceUuid}
                     />
                   ) : (

@@ -105,6 +105,11 @@ function normalizeReaderMarkdownContent(content: string) {
     .split("\n")
     .map((line) =>
       line
+        .replace(
+          /^(\s*)((?:\\#){1,6})(\s+)/,
+          (_match, leading, hashes, spacing) =>
+            `${leading}${hashes.replace(/\\/g, "")}${spacing}`
+        )
         .replace(/^(\s*)\\+(#{1,6}\s+)/, "$1$2")
         .replace(/^(\s*)\\+([-*+]\s+)/, "$1$2")
         .replace(/^(\s*)\\+(\d+\.\s+)/, "$1$2")

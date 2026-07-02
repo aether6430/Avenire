@@ -105,6 +105,7 @@ import { renderMermaidSVG } from "beautiful-mermaid";
 import { common, createLowlight } from "lowlight";
 import {
   type ComponentType,
+  type CSSProperties,
   type KeyboardEvent,
   memo,
   type ReactNode,
@@ -2546,14 +2547,19 @@ function EditorTableOfContentsRail({
       item.originalLevel >= 1 &&
       item.originalLevel <= 3
   );
-  const getMarkerWidth = (item: TableOfContentDataItem) => {
-    if (item.originalLevel <= 1) {
-      return 46;
-    }
-    if (item.originalLevel === 2) {
-      return 34;
-    }
-    return 24;
+  const activeIndex = Math.max(
+    0,
+    visibleItems.findIndex((item) => item.isActive)
+  );
+  const getMarkerWidth = (
+    item: TableOfContentDataItem,
+    itemIndex: number
+  ) => {
+    const distance = Math.abs(itemIndex - activeIndex);
+    const levelInset = Math.max(0, item.originalLevel - 1) * 3;
+    const width = 34 - distance * 4 - levelInset;
+
+    return Math.max(8, Math.min(34, width));
   };
 
   if (visibleItems.length === 0) {
@@ -2564,26 +2570,12 @@ function EditorTableOfContentsRail({
     <aside className="editor-toc-rail pointer-events-none">
       <div className="pointer-events-auto">
         <div className="editor-toc-rail__inner">
-          <div aria-hidden className="editor-toc-rail__collapsed">
-            {visibleItems.slice(0, 14).map((item) => (
-              <span
-                className={`editor-toc-rail__tick ${
-                  item.isActive ? "is-active" : ""
-                }`}
-                key={item.id}
-                style={{
-                  width: `${getMarkerWidth(item)}px`,
-                }}
-              />
-            ))}
-          </div>
-
           <nav
             aria-label="Table of contents"
             className="editor-toc-rail__panel"
           >
             <ol className="editor-toc-rail__list">
-              {visibleItems.map((item) => (
+              {visibleItems.map((item, itemIndex) => (
                 <li key={item.id}>
                   <button
                     className={`editor-toc-rail__item ${
@@ -2595,12 +2587,18 @@ function EditorTableOfContentsRail({
                         block: "start",
                       });
                     }}
-                    style={{
-                      paddingLeft: `${12 + Math.max(0, item.originalLevel - 1) * 10}px`,
-                    }}
+                    style={
+                      {
+                        "--toc-tick-width": `${getMarkerWidth(item, itemIndex)}px`,
+                        "--toc-label-offset": `${Math.max(0, item.originalLevel - 1) * 8}px`,
+                      } as CSSProperties
+                    }
                     type="button"
                   >
-                    {item.textContent}
+                    <span aria-hidden className="editor-toc-rail__tick" />
+                    <span className="editor-toc-rail__label">
+                      {item.textContent}
+                    </span>
                   </button>
                 </li>
               ))}
