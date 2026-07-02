@@ -5,10 +5,7 @@ import {
   useDocxEditor,
   type DocxEditorController,
 } from "@extend-ai/react-docx";
-import {
-  XlsxViewer,
-  useXlsxViewerController,
-} from "@extend-ai/react-xlsx";
+import { XlsxViewer, useXlsxViewerController } from "@extend-ai/react-xlsx";
 import { Button } from "@avenire/ui/components/button";
 import { Spinner } from "@avenire/ui/components/spinner";
 import { Tabs, TabsList, TabsTrigger } from "@avenire/ui/components/tabs";
@@ -655,7 +652,10 @@ function WorkbookPreview({
     src: source,
   });
   const viewportRef = useRef<HTMLDivElement | null>(null);
-  const dockVisible = useScrollActivatedDock(viewportRef, !controller.isLoading);
+  const dockVisible = useScrollActivatedDock(
+    viewportRef,
+    !controller.isLoading
+  );
   const sheetValue = useMemo(
     () => String(controller.activeTabIndex),
     [controller.activeTabIndex]
@@ -694,7 +694,7 @@ function WorkbookPreview({
 
   return (
     <div className="relative flex h-full min-h-0 flex-col overflow-hidden bg-background">
-      {controller.tabs.length > 0 ? (
+      {controller.tabs.length > 1 ? (
         <div className="flex min-h-10 items-center border-border border-b bg-background px-2">
           <Tabs
             onValueChange={(value) => {

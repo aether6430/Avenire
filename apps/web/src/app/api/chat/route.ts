@@ -103,6 +103,12 @@ const DEFAULT_THINKING_MESSAGES = [
   "Putting the pieces together",
   "Finishing the last pass",
 ];
+const UNSAFE_STREAM_RESPONSE_HEADERS = new Set([
+  "connection",
+  "content-encoding",
+  "content-length",
+  "transfer-encoding",
+]);
 const MODEL_TOOL_ALLOW_LIST = new Set([
   "avenire_agent",
   // Granular file operations (replacing file_manager_agent)
@@ -203,6 +209,24 @@ function logWarn(message: string, meta?: Record<string, unknown>) {
   }
 
   console.warn(`${LOG_PREFIX} ${message}`);
+}
+
+function sanitizeDurableStreamResponse(response: Response) {
+  const responseHeaders = new Headers();
+  response.headers.forEach((value, key) => {
+    if (!UNSAFE_STREAM_RESPONSE_HEADERS.has(key.toLowerCase())) {
+      responseHeaders.set(key, value);
+    }
+  });
+  responseHeaders.set("Cache-Control", "no-store");
+  responseHeaders.set("Content-Type", "text/event-stream; charset=utf-8");
+  responseHeaders.set("X-Accel-Buffering", "no");
+
+  return new Response(response.body, {
+    headers: responseHeaders,
+    status: response.status,
+    statusText: response.statusText,
+  });
 }
 
 async function withStartupTimeout<T>(
@@ -2584,7 +2608,7 @@ export async function POST(request: Request) {
       selectedModel: body.selectedModel ?? "apollo-apex",
       streamPath,
     });
-    return response;
+    return sanitizeDurableStreamResponse(response);
   } catch (error) {
     logError("Unhandled chat POST error", { error: formatError(error) });
     if (idempotencyRedisKey && idempotencyLockAcquired) {

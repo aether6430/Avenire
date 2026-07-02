@@ -44,11 +44,8 @@
   --link-reader-text: var(--foreground);
   --link-reader-muted: var(--muted-foreground);
   --link-reader-accent: var(--foreground);
-  display: grid;
-  grid-template-columns: minmax(0, var(--link-reader-line-width, 38em)) 8rem;
-  gap: 1rem;
-  align-items: start;
-  justify-content: center;
+  position: relative;
+  display: block;
   min-height: 72vh;
   padding-block: 0.75rem 2rem;
   color: var(--link-reader-text);
@@ -63,17 +60,8 @@
   --link-reader-accent: #24837b;
 }
 
-.link-reader-shell.link-reader-mode-dark {
-  --link-reader-background: #100f0f;
-  --link-reader-background-alt: #1c1b1a;
-  --link-reader-border: #282726;
-  --link-reader-text: #cecdc3;
-  --link-reader-muted: #878580;
-  --link-reader-accent: #3aa99f;
-}
-
 @media (prefers-color-scheme: dark) {
-  .link-reader-shell.link-reader-mode-auto.link-reader-theme-flexoki {
+  .link-reader-shell.link-reader-theme-flexoki {
     --link-reader-background: #100f0f;
     --link-reader-background-alt: #1c1b1a;
     --link-reader-border: #282726;
@@ -89,42 +77,33 @@
   min-width: 0;
   max-width: 100%;
   margin-inline: auto;
-  overflow: hidden;
+  overflow: visible;
   background: var(--link-reader-background);
-  border: 1px solid var(--link-reader-border);
-  border-radius: 8px;
 }
 
 .link-reader-settings-bar {
-  position: sticky;
-  top: 1rem;
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  z-index: 2;
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
   width: 8rem;
   min-width: 0;
-}
-
-.link-reader-settings-bar select {
-  color: var(--link-reader-text);
-}
-
-.link-reader-settings-bar option {
-  color: var(--foreground);
-  background: var(--background);
+  padding: 0.35rem;
+  background: color-mix(in oklch, var(--background) 92%, transparent);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
 }
 
 .scribe-surface.link-reader-markdown {
   max-width: 100%;
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: var(--font-sans), Inter, sans-serif;
   font-size: var(--link-reader-font-size, 16px);
   line-height: var(--link-reader-line-height, 1.6);
   color: var(--link-reader-text);
   background: var(--link-reader-background);
-}
-
-.link-reader-font-sans .scribe-surface.link-reader-markdown {
-  font-family: var(--font-sans), Inter, system-ui, sans-serif;
 }
 
 .scribe-surface.link-reader-markdown p,
@@ -141,26 +120,6 @@
 .scribe-surface.link-reader-markdown h6 {
   color: var(--link-reader-text);
   letter-spacing: 0;
-}
-
-.scribe-surface.link-reader-markdown h1 {
-  font-size: 1.6em;
-  line-height: calc(var(--link-reader-line-height, 1.6) * 0.75);
-}
-
-.scribe-surface.link-reader-markdown h2 {
-  font-size: 1.3em;
-  line-height: calc(var(--link-reader-line-height, 1.6) * 0.85);
-}
-
-.scribe-surface.link-reader-markdown h3 {
-  font-size: 1.225em;
-  line-height: calc(var(--link-reader-line-height, 1.6) * 0.85);
-}
-
-.scribe-surface.link-reader-markdown h4 {
-  font-size: 1.15em;
-  line-height: calc(var(--link-reader-line-height, 1.6) * 0.85);
 }
 
 .scribe-surface.link-reader-markdown a {

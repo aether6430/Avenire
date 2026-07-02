@@ -5,7 +5,11 @@ import { retrieveRelevantChunks } from "./retrieval/retrieve";
 export { assertRequiredSecrets } from "./config";
 
 export { ingestStoredFile };
-export { extractLinkPreview, ingestLink } from "./ingestion/link";
+export {
+  extractLightweightLinkPreview,
+  extractLinkPreview,
+  ingestLink,
+} from "./ingestion/link";
 export { PostgresVectorStore } from "./retrieval/postgres-vector-store";
 export type {
   RetrievalQualityCandidate,
@@ -39,7 +43,14 @@ export async function retrieveWorkspaceChunks(input: {
   userId?: string;
   query: string;
   limit?: number;
-  sourceType?: "pdf" | "image" | "video" | "audio" | "document" | "markdown" | "link";
+  sourceType?:
+    | "pdf"
+    | "image"
+    | "video"
+    | "audio"
+    | "document"
+    | "markdown"
+    | "link";
   provider?: string;
 }) {
   const vectorStore = new PostgresVectorStore(input.workspaceId);

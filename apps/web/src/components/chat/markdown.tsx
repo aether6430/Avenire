@@ -46,6 +46,7 @@ interface MarkdownProps {
   minimal?: boolean;
   parseIncompleteMarkdown?: boolean;
   textSize?: "default" | "small";
+  variant?: "default" | "reader";
   workspaceUuid?: string;
 }
 
@@ -94,6 +95,47 @@ function normalizeWorkspaceFileLinks(content: string) {
     );
     return `[${label}](${normalizedUrl})`;
   });
+}
+
+function normalizeReaderMarkdownContent(content: string) {
+  return content
+    .replace(/\r\n?/g, "\n")
+    .replace(/&num;|&#35;|&#x23;/gi, "#")
+    .replace(/&amp;/gi, "&")
+    .split("\n")
+    .map((line) =>
+      line
+        .replace(/^(\s*)\\+(#{1,6}\s+)/, "$1$2")
+        .replace(/^(\s*)\\+([-*+]\s+)/, "$1$2")
+        .replace(/^(\s*)\\+(\d+\.\s+)/, "$1$2")
+        .replace(/^(\s*)\\+(!?\[)/, "$1$2")
+        .replace(/\\([[\]()])/g, "$1")
+    )
+    .filter((line) => {
+      const normalized = line.trim().replace(/\\/g, "");
+      if (!normalized) {
+        return true;
+      }
+      if (/^!+$/.test(normalized)) {
+        return false;
+      }
+      if (/^!\[\s*]\([^)]*\)\s*$/i.test(normalized)) {
+        return false;
+      }
+      if (
+        /^!\[.*?]\([^)]*\.(?:svg|png|jpe?g|webp)(?:[?#][^)]*)?\)\s*$/i.test(
+          normalized
+        )
+      ) {
+        return false;
+      }
+      return !/^!?https?:\/\/\S+\.(?:svg|png|jpe?g|webp)(?:[?#]\S*)?$/i.test(
+        normalized
+      );
+    })
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 }
 
 function normalizeMathDelimiters(content: string) {
@@ -376,18 +418,23 @@ const MemoizedMarkdown = memo(
     className,
     enableMath = true,
     textSize = "default",
+    variant = "default",
     workspaceUuid,
   }: Omit<MarkdownProps, "id">) => {
     const normalized = useMemo(() => {
       const contentWithWorkspaceLinks = normalizeWorkspaceFileLinks(content);
+      const contentForVariant =
+        variant === "reader"
+          ? normalizeReaderMarkdownContent(contentWithWorkspaceLinks)
+          : contentWithWorkspaceLinks;
       const contentWithNormalizedMath = enableMath
-        ? normalizeMathDelimiters(contentWithWorkspaceLinks)
-        : contentWithWorkspaceLinks;
+        ? normalizeMathDelimiters(contentForVariant)
+        : contentForVariant;
       return parseIncompleteMarkdown &&
         !contentWithNormalizedMath.includes("workspace-file://")
         ? remend(contentWithNormalizedMath)
         : contentWithNormalizedMath;
-    }, [content, enableMath, parseIncompleteMarkdown]);
+    }, [content, enableMath, parseIncompleteMarkdown, variant]);
 
     const sizeClasses =
       textSize === "small"
@@ -632,6 +679,7 @@ const MemoizedMarkdown = memo(
     prev.parseIncompleteMarkdown === next.parseIncompleteMarkdown &&
     prev.className === next.className &&
     prev.textSize === next.textSize &&
+    prev.variant === next.variant &&
     prev.workspaceUuid === next.workspaceUuid
 );
 
@@ -645,6 +693,7 @@ export const Markdown = memo(function Markdown({
   parseIncompleteMarkdown,
   className,
   textSize,
+  variant,
   workspaceUuid,
 }: MarkdownProps) {
   return (
@@ -656,6 +705,7 @@ export const Markdown = memo(function Markdown({
       minimal={minimal}
       parseIncompleteMarkdown={parseIncompleteMarkdown}
       textSize={textSize}
+      variant={variant}
       workspaceUuid={workspaceUuid}
     />
   );

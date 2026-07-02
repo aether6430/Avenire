@@ -187,7 +187,7 @@ export function DocumentViewerDock({
         transition={{ duration: 0.14, ease: [0.4, 0, 0.2, 1] }}
       >
         <div
-          className="pointer-events-auto flex h-12 items-center gap-3 rounded-full border border-white/10 bg-[#303236] px-4 text-[#f3f4f6] text-sm shadow-[0_8px_24px_rgba(0,0,0,0.22)]"
+          className="pointer-events-auto flex h-12 items-center gap-3 rounded-md border border-border bg-popover px-3 text-popover-foreground text-sm shadow-sm"
           onBlurCapture={hideAfterPointerLeave}
           onFocusCapture={showFromPointer}
           onPointerEnter={showFromPointer}
@@ -195,10 +195,12 @@ export function DocumentViewerDock({
         >
           {onPageChange ? (
             <div className="flex items-center gap-2">
-              <span className="font-medium text-[#d6d9de] text-sm">Page</span>
+              <span className="font-medium text-muted-foreground text-sm">
+                Page
+              </span>
               <input
                 aria-label={pageLabel}
-                className="h-6 w-6 rounded-md border border-[#777d86] bg-transparent text-center font-medium text-[#f8fafc] text-sm outline-none focus:border-[#d7dbe1]"
+                className="h-6 w-6 rounded-md border border-input bg-transparent text-center font-medium text-foreground text-sm outline-none focus:border-ring"
                 inputMode="numeric"
                 onBlur={commitPage}
                 onChange={(event) => {
@@ -213,21 +215,21 @@ export function DocumentViewerDock({
                 pattern="[0-9]*"
                 value={pageInput || resolvedPage}
               />
-              <span className="text-[#d6d9de]">/</span>
-              <span className="min-w-3 text-center font-medium text-[#f8fafc] text-sm">
+              <span className="text-muted-foreground">/</span>
+              <span className="min-w-3 text-center font-medium text-foreground text-sm">
                 {totalPages || "-"}
               </span>
             </div>
           ) : null}
 
           {(onPreviousPage || onNextPage) && onPageChange ? (
-            <div className="h-6 w-px bg-white/10" />
+            <div className="h-6 w-px bg-border" />
           ) : null}
 
           {onPreviousPage ? (
             <Button
               aria-label="Previous page"
-              className="size-7 rounded-full p-0 text-[#d6d9de] hover:bg-white/8 hover:text-white"
+              className="size-7 p-0 text-muted-foreground hover:bg-accent hover:text-accent-foreground"
               disabled={currentPage <= 1}
               onClick={onPreviousPage}
               size="icon"
@@ -240,8 +242,10 @@ export function DocumentViewerDock({
           {onNextPage ? (
             <Button
               aria-label="Next page"
-              className="size-7 rounded-full p-0 text-[#d6d9de] hover:bg-white/8 hover:text-white"
-              disabled={Boolean(totalPages) && currentPage >= Number(totalPages)}
+              className="size-7 p-0 text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+              disabled={
+                Boolean(totalPages) && currentPage >= Number(totalPages)
+              }
               onClick={onNextPage}
               size="icon"
               type="button"
@@ -251,11 +255,11 @@ export function DocumentViewerDock({
             </Button>
           ) : null}
 
-          <div className="h-6 w-px bg-white/10" />
+          <div className="h-6 w-px bg-border" />
 
           <Button
             aria-label="Zoom out"
-            className="size-7 rounded-full p-0 text-[#d6d9de] hover:bg-white/8 hover:text-white"
+            className="size-7 p-0 text-muted-foreground hover:bg-accent hover:text-accent-foreground"
             onClick={() =>
               onZoomChange(Math.max(minZoom, Number((zoom - 0.1).toFixed(2))))
             }
@@ -268,7 +272,7 @@ export function DocumentViewerDock({
           <div className="flex items-center gap-1.5">
             <input
               aria-label="Zoom percentage"
-              className="h-7 w-11 bg-transparent text-center font-medium text-[#f8fafc] text-sm outline-none"
+              className="h-7 w-11 bg-transparent text-center font-medium text-foreground text-sm outline-none"
               inputMode="numeric"
               onBlur={commitZoom}
               onChange={(event) => {
@@ -283,12 +287,12 @@ export function DocumentViewerDock({
               pattern="[0-9]*"
               value={zoomInput || resolvedZoom}
             />
-            <span className="font-medium text-[#f8fafc] text-sm">%</span>
-            <CaretDown className="size-3 text-[#b8bec7]" weight="bold" />
+            <span className="font-medium text-foreground text-sm">%</span>
+            <CaretDown className="size-3 text-muted-foreground" weight="bold" />
           </div>
           <Button
             aria-label="Zoom in"
-            className="size-7 rounded-full p-0 text-[#d6d9de] hover:bg-white/8 hover:text-white"
+            className="size-7 p-0 text-muted-foreground hover:bg-accent hover:text-accent-foreground"
             onClick={() =>
               onZoomChange(Math.min(maxZoom, Number((zoom + 0.1).toFixed(2))))
             }

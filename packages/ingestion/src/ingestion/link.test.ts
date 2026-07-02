@@ -7,6 +7,7 @@ const articleHtml = `<!doctype html>
     <title>Project Glasswing</title>
     <meta property="og:type" content="article">
     <meta property="og:title" content="Project Glasswing">
+    <meta property="og:image" content="/images/glasswing.png">
     <meta name="description" content="Securing critical software for the AI era">
   </head>
   <body>
@@ -44,7 +45,9 @@ describe("link ingestion", () => {
 
     expect(preview.displayMode).toBe("snapshot");
     expect(preview.kind).toBe("article");
-    expect(preview.snapshot?.imageUrl).toContain("s.wordpress.com/mshots");
+    expect(preview.snapshot?.imageUrl).toBe(
+      "https://anthropic.com/images/glasswing.png"
+    );
     expect(preview.readerMarkdown).toContain("Introduction");
     expect(preview.readerMarkdown).toContain("**Mythos Preview**");
     expect(preview.readerMarkdown).toContain("$100M");
