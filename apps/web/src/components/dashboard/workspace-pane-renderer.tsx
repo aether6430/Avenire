@@ -57,6 +57,7 @@ import { FlashcardSetPageClient } from "@/components/flashcards/set-detail-page"
 import { WorkspaceFlashcardsPageClient } from "@/components/flashcards/workspace-flashcards-page-client";
 import { WorkspaceTasksPageClient } from "@/components/tasks/workspace-tasks-page-client";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { isChatStreamActive } from "@/lib/chat-events";
 import {
   buildRouteState,
   WorkspacePaneInteractionBoundary,
@@ -569,6 +570,18 @@ export function WorkspacePaneRenderer() {
       if (pendingBrowserSyncRef.current === browserHref) {
         pendingBrowserSyncRef.current = null;
       }
+      return;
+    }
+
+    const browserChatMatch = browserRoute.pathname.match(
+      /^\/workspace\/chats\/([^/?#]+)$/
+    );
+    if (
+      activePane.route.pathname === "/workspace/chats/new" &&
+      browserChatMatch?.[1] &&
+      browserChatMatch[1] !== "new" &&
+      isChatStreamActive(browserChatMatch[1])
+    ) {
       return;
     }
 

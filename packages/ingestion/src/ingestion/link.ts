@@ -123,6 +123,15 @@ const getDescriptionFromHtml = (html: string): string | null =>
   getMetaValue(html, "og:description") ??
   getMetaValue(html, "twitter:description");
 
+const getPageSnapshotImageUrl = (url: URL): string => {
+  const snapshotUrl = new URL(
+    `/mshots/v1/${encodeURIComponent(url.toString())}`,
+    "https://s.wordpress.com"
+  );
+  snapshotUrl.searchParams.set("w", "1600");
+  return snapshotUrl.toString();
+};
+
 const getPlainTextFromHtml = (html: string): string => {
   return normalizeWhitespace(
     html
@@ -174,10 +183,10 @@ const normalizeMarkdownDocument = (value: string): string =>
 
 const normalizeReaderMarkdownLine = (line: string): string =>
   line
-    .replace(/^\\+(#{1,6}\s+)/, "$1")
-    .replace(/^\\+([-*+]\s+)/, "$1")
-    .replace(/^\\+(\d+\.\s+)/, "$1")
-    .replace(/^\\+(!?\[)/, "$1")
+    .replace(/^(\s*)\\+(#{1,6}\s+)/, "$1$2")
+    .replace(/^(\s*)\\+([-*+]\s+)/, "$1$2")
+    .replace(/^(\s*)\\+(\d+\.\s+)/, "$1$2")
+    .replace(/^(\s*)\\+(!?\[)/, "$1$2")
     .replace(/\\([[\]()])/g, "$1");
 
 const isNoisyReaderAssetLine = (line: string): boolean => {
@@ -517,7 +526,7 @@ export const extractLinkPreview = async (
       const imageUrl = getPageImageFromHtml(html);
       return {
         description,
-        displayMode: "embed",
+        displayMode: "snapshot",
         favicon,
         imageUrl,
         kind: "article",
@@ -526,7 +535,14 @@ export const extractLinkPreview = async (
         content: extracted.content,
         mediaUrls: [],
         readerMarkdown: extracted.content,
-        snapshot: null,
+        snapshot: {
+          capturedAt: new Date().toISOString(),
+          contentText: extracted.content.slice(0, 12_000),
+          description,
+          imageUrl: getPageSnapshotImageUrl(safeUrl),
+          sourceUrl: safeUrl.toString(),
+          title,
+        },
       };
     }
   }
@@ -539,7 +555,7 @@ export const extractLinkPreview = async (
     capturedAt: new Date().toISOString(),
     contentText: fallback.content.slice(0, 12_000),
     description,
-    imageUrl,
+    imageUrl: getPageSnapshotImageUrl(safeUrl),
     sourceUrl: safeUrl.toString(),
     title,
   };

@@ -41,6 +41,7 @@ import "katex/dist/katex.min.css";
 interface MarkdownProps {
   className?: string;
   content: string;
+  enableMath?: boolean;
   id: string;
   minimal?: boolean;
   parseIncompleteMarkdown?: boolean;
@@ -373,19 +374,20 @@ const MemoizedMarkdown = memo(
     minimal = false,
     parseIncompleteMarkdown = true,
     className,
+    enableMath = true,
     textSize = "default",
     workspaceUuid,
   }: Omit<MarkdownProps, "id">) => {
     const normalized = useMemo(() => {
       const contentWithWorkspaceLinks = normalizeWorkspaceFileLinks(content);
-      const contentWithNormalizedMath = normalizeMathDelimiters(
-        contentWithWorkspaceLinks
-      );
+      const contentWithNormalizedMath = enableMath
+        ? normalizeMathDelimiters(contentWithWorkspaceLinks)
+        : contentWithWorkspaceLinks;
       return parseIncompleteMarkdown &&
         !contentWithNormalizedMath.includes("workspace-file://")
         ? remend(contentWithNormalizedMath)
         : contentWithNormalizedMath;
-    }, [content, parseIncompleteMarkdown]);
+    }, [content, enableMath, parseIncompleteMarkdown]);
 
     const sizeClasses =
       textSize === "small"
@@ -419,11 +421,10 @@ const MemoizedMarkdown = memo(
           td: () => null,
           pre: ({ children }: any) => {
             const codeElement = children as any;
-            const codeText =
-              codeElement?.props?.children ?? "";
+            const codeText = codeElement?.props?.children ?? "";
             return (
-              <div className="rounded bg-muted/30 px-3 py-2 my-2">
-                <code className="whitespace-pre-wrap break-words text-xs text-muted-foreground">
+              <div className="my-2 rounded bg-muted/30 px-3 py-2">
+                <code className="whitespace-pre-wrap break-words text-muted-foreground text-xs">
                   {typeof codeText === "string"
                     ? codeText.slice(0, 300)
                     : "[code block]"}
@@ -438,7 +439,7 @@ const MemoizedMarkdown = memo(
       <div
         className={cn(
           minimal
-            ? "max-w-full break-words space-y-1"
+            ? "max-w-full space-y-1 break-words"
             : "prose prose-sm dark:prose-invert prose-blockquote:my-2 prose-hr:my-3 prose-ol:my-2 prose-p:my-2 prose-pre:my-3 prose-ul:my-2 max-w-full break-words",
           minimal && textSize !== "default" ? "" : sizeClasses.body,
           className
@@ -610,8 +611,8 @@ const MemoizedMarkdown = memo(
               </h6>
             ),
           }}
-          rehypePlugins={[rehypeKatex]}
-          remarkPlugins={[remarkGfm, remarkMath]}
+          rehypePlugins={enableMath ? [rehypeKatex] : []}
+          remarkPlugins={enableMath ? [remarkGfm, remarkMath] : [remarkGfm]}
           urlTransform={(url) => {
             if (url.startsWith("workspace-file://")) {
               return url;
@@ -626,6 +627,7 @@ const MemoizedMarkdown = memo(
   },
   (prev, next) =>
     prev.content === next.content &&
+    prev.enableMath === next.enableMath &&
     prev.minimal === next.minimal &&
     prev.parseIncompleteMarkdown === next.parseIncompleteMarkdown &&
     prev.className === next.className &&
@@ -637,6 +639,7 @@ MemoizedMarkdown.displayName = "MemoizedMarkdown";
 
 export const Markdown = memo(function Markdown({
   content,
+  enableMath,
   id,
   minimal,
   parseIncompleteMarkdown,
@@ -648,6 +651,7 @@ export const Markdown = memo(function Markdown({
     <MemoizedMarkdown
       className={className}
       content={content}
+      enableMath={enableMath}
       key={id}
       minimal={minimal}
       parseIncompleteMarkdown={parseIncompleteMarkdown}

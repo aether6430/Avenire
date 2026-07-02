@@ -18,6 +18,7 @@ const articleHtml = `<!doctype html>
         <p>We formed Project Glasswing because of capabilities we've observed in a new frontier model.</p>
         <p>Claude Mythos Preview is a general-purpose frontier model that reveals a stark fact.</p>
         <p><strong>Mythos Preview</strong> has already found thousands of high-severity vulnerabilities.</p>
+        <p>Anthropic is committing up to $100M in usage credits and $4M in direct donations.</p>
         <p>Project Glasswing is an urgent attempt to put these capabilities to work for defensive purposes.</p>
         <p>For cyber defenders to come out ahead, we need to act now.</p>
         <p>\\## Escaped markdown heading should still parse</p>
@@ -41,10 +42,13 @@ describe("link ingestion", () => {
 
     const preview = await extractLinkPreview("https://anthropic.com/glasswing");
 
-    expect(preview.displayMode).toBe("embed");
+    expect(preview.displayMode).toBe("snapshot");
     expect(preview.kind).toBe("article");
+    expect(preview.snapshot?.imageUrl).toContain("s.wordpress.com/mshots");
     expect(preview.readerMarkdown).toContain("Introduction");
     expect(preview.readerMarkdown).toContain("**Mythos Preview**");
+    expect(preview.readerMarkdown).toContain("$100M");
+    expect(preview.readerMarkdown).toContain("$4M");
     expect(preview.readerMarkdown).toContain(
       "## Escaped markdown heading should still parse"
     );

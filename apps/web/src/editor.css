@@ -33,6 +33,162 @@
   margin-inline: auto;
 }
 
+.link-reader-shell {
+  --link-reader-background: var(--background);
+  --link-reader-background-alt: color-mix(
+    in oklch,
+    var(--foreground) 4%,
+    var(--background)
+  );
+  --link-reader-border: color-mix(in oklch, var(--foreground) 10%, transparent);
+  --link-reader-text: var(--foreground);
+  --link-reader-muted: var(--muted-foreground);
+  --link-reader-accent: var(--foreground);
+  display: grid;
+  grid-template-columns: minmax(0, var(--link-reader-line-width, 38em)) 8rem;
+  gap: 1rem;
+  align-items: start;
+  justify-content: center;
+  min-height: 72vh;
+  padding-block: 0.75rem 2rem;
+  color: var(--link-reader-text);
+}
+
+.link-reader-shell.link-reader-theme-flexoki {
+  --link-reader-background: #fffcf0;
+  --link-reader-background-alt: #f2f0e5;
+  --link-reader-border: #e6e4d9;
+  --link-reader-text: #100f0f;
+  --link-reader-muted: #6f6e69;
+  --link-reader-accent: #24837b;
+}
+
+.link-reader-shell.link-reader-mode-dark {
+  --link-reader-background: #100f0f;
+  --link-reader-background-alt: #1c1b1a;
+  --link-reader-border: #282726;
+  --link-reader-text: #cecdc3;
+  --link-reader-muted: #878580;
+  --link-reader-accent: #3aa99f;
+}
+
+@media (prefers-color-scheme: dark) {
+  .link-reader-shell.link-reader-mode-auto.link-reader-theme-flexoki {
+    --link-reader-background: #100f0f;
+    --link-reader-background-alt: #1c1b1a;
+    --link-reader-border: #282726;
+    --link-reader-text: #cecdc3;
+    --link-reader-muted: #878580;
+    --link-reader-accent: #3aa99f;
+  }
+}
+
+.link-reader-document {
+  box-sizing: border-box;
+  width: min(100%, var(--link-reader-line-width, 38em));
+  min-width: 0;
+  max-width: 100%;
+  margin-inline: auto;
+  overflow: hidden;
+  background: var(--link-reader-background);
+  border: 1px solid var(--link-reader-border);
+  border-radius: 8px;
+}
+
+.link-reader-settings-bar {
+  position: sticky;
+  top: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  width: 8rem;
+  min-width: 0;
+}
+
+.link-reader-settings-bar select {
+  color: var(--link-reader-text);
+}
+
+.link-reader-settings-bar option {
+  color: var(--foreground);
+  background: var(--background);
+}
+
+.scribe-surface.link-reader-markdown {
+  max-width: 100%;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: var(--link-reader-font-size, 16px);
+  line-height: var(--link-reader-line-height, 1.6);
+  color: var(--link-reader-text);
+  background: var(--link-reader-background);
+}
+
+.link-reader-font-sans .scribe-surface.link-reader-markdown {
+  font-family: var(--font-sans), Inter, system-ui, sans-serif;
+}
+
+.scribe-surface.link-reader-markdown p,
+.scribe-surface.link-reader-markdown li {
+  font-size: inherit;
+  line-height: var(--link-reader-line-height, 1.6);
+}
+
+.scribe-surface.link-reader-markdown h1,
+.scribe-surface.link-reader-markdown h2,
+.scribe-surface.link-reader-markdown h3,
+.scribe-surface.link-reader-markdown h4,
+.scribe-surface.link-reader-markdown h5,
+.scribe-surface.link-reader-markdown h6 {
+  color: var(--link-reader-text);
+  letter-spacing: 0;
+}
+
+.scribe-surface.link-reader-markdown h1 {
+  font-size: 1.6em;
+  line-height: calc(var(--link-reader-line-height, 1.6) * 0.75);
+}
+
+.scribe-surface.link-reader-markdown h2 {
+  font-size: 1.3em;
+  line-height: calc(var(--link-reader-line-height, 1.6) * 0.85);
+}
+
+.scribe-surface.link-reader-markdown h3 {
+  font-size: 1.225em;
+  line-height: calc(var(--link-reader-line-height, 1.6) * 0.85);
+}
+
+.scribe-surface.link-reader-markdown h4 {
+  font-size: 1.15em;
+  line-height: calc(var(--link-reader-line-height, 1.6) * 0.85);
+}
+
+.scribe-surface.link-reader-markdown a {
+  color: var(--link-reader-accent);
+}
+
+.scribe-surface.link-reader-markdown blockquote {
+  color: var(--link-reader-muted);
+  border-left-color: var(--link-reader-border);
+}
+
+@media (max-width: 900px) {
+  .link-reader-shell {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    align-items: stretch;
+  }
+
+  .link-reader-settings-bar {
+    position: static;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    order: -1;
+    width: 100%;
+  }
+}
+
 .scribe-editor-content {
   width: 100%;
   min-width: 0;

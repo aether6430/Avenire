@@ -29,15 +29,21 @@ import { Tabs, TabsList, TabsTrigger } from "@avenire/ui/components/tabs";
 import { FileMediaPlayer } from "@avenire/ui/media";
 import {
   DownloadSimple as ArrowDownToLine,
+  ArrowsInLineHorizontal,
+  ArrowsOutLineHorizontal,
   ArrowUp,
   Columns as Columns3,
   Copy,
   FileImage,
   FileText,
   FolderPlus as FolderInput,
+  GearSix,
   Info,
   LinkSimple,
+  Minus,
+  Moon,
   DotsThree as MoreHorizontal,
+  Palette,
   Pencil,
   PushPin as Pin,
   PushPinSlash as PinOff,
@@ -45,6 +51,9 @@ import {
   ArrowCounterClockwise as RotateCcw,
   ShareNetwork as Share2,
   SlidersHorizontal,
+  TextAlignJustify,
+  TextAlignLeft,
+  TextT,
   Trash as Trash2,
   X,
 } from "@phosphor-icons/react";
@@ -52,6 +61,8 @@ import dynamic from "next/dynamic";
 
 import {
   type ChangeEvent,
+  type CSSProperties,
+  type ReactNode,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -244,6 +255,41 @@ function getLinkPreviewMetadata(file: FileRecord): LinkPreviewMetadata | null {
 }
 
 type LinkPreviewMode = "reader" | "web";
+type LinkReaderTheme = "default" | "flexoki";
+type LinkReaderThemeMode = "auto" | "light" | "dark";
+type LinkReaderFont = "serif" | "sans";
+
+interface LinkReaderSettings {
+  font: LinkReaderFont;
+  fontSize: number;
+  lineHeight: number;
+  theme: LinkReaderTheme;
+  themeMode: LinkReaderThemeMode;
+  width: number;
+}
+
+const DEFAULT_LINK_READER_SETTINGS: LinkReaderSettings = {
+  font: "serif",
+  fontSize: 16,
+  lineHeight: 1.6,
+  theme: "default",
+  themeMode: "auto",
+  width: 38,
+};
+
+function getWebSnapshotImageUrl(sourceUrl: string) {
+  try {
+    const parsed = new URL(sourceUrl);
+    const snapshotUrl = new URL(
+      `/mshots/v1/${encodeURIComponent(parsed.toString())}`,
+      "https://s.wordpress.com"
+    );
+    snapshotUrl.searchParams.set("w", "1600");
+    return snapshotUrl.toString();
+  } catch {
+    return null;
+  }
+}
 
 function getLinkReaderMarkdown(
   preview: LinkPreviewMetadata,
@@ -258,19 +304,46 @@ function getLinkReaderMarkdown(
   );
 }
 
+function normalizeReaderPreviewMarkdownLine(line: string) {
+  return line
+    .replace(/^(\s*)\\+(#{1,6}\s+)/, "$1$2")
+    .replace(/^(\s*)\\+([-*+]\s+)/, "$1$2")
+    .replace(/^(\s*)\\+(\d+\.\s+)/, "$1$2")
+    .replace(/^(\s*)\\+(!?\[)/, "$1$2")
+    .replace(/\\([[\]()])/g, "$1");
+}
+
+function normalizeReaderTitle(value: string) {
+  return value.replace(/\s+/g, " ").trim().toLowerCase();
+}
+
+function readerTitlesMatch(heading: string, title: string) {
+  const normalizedHeading = normalizeReaderTitle(heading);
+  const normalizedTitle = normalizeReaderTitle(title);
+  if (!(normalizedHeading && normalizedTitle)) {
+    return false;
+  }
+  return (
+    normalizedHeading === normalizedTitle ||
+    normalizedTitle.startsWith(`${normalizedHeading}:`) ||
+    normalizedTitle.startsWith(`${normalizedHeading} -`) ||
+    normalizedTitle.startsWith(`${normalizedHeading} |`)
+  );
+}
+
 function stripDuplicateReaderTitle(markdown: string, title: string) {
-  const normalizedTitle = title.replace(/\s+/g, " ").trim().toLowerCase();
-  const lines = markdown.split("\n");
+  const normalizedMarkdown = normalizeReaderPreviewMarkdown(markdown);
+  const lines = normalizedMarkdown.split("\n");
   const firstContentIndex = lines.findIndex((line) => line.trim().length > 0);
   if (firstContentIndex < 0) {
-    return markdown;
+    return normalizedMarkdown;
   }
 
   const firstLine = lines[firstContentIndex]?.trim() ?? "";
   const heading = firstLine.match(/^#{1,2}\s+(.+)$/);
-  const headingTitle = heading?.[1]?.replace(/\s+/g, " ").trim().toLowerCase();
-  if (!headingTitle || headingTitle !== normalizedTitle) {
-    return markdown;
+  const headingTitle = heading?.[1]?.trim();
+  if (!(headingTitle && readerTitlesMatch(headingTitle, title))) {
+    return normalizedMarkdown;
   }
 
   const nextLines = lines.slice(firstContentIndex + 1);
@@ -284,18 +357,212 @@ function stripDuplicateReaderTitle(markdown: string, title: string) {
 }
 
 function normalizeReaderPreviewMarkdown(markdown: string) {
-  return markdown.replace(/\n{3,}/g, "\n\n").trim();
+  return markdown
+    .replace(/\r\n?/g, "\n")
+    .split("\n")
+    .map(normalizeReaderPreviewMarkdownLine)
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+function clampReaderSetting(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function LinkReaderControlButton({
+  children,
+  label,
+  onClick,
+}: {
+  children: ReactNode;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      aria-label={label}
+      className="flex h-8 min-w-0 items-center justify-center border-border/60 border-r text-muted-foreground transition last:border-r-0 hover:bg-muted/70 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+      onClick={onClick}
+      title={label}
+      type="button"
+    >
+      {children}
+    </button>
+  );
+}
+
+function LinkReaderSelect({
+  children,
+  icon,
+  label,
+  value,
+  onChange,
+}: {
+  children: ReactNode;
+  icon: ReactNode;
+  label: string;
+  onChange: (value: string) => void;
+  value: string;
+}) {
+  return (
+    <label className="flex h-8 items-center gap-2 rounded-md border border-border/60 bg-background px-2 text-muted-foreground text-xs">
+      <span className="flex size-4 shrink-0 items-center justify-center">
+        {icon}
+      </span>
+      <select
+        aria-label={label}
+        className="min-w-0 flex-1 appearance-none bg-transparent text-foreground outline-none"
+        onChange={(event) => onChange(event.currentTarget.value)}
+        value={value}
+      >
+        {children}
+      </select>
+    </label>
+  );
+}
+
+function LinkReaderSettingsBar({
+  onChange,
+  onReset,
+  settings,
+}: {
+  onChange: (updates: Partial<LinkReaderSettings>) => void;
+  onReset: () => void;
+  settings: LinkReaderSettings;
+}) {
+  return (
+    <aside aria-label="Reader settings" className="link-reader-settings-bar">
+      <div className="grid grid-cols-2 overflow-hidden rounded-md border border-border/60 bg-background">
+        <LinkReaderControlButton
+          label="Decrease font size"
+          onClick={() =>
+            onChange({
+              fontSize: clampReaderSetting(settings.fontSize - 1, 12, 24),
+            })
+          }
+        >
+          <Minus className="size-4" />
+        </LinkReaderControlButton>
+        <LinkReaderControlButton
+          label="Increase font size"
+          onClick={() =>
+            onChange({
+              fontSize: clampReaderSetting(settings.fontSize + 1, 12, 24),
+            })
+          }
+        >
+          <Plus className="size-4" />
+        </LinkReaderControlButton>
+      </div>
+      <div className="grid grid-cols-2 overflow-hidden rounded-md border border-border/60 bg-background">
+        <LinkReaderControlButton
+          label="Narrow reader width"
+          onClick={() =>
+            onChange({
+              width: clampReaderSetting(settings.width - 2, 30, 60),
+            })
+          }
+        >
+          <ArrowsInLineHorizontal className="size-4" />
+        </LinkReaderControlButton>
+        <LinkReaderControlButton
+          label="Widen reader width"
+          onClick={() =>
+            onChange({
+              width: clampReaderSetting(settings.width + 2, 30, 60),
+            })
+          }
+        >
+          <ArrowsOutLineHorizontal className="size-4" />
+        </LinkReaderControlButton>
+      </div>
+      <div className="grid grid-cols-2 overflow-hidden rounded-md border border-border/60 bg-background">
+        <LinkReaderControlButton
+          label="Decrease line height"
+          onClick={() =>
+            onChange({
+              lineHeight: clampReaderSetting(
+                Math.round((settings.lineHeight - 0.1) * 10) / 10,
+                1.2,
+                2
+              ),
+            })
+          }
+        >
+          <TextAlignJustify className="size-4" />
+        </LinkReaderControlButton>
+        <LinkReaderControlButton
+          label="Increase line height"
+          onClick={() =>
+            onChange({
+              lineHeight: clampReaderSetting(
+                Math.round((settings.lineHeight + 0.1) * 10) / 10,
+                1.2,
+                2
+              ),
+            })
+          }
+        >
+          <TextAlignLeft className="size-4" />
+        </LinkReaderControlButton>
+      </div>
+      <LinkReaderSelect
+        icon={<Moon className="size-4" />}
+        label="Theme mode"
+        onChange={(value) =>
+          onChange({ themeMode: value as LinkReaderThemeMode })
+        }
+        value={settings.themeMode}
+      >
+        <option value="auto">Auto</option>
+        <option value="light">Light</option>
+        <option value="dark">Dark</option>
+      </LinkReaderSelect>
+      <LinkReaderSelect
+        icon={<Palette className="size-4" />}
+        label="Reader theme"
+        onChange={(value) => onChange({ theme: value as LinkReaderTheme })}
+        value={settings.theme}
+      >
+        <option value="default">Default</option>
+        <option value="flexoki">Flexoki</option>
+      </LinkReaderSelect>
+      <LinkReaderSelect
+        icon={<TextT className="size-4" />}
+        label="Reader font"
+        onChange={(value) => onChange({ font: value as LinkReaderFont })}
+        value={settings.font}
+      >
+        <option value="serif">Serif</option>
+        <option value="sans">Sans</option>
+      </LinkReaderSelect>
+      <button
+        className="flex h-8 items-center gap-2 rounded-md border border-border/60 bg-background px-2 text-muted-foreground text-xs transition hover:bg-muted/70 hover:text-foreground"
+        onClick={onReset}
+        title="Reset reader settings"
+        type="button"
+      >
+        <GearSix className="size-4" />
+        Reset
+      </button>
+    </aside>
+  );
 }
 
 function LinkResourcePreview({
   fileName,
   mode,
+  onReaderSettingsChange,
   preview,
+  readerSettings,
   workspaceUuid,
 }: {
   fileName: string;
   mode: LinkPreviewMode;
+  onReaderSettingsChange: (updates: Partial<LinkReaderSettings>) => void;
   preview: LinkPreviewMetadata;
+  readerSettings: LinkReaderSettings;
   workspaceUuid: string;
 }) {
   const title = preview.title || fileName.replace(/\.mdx?$/i, "");
@@ -303,25 +570,48 @@ function LinkResourcePreview({
   const readerContent = readerMarkdown
     ? stripDuplicateReaderTitle(readerMarkdown, title)
     : null;
-  const shouldUseStoredPreviewImage =
-    preview.kind === "article" || preview.displayMode === "snapshot";
-  const previewImageUrl = shouldUseStoredPreviewImage
-    ? (preview.snapshot?.imageUrl ?? preview.imageUrl)
-    : null;
+  const previewImageUrl =
+    preview.snapshot?.imageUrl ??
+    (preview.kind === "article" || preview.displayMode === "snapshot"
+      ? getWebSnapshotImageUrl(preview.sourceUrl)
+      : null);
+  const canEmbedSource =
+    preview.kind === "provider" && preview.displayMode === "embed";
+  const readerStyle = {
+    "--link-reader-font-size": `${readerSettings.fontSize}px`,
+    "--link-reader-line-height": String(readerSettings.lineHeight),
+    "--link-reader-line-width": `${readerSettings.width}em`,
+  } as CSSProperties;
 
   return (
     <div className="mx-auto w-full max-w-[1120px] px-4 py-6 sm:px-8">
       {mode === "reader" && readerContent ? (
-        <article className="scribe-document-row">
-          <Markdown
-            className="scribe-surface max-w-full px-4 py-8 sm:px-10 sm:py-10 [&_img]:my-4 [&_img]:rounded-md [&_img]:border [&_img]:border-border/70"
-            content={readerContent}
-            id={`link-preview-${preview.sourceUrl}`}
-            parseIncompleteMarkdown={false}
-            textSize="default"
-            workspaceUuid={workspaceUuid}
+        <div
+          className={cn(
+            "link-reader-shell",
+            `link-reader-theme-${readerSettings.theme}`,
+            `link-reader-mode-${readerSettings.themeMode}`,
+            `link-reader-font-${readerSettings.font}`
+          )}
+          style={readerStyle}
+        >
+          <article className="link-reader-document">
+            <Markdown
+              className="link-reader-markdown scribe-surface max-w-full px-4 py-8 sm:px-10 sm:py-10 [&_img]:my-4 [&_img]:rounded-md [&_img]:border [&_img]:border-border/70"
+              content={readerContent}
+              enableMath={false}
+              id={`link-preview-${preview.sourceUrl}`}
+              parseIncompleteMarkdown={false}
+              textSize="default"
+              workspaceUuid={workspaceUuid}
+            />
+          </article>
+          <LinkReaderSettingsBar
+            onChange={onReaderSettingsChange}
+            onReset={() => onReaderSettingsChange(DEFAULT_LINK_READER_SETTINGS)}
+            settings={readerSettings}
           />
-        </article>
+        </div>
       ) : (
         <div className="h-[72vh] min-h-[520px] overflow-hidden rounded-md border border-border/70 bg-background shadow-sm">
           {previewImageUrl ? (
@@ -333,7 +623,7 @@ function LinkResourcePreview({
                 backgroundImage: `url(${JSON.stringify(previewImageUrl)})`,
               }}
             />
-          ) : (
+          ) : canEmbedSource ? (
             <iframe
               className="h-full w-full bg-background"
               referrerPolicy="no-referrer"
@@ -341,6 +631,11 @@ function LinkResourcePreview({
               src={preview.sourceUrl}
               title={title}
             />
+          ) : (
+            <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center text-muted-foreground text-sm">
+              <LinkSimple className="size-7" />
+              <p>Preview unavailable.</p>
+            </div>
           )}
         </div>
       )}
@@ -520,6 +815,8 @@ export function FilePreviewPanel({
   const [noteCoverLinkDraft, setNoteCoverLinkDraft] = useState("");
   const [linkPreviewMode, setLinkPreviewMode] =
     useState<LinkPreviewMode>("web");
+  const [linkReaderSettings, setLinkReaderSettings] =
+    useState<LinkReaderSettings>(DEFAULT_LINK_READER_SETTINGS);
   const noteBannerInputRef = useRef<HTMLInputElement | null>(null);
   const noteSyncDebounceRef = useRef<number | null>(null);
   const noteSyncInFlightRef = useRef(false);
@@ -1513,7 +1810,9 @@ export function FilePreviewPanel({
                           loading="lazy"
                           onError={(event) => {
                             const img = event.currentTarget;
-                            if (img.dataset.fellBack) return;
+                            if (img.dataset.fellBack) {
+                              return;
+                            }
                             img.dataset.fellBack = "1";
                             img.src = STATIC_ASSETS.banner1;
                           }}
@@ -1730,7 +2029,14 @@ export function FilePreviewPanel({
                       fileName={activeFile.name}
                       key={`${activeFile.id}:${activeLinkPreview.sourceUrl}`}
                       mode={activeLinkPreviewMode}
+                      onReaderSettingsChange={(updates) =>
+                        setLinkReaderSettings((current) => ({
+                          ...current,
+                          ...updates,
+                        }))
+                      }
                       preview={activeLinkPreview}
+                      readerSettings={linkReaderSettings}
                       workspaceUuid={workspaceUuid}
                     />
                   ) : (

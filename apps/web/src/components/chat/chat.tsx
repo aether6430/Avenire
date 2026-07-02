@@ -11,7 +11,6 @@ import {
   lastAssistantMessageIsCompleteWithApprovalResponses,
 } from "ai";
 import { AnimatePresence, motion } from "motion/react";
-import type { Route } from "next";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDropzone } from "react-dropzone";
 import { toast } from "sonner";
@@ -41,7 +40,8 @@ import {
 } from "@/lib/chat-message-cache";
 import { normalizeMediaType } from "@/lib/media-type";
 import { emitPetNotification } from "@/lib/pet-preferences";
-import { usePaneRouter } from "@/lib/workspace-panes";
+import { useCurrentWorkspacePane } from "@/lib/workspace-panes";
+import { useWorkspacePaneStore } from "@/stores/workspacePaneStore";
 import { type Attachment, createLocalAttachment } from "./attachment";
 import { Messages } from "./messages";
 import { MultimodalInput } from "./multimodal-input";
@@ -228,7 +228,8 @@ export function Chat({
   const [mobileComposerOpen, setMobileComposerOpen] = useState(false);
   const [turboEnabled, setTurboEnabled] = useState(false);
   const isMobile = useIsMobile();
-  const paneRouter = usePaneRouter();
+  const { paneId } = useCurrentWorkspacePane();
+  const setPaneRoute = useWorkspacePaneStore((state) => state.setPaneRoute);
   const activeSelectedModel = turboEnabled ? "apex-turbo" : selectedModel;
   const lastCompletedMessageIdRef = useRef<string | null>(null);
   const previousStatusRef = useRef<string | null>(null);
@@ -312,6 +313,21 @@ export function Chat({
     );
   }, [chatId]);
 
+  const finalizePromotedNewChatRoute = useCallback(() => {
+    if (id !== "new" || !hasPushedNewChatUrlRef.current) {
+      return;
+    }
+
+    setPaneRoute(
+      paneId,
+      {
+        pathname: `/workspace/chats/${chatId}`,
+        search: "",
+      },
+      { replace: true }
+    );
+  }, [chatId, id, paneId, setPaneRoute]);
+
   const transport = useMemo<ChatTransport<UIMessage>>(() => {
     const durableTransport = createDurableChatTransport<UIMessage>({
       api: "/api/chat",
@@ -371,6 +387,7 @@ export function Chat({
       recoverableStreamErrorSignatureRef.current = null;
       setAgentActivity(null);
       publishChatStreamStatus("ready");
+      finalizePromotedNewChatRoute();
       if (!isAbort) {
         publishChatStreamFinished();
       }
@@ -569,10 +586,8 @@ export function Chat({
 
     hasPushedNewChatUrlRef.current = true;
     publishChatStreamStatus("submitted");
-    paneRouter.replace(`/workspace/chats/${chatId}` as Route, {
-      scroll: false,
-    });
-  }, [chatId, id, paneRouter, publishChatStreamStatus]);
+    window.history.replaceState(null, "", `/workspace/chats/${chatId}`);
+  }, [chatId, id, publishChatStreamStatus]);
 
   const sendMessage = useCallback(
     async (message: SendMessageInput, options?: SendMessageOptions) => {
