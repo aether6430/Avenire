@@ -7,7 +7,7 @@ import { semanticChunkText } from "./chunking";
 import { extractFromSupportedProvider } from "./provider-extractors";
 import type { CanonicalResource } from "./types";
 
-export type LinkExtractionMode = "provider" | "reader" | "tavily" | "metadata";
+export type LinkExtractionMode = "provider" | "reader" | "tavily";
 export type LinkPreviewKind = "article" | "provider" | "snapshot";
 export type LinkPreviewDisplayMode = "embed" | "reader" | "snapshot";
 
@@ -73,17 +73,13 @@ const extractViaTavily = async (
   };
 };
 
-const fetchHtml = async (
-  url: string,
-  init?: Pick<RequestInit, "signal">
-): Promise<string> => {
+const fetchHtml = async (url: string): Promise<string> => {
   const response = await fetch(url, {
     headers: {
       accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
       "user-agent":
         "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36",
     },
-    signal: init?.signal,
   });
 
   if (!response.ok) {
@@ -467,21 +463,6 @@ const extractDefuddleContent = async (
   }
 };
 
-const extractLightweightReaderMarkdown = (
-  url: URL,
-  html: string
-): string | null => {
-  const { document } = parseHTML(html);
-  const articleRoot =
-    document.querySelector("article") ?? document.querySelector("main");
-  const readerMarkdown = articleRoot
-    ? stripNoisyReaderMarkdownAssets(
-        htmlFragmentToMarkdown(articleRoot.innerHTML, url)
-      )
-    : "";
-  return getWordCount(readerMarkdown) >= 80 ? readerMarkdown : null;
-};
-
 const buildOfficeDocumentPreview = (safeUrl: URL): LinkPreview => {
   const title = getTitleFromUrl(safeUrl) || safeUrl.hostname;
   return {
@@ -505,104 +486,6 @@ const buildOfficeDocumentPreview = (safeUrl: URL): LinkPreview => {
       title,
     },
     title,
-  };
-};
-
-const fetchHtmlWithTimeout = async (
-  url: string,
-  timeoutMs: number
-): Promise<string> => {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    return await fetchHtml(url, { signal: controller.signal });
-  } finally {
-    clearTimeout(timeout);
-  }
-};
-
-export const extractLightweightLinkPreview = async (
-  inputUrl: string
-): Promise<LinkPreview> => {
-  const safeUrl = assertSafeUrl(inputUrl);
-  if (OFFICE_DOCUMENT_EXTENSIONS.has(getUrlExtension(safeUrl))) {
-    return buildOfficeDocumentPreview(safeUrl);
-  }
-
-  const providerExtraction = await extractFromSupportedProvider(
-    safeUrl.toString()
-  ).catch(() => null);
-
-  let html: string | null = null;
-  let favicon: string | null = null;
-  try {
-    html = await fetchHtmlWithTimeout(safeUrl.toString(), 1200);
-    const { document } = parseHTML(html);
-    favicon = resolveFaviconUrl(safeUrl, document);
-  } catch {
-    html = null;
-    favicon = null;
-  }
-
-  if (providerExtraction) {
-    const imageUrl = html
-      ? resolvePreviewImageUrl(getPageImageFromHtml(html), safeUrl)
-      : (providerExtraction.mediaUrls[0] ?? null);
-    return {
-      description: html ? getDescriptionFromHtml(html) : null,
-      displayMode: "embed",
-      favicon,
-      imageUrl,
-      kind: "provider",
-      mode: "provider",
-      title: providerExtraction.title ?? (html ? getTitleFromHtml(html) : null),
-      content: providerExtraction.content,
-      mediaUrls: providerExtraction.mediaUrls,
-      provider: providerExtraction.provider,
-      readerMarkdown: null,
-      snapshot: null,
-    };
-  }
-
-  const title =
-    (html ? getTitleFromHtml(html) : null) ||
-    getTitleFromUrl(safeUrl) ||
-    safeUrl.hostname;
-  const description = html ? getDescriptionFromHtml(html) : null;
-  const imageUrl = html
-    ? resolvePreviewImageUrl(getPageImageFromHtml(html), safeUrl)
-    : null;
-  const readerMarkdown =
-    html && isProbablyLongFormPage(html)
-      ? extractLightweightReaderMarkdown(safeUrl, html)
-      : null;
-  const contentText =
-    readerMarkdown ??
-    (html && getPlainTextFromHtml(html)
-      ? getPlainTextFromHtml(html).slice(0, 12_000)
-      : `Source URL: ${safeUrl.toString()}`);
-  const isArticle =
-    Boolean(readerMarkdown) || Boolean(html && isProbablyLongFormPage(html));
-
-  return {
-    description,
-    displayMode: "snapshot",
-    favicon,
-    imageUrl,
-    kind: isArticle ? "article" : "snapshot",
-    mode: "metadata",
-    title,
-    content: contentText,
-    mediaUrls: [],
-    readerMarkdown,
-    snapshot: {
-      capturedAt: new Date().toISOString(),
-      contentText: contentText.slice(0, 12_000),
-      description,
-      imageUrl,
-      sourceUrl: safeUrl.toString(),
-      title,
-    },
   };
 };
 
@@ -659,7 +542,7 @@ export const extractLinkPreview = async (
       );
       return {
         description,
-        displayMode: "snapshot",
+        displayMode: "reader",
         favicon,
         imageUrl,
         kind: "article",

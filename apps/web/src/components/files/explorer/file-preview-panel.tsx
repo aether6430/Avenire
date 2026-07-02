@@ -254,7 +254,6 @@ function getLinkPreviewMetadata(file: FileRecord): LinkPreviewMetadata | null {
   };
 }
 
-type LinkPreviewMode = "reader" | "web";
 type LinkReaderTheme = "default" | "flexoki";
 
 interface LinkReaderSettings {
@@ -270,6 +269,13 @@ const DEFAULT_LINK_READER_SETTINGS: LinkReaderSettings = {
   theme: "default",
   width: 38,
 };
+
+interface LinkReaderTocItem {
+  id: string;
+  isActive: boolean;
+  level: number;
+  text: string;
+}
 
 function getLinkReaderMarkdown(
   preview: LinkPreviewMetadata,
@@ -521,16 +527,85 @@ function LinkReaderSettingsBar({
   );
 }
 
+function LinkReaderTocRail({
+  items,
+  onSelect,
+}: {
+  items: LinkReaderTocItem[];
+  onSelect: (id: string) => void;
+}) {
+  const visibleItems = items.filter((item) => item.text.trim().length > 0);
+  const getMarkerWidth = (item: LinkReaderTocItem) => {
+    if (item.level <= 1) {
+      return 46;
+    }
+    if (item.level === 2) {
+      return 34;
+    }
+    return 24;
+  };
+
+  if (visibleItems.length === 0) {
+    return null;
+  }
+
+  return (
+    <aside className="editor-toc-rail link-reader-toc-rail pointer-events-none">
+      <div className="pointer-events-auto">
+        <div className="editor-toc-rail__inner">
+          <div aria-hidden className="editor-toc-rail__collapsed">
+            {visibleItems.slice(0, 14).map((item) => (
+              <span
+                className={cn(
+                  "editor-toc-rail__tick",
+                  item.isActive && "is-active"
+                )}
+                key={item.id}
+                style={{
+                  width: `${getMarkerWidth(item)}px`,
+                }}
+              />
+            ))}
+          </div>
+
+          <nav
+            aria-label="Table of contents"
+            className="editor-toc-rail__panel"
+          >
+            <ol className="editor-toc-rail__list">
+              {visibleItems.map((item) => (
+                <li key={item.id}>
+                  <button
+                    className={cn(
+                      "editor-toc-rail__item",
+                      item.isActive && "is-active"
+                    )}
+                    onClick={() => onSelect(item.id)}
+                    style={{
+                      paddingLeft: `${12 + Math.max(0, item.level - 1) * 10}px`,
+                    }}
+                    type="button"
+                  >
+                    {item.text}
+                  </button>
+                </li>
+              ))}
+            </ol>
+          </nav>
+        </div>
+      </div>
+    </aside>
+  );
+}
+
 function LinkResourcePreview({
   fileName,
-  mode,
   onReaderSettingsChange,
   preview,
   readerSettings,
   workspaceUuid,
 }: {
   fileName: string;
-  mode: LinkPreviewMode;
   onReaderSettingsChange: (updates: Partial<LinkReaderSettings>) => void;
   preview: LinkPreviewMetadata;
   readerSettings: LinkReaderSettings;
@@ -541,18 +616,113 @@ function LinkResourcePreview({
   const readerContent = readerMarkdown
     ? stripDuplicateReaderTitle(readerMarkdown, title)
     : null;
-  const previewImageUrl = preview.snapshot?.imageUrl ?? preview.imageUrl;
-  const canEmbedSource =
-    preview.kind === "provider" && preview.displayMode === "embed";
+  const articleRef = useRef<HTMLElement | null>(null);
+  const [activeTocId, setActiveTocId] = useState<string | null>(null);
+  const [tocItems, setTocItems] = useState<LinkReaderTocItem[]>([]);
   const readerStyle = {
     "--link-reader-font-size": `${readerSettings.fontSize}px`,
     "--link-reader-line-height": String(readerSettings.lineHeight),
     "--link-reader-line-width": `${readerSettings.width}em`,
   } as CSSProperties;
+  const handleTocSelect = useCallback((id: string) => {
+    const heading = articleRef.current?.querySelector(`#${id}`);
+    heading?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!readerContent) {
+      setTocItems([]);
+      setActiveTocId(null);
+      return;
+    }
+
+    const article = articleRef.current;
+    if (!article) {
+      return;
+    }
+
+    const headings = Array.from(
+      article.querySelectorAll<HTMLHeadingElement>("h1, h2, h3")
+    );
+    const nextItems = headings
+      .map((heading, index) => {
+        const text = heading.textContent?.replace(/\s+/g, " ").trim() ?? "";
+        if (!text) {
+          return null;
+        }
+        const id = `link-reader-heading-${index}`;
+        heading.id = id;
+        return {
+          id,
+          isActive: false,
+          level: Number.parseInt(heading.tagName.slice(1), 10),
+          text,
+        };
+      })
+      .filter((item): item is LinkReaderTocItem => Boolean(item));
+
+    setTocItems(nextItems);
+    setActiveTocId((current) =>
+      current && nextItems.some((item) => item.id === current)
+        ? current
+        : (nextItems[0]?.id ?? null)
+    );
+  }, [readerContent]);
+
+  useEffect(() => {
+    const article = articleRef.current;
+    if (!(article && tocItems.length > 0)) {
+      return;
+    }
+
+    const headings = Array.from(
+      article.querySelectorAll<HTMLHeadingElement>("h1, h2, h3")
+    );
+    const scrollRoot = article.closest(".markdown-note-preview");
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((entry) => entry.isIntersecting)
+          .sort(
+            (left, right) =>
+              left.boundingClientRect.top - right.boundingClientRect.top
+          );
+        const nextId = visible[0]?.target.id;
+        if (nextId) {
+          setActiveTocId(nextId);
+        }
+      },
+      {
+        root: scrollRoot,
+        rootMargin: "-14% 0px -72% 0px",
+        threshold: [0, 1],
+      }
+    );
+
+    for (const heading of headings) {
+      observer.observe(heading);
+    }
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [tocItems]);
+
+  const resolvedTocItems = useMemo(
+    () =>
+      tocItems.map((item) => ({
+        ...item,
+        isActive: item.id === activeTocId,
+      })),
+    [activeTocId, tocItems]
+  );
 
   return (
     <div className="mx-auto w-full max-w-[1120px] px-4 py-6 sm:px-8">
-      {mode === "reader" && readerContent ? (
+      {readerContent ? (
         <div
           className={cn(
             "link-reader-shell",
@@ -560,7 +730,11 @@ function LinkResourcePreview({
           )}
           style={readerStyle}
         >
-          <article className="link-reader-document">
+          <LinkReaderTocRail
+            items={resolvedTocItems}
+            onSelect={handleTocSelect}
+          />
+          <article className="link-reader-document" ref={articleRef}>
             <Markdown
               className="link-reader-markdown scribe-surface max-w-full px-4 py-8 sm:px-10 sm:py-10 [&_img]:my-4 [&_img]:rounded-md"
               content={readerContent}
@@ -579,30 +753,19 @@ function LinkResourcePreview({
           />
         </div>
       ) : (
-        <div className="h-[72vh] min-h-[520px] overflow-hidden bg-background">
-          {previewImageUrl ? (
-            <span
-              aria-label={`${title} preview`}
-              className="block h-full w-full bg-background bg-contain bg-center bg-no-repeat"
-              role="img"
-              style={{
-                backgroundImage: `url(${JSON.stringify(previewImageUrl)})`,
-              }}
-            />
-          ) : canEmbedSource ? (
-            <iframe
-              className="h-full w-full bg-background"
-              referrerPolicy="no-referrer"
-              sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox"
-              src={preview.sourceUrl}
-              title={title}
-            />
-          ) : (
-            <div className="flex h-full flex-col items-center justify-center gap-3 bg-black p-6 text-center text-white/70 text-sm">
-              <LinkSimple className="size-8" />
-              <p>Preview unavailable</p>
-            </div>
-          )}
+        <div className="flex min-h-[420px] flex-col items-center justify-center gap-3 bg-background p-6 text-center text-muted-foreground text-sm">
+          <LinkSimple className="size-8" />
+          <p>Reader content unavailable.</p>
+          <Button
+            onClick={() =>
+              window.open(preview.sourceUrl, "_blank", "noopener,noreferrer")
+            }
+            size="sm"
+            type="button"
+            variant="outline"
+          >
+            Open source
+          </Button>
         </div>
       )}
     </div>
@@ -779,8 +942,6 @@ export function FilePreviewPanel({
     "gallery" | "link" | "upload"
   >("gallery");
   const [noteCoverLinkDraft, setNoteCoverLinkDraft] = useState("");
-  const [linkPreviewMode, setLinkPreviewMode] =
-    useState<LinkPreviewMode>("web");
   const [linkReaderSettings, setLinkReaderSettings] =
     useState<LinkReaderSettings>(DEFAULT_LINK_READER_SETTINGS);
   const noteBannerInputRef = useRef<HTMLInputElement | null>(null);
@@ -800,12 +961,6 @@ export function FilePreviewPanel({
     () => getLinkPreviewMetadata(activeFile),
     [activeFile]
   );
-  const activeLinkReaderMarkdown = activeLinkPreview
-    ? getLinkReaderMarkdown(activeLinkPreview, activeFile.name)
-    : null;
-  const activeLinkReaderAvailable = Boolean(activeLinkReaderMarkdown);
-  const activeLinkPreviewMode: LinkPreviewMode =
-    activeLinkPreview && activeLinkReaderAvailable ? linkPreviewMode : "web";
   const activeFileSourceUrl = activeFileIsMarkdown
     ? (activeLinkPreview?.sourceUrl ??
       `/api/workspaces/${workspaceUuid}/files/${activeFile.id}/stream`)
@@ -972,7 +1127,6 @@ export function FilePreviewPanel({
 
   useEffect(() => {
     setPropertiesOpen(false);
-    setLinkPreviewMode("web");
   }, [activeFile.id]);
 
   const markdownBody = markdownDraft;
@@ -1487,20 +1641,6 @@ export function FilePreviewPanel({
                   PDF dark mode
                 </DropdownMenuCheckboxItem>
               ) : null}
-              {activeLinkPreview && activeLinkReaderAvailable ? (
-                <>
-                  <DropdownMenuCheckboxItem
-                    checked={activeLinkPreviewMode === "reader"}
-                    onCheckedChange={(checked) => {
-                      setLinkPreviewMode(checked ? "reader" : "web");
-                    }}
-                  >
-                    <FileText className="size-3.5" />
-                    Reader mode
-                  </DropdownMenuCheckboxItem>
-                  <DropdownMenuSeparator />
-                </>
-              ) : null}
               <DropdownMenuItem onClick={toggleCurrentPinnedItem}>
                 {isCurrentPinned ? (
                   <PinOff className="size-3.5" />
@@ -1675,8 +1815,6 @@ export function FilePreviewPanel({
     activeFile.name,
     activeFile.readOnly,
     activeLinkPreview,
-    activeLinkPreviewMode,
-    activeLinkReaderAvailable,
     allFolders,
     currentInfoEntries,
     openFileShareDialog,
@@ -1994,7 +2132,6 @@ export function FilePreviewPanel({
                     <LinkResourcePreview
                       fileName={activeFile.name}
                       key={`${activeFile.id}:${activeLinkPreview.sourceUrl}`}
-                      mode={activeLinkPreviewMode}
                       onReaderSettingsChange={(updates) =>
                         setLinkReaderSettings((current) => ({
                           ...current,

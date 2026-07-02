@@ -1,7 +1,4 @@
-import {
-  extractLightweightLinkPreview,
-  extractLinkPreview,
-} from "@avenire/ingestion/link";
+import { extractLinkPreview } from "@avenire/ingestion/link";
 import { scheduleIngestionJob } from "@avenire/ingestion/queue";
 import { NextResponse } from "next/server";
 import { canStoreBytes } from "@/lib/billing";
@@ -23,35 +20,6 @@ interface WorkspaceLinksRouteBody {
   folderId?: string;
   name?: string;
   url?: string;
-}
-
-const WORKSPACE_LINK_PREVIEW_TIMEOUT_MS = 2500;
-
-async function extractWorkspaceLinkPreview(normalizedUrl: string) {
-  const fullPreview = extractLinkPreview(normalizedUrl)
-    .then((preview) => ({ preview, status: "ok" as const }))
-    .catch((error: unknown) => ({ error, status: "error" as const }));
-  let timeout: ReturnType<typeof setTimeout> | null = null;
-
-  const result = await Promise.race([
-    fullPreview,
-    new Promise<{ status: "timeout" }>((resolve) => {
-      timeout = setTimeout(
-        () => resolve({ status: "timeout" }),
-        WORKSPACE_LINK_PREVIEW_TIMEOUT_MS
-      );
-    }),
-  ]).finally(() => {
-    if (timeout) {
-      clearTimeout(timeout);
-    }
-  });
-
-  if (result.status === "ok") {
-    return result.preview;
-  }
-
-  return extractLightweightLinkPreview(normalizedUrl);
 }
 
 export async function handleWorkspaceLinksPost(input: {
@@ -85,7 +53,7 @@ export async function handleWorkspaceLinksPost(input: {
     return NextResponse.json({ error: "Read-only folder" }, { status: 403 });
   }
 
-  const linkPreview = await extractWorkspaceLinkPreview(normalizedUrl);
+  const linkPreview = await extractLinkPreview(normalizedUrl);
   const { fileName, noteTitle } = deriveWorkspaceLinkDocumentTitle({
     requestedName,
     previewTitle: linkPreview.title ?? "",

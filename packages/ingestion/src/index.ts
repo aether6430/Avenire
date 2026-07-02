@@ -5,11 +5,7 @@ import { retrieveRelevantChunks } from "./retrieval/retrieve";
 export { assertRequiredSecrets } from "./config";
 
 export { ingestStoredFile };
-export {
-  extractLightweightLinkPreview,
-  extractLinkPreview,
-  ingestLink,
-} from "./ingestion/link";
+export { extractLinkPreview, ingestLink } from "./ingestion/link";
 export { PostgresVectorStore } from "./retrieval/postgres-vector-store";
 export type {
   RetrievalQualityCandidate,

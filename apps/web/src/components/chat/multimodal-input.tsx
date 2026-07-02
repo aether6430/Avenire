@@ -1046,7 +1046,7 @@ function PureMultimodalInput({
 
   const shouldStackComposerControls = isMultiLine;
   const composerShapeClassName = shouldStackComposerControls
-    ? "rounded-2xl"
+    ? "rounded-[1.375rem]"
     : "rounded-full";
 
   return (
@@ -1057,7 +1057,7 @@ function PureMultimodalInput({
     >
       <div
         className={cn(
-          "relative flex w-full grow flex-col overflow-visible p-2 transition-colors duration-100 focus-within:ring-1 focus-within:ring-ring",
+          "relative flex w-full grow flex-col overflow-visible p-2 transition-[border-radius,box-shadow,color] duration-150 ease-out focus-within:ring-1 focus-within:ring-ring",
           composerShapeClassName,
           surfaceClasses(2, 2)
         )}
@@ -1192,7 +1192,7 @@ function PureMultimodalInput({
                 <Textarea
                   autoFocus
                   className={cn(
-                    "max-h-40 min-h-9 w-full flex-1 resize-none overflow-y-hidden border-none! bg-transparent! px-2 py-2 text-[14px] text-foreground leading-5 shadow-none! outline-none ring-0! placeholder:text-muted-foreground focus-visible:border-transparent! focus-visible:ring-0!",
+                    "max-h-40 min-h-9 w-full flex-1 resize-none overflow-y-hidden border-none! bg-transparent! px-2 py-2 text-[14px] text-foreground leading-5 shadow-none! outline-none ring-0! transition-[height] duration-150 ease-out placeholder:text-muted-foreground focus-visible:border-transparent! focus-visible:ring-0!",
                     className
                   )}
                   data-testid="multimodal-input"

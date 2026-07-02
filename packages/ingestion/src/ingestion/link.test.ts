@@ -43,7 +43,7 @@ describe("link ingestion", () => {
 
     const preview = await extractLinkPreview("https://anthropic.com/glasswing");
 
-    expect(preview.displayMode).toBe("snapshot");
+    expect(preview.displayMode).toBe("reader");
     expect(preview.kind).toBe("article");
     expect(preview.snapshot?.imageUrl).toBe(
       "https://anthropic.com/images/glasswing.png"

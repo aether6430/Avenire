@@ -45,7 +45,13 @@
   --link-reader-muted: var(--muted-foreground);
   --link-reader-accent: var(--foreground);
   position: relative;
-  display: block;
+  display: grid;
+  grid-template-columns:
+    minmax(8rem, 12rem) minmax(0, var(--link-reader-line-width, 38em))
+    minmax(8rem, 12rem);
+  column-gap: clamp(1rem, 2vw, 1.75rem);
+  align-items: start;
+  justify-content: center;
   min-height: 72vh;
   padding-block: 0.75rem 2rem;
   color: var(--link-reader-text);
@@ -73,6 +79,7 @@
 
 .link-reader-document {
   box-sizing: border-box;
+  grid-column: 2;
   width: min(100%, var(--link-reader-line-width, 38em));
   min-width: 0;
   max-width: 100%;
@@ -95,6 +102,13 @@
   background: color-mix(in oklch, var(--background) 92%, transparent);
   border: 1px solid var(--border);
   border-radius: var(--radius);
+}
+
+.link-reader-toc-rail {
+  display: block;
+  grid-column: 1;
+  grid-row: 1;
+  justify-self: end;
 }
 
 .scribe-surface.link-reader-markdown {
@@ -145,6 +159,10 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
     order: -1;
     width: 100%;
+  }
+
+  .link-reader-toc-rail {
+    display: none;
   }
 }
 
