@@ -39,9 +39,9 @@ import {
   LinkSimple,
   DotsThree as MoreHorizontal,
   Pencil,
-  Plus,
   PushPin as Pin,
   PushPinSlash as PinOff,
+  Plus,
   ArrowCounterClockwise as RotateCcw,
   ShareNetwork as Share2,
   SlidersHorizontal,
@@ -52,6 +52,7 @@ import dynamic from "next/dynamic";
 
 import {
   type ChangeEvent,
+  type CSSProperties,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -60,6 +61,7 @@ import {
   useState,
 } from "react";
 import { toast } from "sonner";
+import { Markdown } from "@/components/chat/markdown";
 import type { WorkspaceInvalidationDetail } from "@/components/dashboard/workspace-realtime-bridge";
 import AvenireEditor from "@/components/editor";
 import { PropertiesTable } from "@/components/editor/properties-table";
@@ -104,7 +106,7 @@ import { useWorkspacePaneStore } from "@/stores/workspacePaneStore";
 
 const PDFViewer = dynamic(() => import("@/components/files/pdf-viewer"), {
   loading: () => (
-    <div className="flex h-[70vh] items-center justify-center rounded-xl border border-border/70 bg-card text-sm">
+    <div className="flex h-[70vh] items-center justify-center bg-background text-sm">
       <div className="inline-flex items-center gap-2 text-muted-foreground">
         <Spinner className="size-4" />
         Loading PDF...
@@ -116,7 +118,7 @@ const PDFViewer = dynamic(() => import("@/components/files/pdf-viewer"), {
 
 const OfficeViewer = dynamic(() => import("@/components/files/office-viewer"), {
   loading: () => (
-    <div className="flex h-[70vh] items-center justify-center rounded-xl border border-border/70 bg-card text-sm">
+    <div className="flex h-[70vh] items-center justify-center bg-background text-sm">
       <div className="inline-flex items-center gap-2 text-muted-foreground">
         <Spinner className="size-4" />
         Loading preview...
@@ -127,8 +129,8 @@ const OfficeViewer = dynamic(() => import("@/components/files/office-viewer"), {
 });
 
 import { STATIC_ASSETS } from "@/lib/static-assets";
-const DEFAULT_NOTE_COVER_URL = STATIC_ASSETS.banner1;
 
+const DEFAULT_NOTE_COVER_URL = STATIC_ASSETS.banner1;
 
 function normalizeFilePageIcon(icon: string | null | undefined) {
   if (typeof icon !== "string") {
@@ -158,6 +160,420 @@ function isRenderableIconUrl(icon: string) {
     icon.startsWith("https://") ||
     icon.startsWith("/") ||
     icon.startsWith("data:image/")
+  );
+}
+
+type LinkPreviewDisplayMode = "embed" | "reader" | "snapshot";
+
+interface LinkPreviewMetadata {
+  description: string | null;
+  displayMode: LinkPreviewDisplayMode;
+  favicon: string | null;
+  imageUrl: string | null;
+  kind: string | null;
+  mediaUrls: string[];
+  provider: string | null;
+  readerMarkdown: string | null;
+  snapshot: {
+    capturedAt: string | null;
+    contentText: string | null;
+    description: string | null;
+    imageUrl: string | null;
+    title: string | null;
+  } | null;
+  sourceUrl: string;
+  title: string | null;
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function readString(record: Record<string, unknown>, key: string) {
+  const value = record[key];
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function readStringArray(record: Record<string, unknown>, key: string) {
+  const value = record[key];
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string")
+    : [];
+}
+
+function normalizeLinkDisplayMode(
+  value: string | null
+): LinkPreviewDisplayMode {
+  if (value === "embed" || value === "reader" || value === "snapshot") {
+    return value;
+  }
+  return "snapshot";
+}
+
+function getLinkPreviewMetadata(file: FileRecord): LinkPreviewMetadata | null {
+  const metadata = asRecord(file.metadata);
+  const link = metadata ? asRecord(metadata.link) : null;
+  const sourceUrl = link ? readString(link, "sourceUrl") : null;
+  if (!(link && sourceUrl)) {
+    return null;
+  }
+
+  const snapshotRecord = asRecord(link.snapshot);
+  return {
+    description: readString(link, "description"),
+    displayMode: normalizeLinkDisplayMode(readString(link, "displayMode")),
+    favicon: readString(link, "favicon"),
+    imageUrl: readString(link, "imageUrl"),
+    kind: readString(link, "kind"),
+    mediaUrls: readStringArray(link, "mediaUrls"),
+    provider: readString(link, "provider"),
+    readerMarkdown: readString(link, "readerMarkdown"),
+    snapshot: snapshotRecord
+      ? {
+          capturedAt: readString(snapshotRecord, "capturedAt"),
+          contentText: readString(snapshotRecord, "contentText"),
+          description: readString(snapshotRecord, "description"),
+          imageUrl: readString(snapshotRecord, "imageUrl"),
+          title: readString(snapshotRecord, "title"),
+        }
+      : null,
+    sourceUrl,
+    title: readString(link, "title"),
+  };
+}
+
+interface LinkReaderTocItem {
+  id: string;
+  isActive: boolean;
+  level: number;
+  text: string;
+}
+
+function getLinkReaderMarkdown(
+  preview: LinkPreviewMetadata,
+  fallbackTitle: string
+) {
+  const title = preview.title || fallbackTitle.replace(/\.mdx?$/i, "");
+  return (
+    preview.readerMarkdown ??
+    (preview.snapshot?.contentText
+      ? `# ${preview.snapshot.title ?? title}\n\n${preview.snapshot.contentText}`
+      : null)
+  );
+}
+
+function normalizeReaderPreviewMarkdownLine(line: string) {
+  return line
+    .replace(/&num;|&#35;|&#x23;/gi, "#")
+    .replace(/&amp;/gi, "&")
+    .replace(
+      /^(\s*)((?:\\#){1,6})(\s+)/,
+      (_match, leading, hashes, spacing) =>
+        `${leading}${hashes.replace(/\\/g, "")}${spacing}`
+    )
+    .replace(/^(\s*)\\+(#{1,6}\s+)/, "$1$2")
+    .replace(/^(\s*)\\+([-*+]\s+)/, "$1$2")
+    .replace(/^(\s*)\\+(\d+\.\s+)/, "$1$2")
+    .replace(/^(\s*)\\+(!?\[)/, "$1$2")
+    .replace(/\\([[\]()])/g, "$1");
+}
+
+function isNoisyReaderPreviewLine(line: string) {
+  const normalized = line.trim().replace(/\\/g, "");
+  if (!normalized) {
+    return false;
+  }
+  if (/^!+$/.test(normalized)) {
+    return true;
+  }
+  if (/^!\[\s*]\([^)]*\)\s*$/i.test(normalized)) {
+    return true;
+  }
+  if (
+    /^!\[.*?]\([^)]*\.(?:svg|png|jpe?g|webp)(?:[?#][^)]*)?\)\s*$/i.test(
+      normalized
+    )
+  ) {
+    return true;
+  }
+  return /^!?https?:\/\/\S+\.(?:svg|png|jpe?g|webp)(?:[?#]\S*)?$/i.test(
+    normalized
+  );
+}
+
+function normalizeReaderTitle(value: string) {
+  return value.replace(/\s+/g, " ").trim().toLowerCase();
+}
+
+function readerTitlesMatch(heading: string, title: string) {
+  const normalizedHeading = normalizeReaderTitle(heading);
+  const normalizedTitle = normalizeReaderTitle(title);
+  if (!(normalizedHeading && normalizedTitle)) {
+    return false;
+  }
+  return (
+    normalizedHeading === normalizedTitle ||
+    normalizedTitle.startsWith(`${normalizedHeading}:`) ||
+    normalizedTitle.startsWith(`${normalizedHeading} -`) ||
+    normalizedTitle.startsWith(`${normalizedHeading} |`)
+  );
+}
+
+function stripDuplicateReaderTitle(markdown: string, title: string) {
+  const normalizedMarkdown = normalizeReaderPreviewMarkdown(markdown);
+  const lines = normalizedMarkdown.split("\n");
+  const firstContentIndex = lines.findIndex((line) => line.trim().length > 0);
+  if (firstContentIndex < 0) {
+    return normalizedMarkdown;
+  }
+
+  const firstLine = lines[firstContentIndex]?.trim() ?? "";
+  const heading = firstLine.match(/^#{1,2}\s+(.+)$/);
+  const headingTitle = heading?.[1]?.trim();
+  if (!(headingTitle && readerTitlesMatch(headingTitle, title))) {
+    return normalizedMarkdown;
+  }
+
+  const nextLines = lines.slice(firstContentIndex + 1);
+  while (nextLines[0]?.trim() === "") {
+    nextLines.shift();
+  }
+
+  return normalizeReaderPreviewMarkdown(
+    [...lines.slice(0, firstContentIndex), ...nextLines].join("\n")
+  );
+}
+
+function normalizeReaderPreviewMarkdown(markdown: string) {
+  return markdown
+    .replace(/\r\n?/g, "\n")
+    .split("\n")
+    .map(normalizeReaderPreviewMarkdownLine)
+    .filter((line) => !isNoisyReaderPreviewLine(line))
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+function LinkReaderTocRail({
+  items,
+  onSelect,
+}: {
+  items: LinkReaderTocItem[];
+  onSelect: (id: string) => void;
+}) {
+  const visibleItems = items.filter((item) => item.text.trim().length > 0);
+  const activeIndex = visibleItems.findIndex((item) => item.isActive);
+  const getMarkerWidth = (item: LinkReaderTocItem, itemIndex: number) => {
+    if (activeIndex < 0) {
+      return Math.max(8, 14 - Math.max(0, item.level - 1) * 3);
+    }
+
+    const distance = Math.abs(itemIndex - activeIndex);
+    const levelInset = Math.max(0, item.level - 1) * 3;
+    const width = 34 - distance * 10 - levelInset;
+
+    return Math.max(8, Math.min(34, width));
+  };
+
+  if (visibleItems.length === 0) {
+    return null;
+  }
+
+  return (
+    <aside className="editor-toc-rail link-reader-toc-rail pointer-events-none">
+      <div className="pointer-events-auto">
+        <div className="editor-toc-rail__inner">
+          <nav
+            aria-label="Table of contents"
+            className="editor-toc-rail__panel"
+          >
+            <ol className="editor-toc-rail__list">
+              {visibleItems.map((item, itemIndex) => (
+                <li key={item.id}>
+                  <button
+                    className={cn(
+                      "editor-toc-rail__item",
+                      item.isActive && "is-active"
+                    )}
+                    onClick={() => onSelect(item.id)}
+                    style={
+                      {
+                        "--toc-tick-width": `${getMarkerWidth(item, itemIndex)}px`,
+                        "--toc-label-offset": `${Math.max(0, item.level - 1) * 8}px`,
+                      } as CSSProperties
+                    }
+                    type="button"
+                  >
+                    <span aria-hidden className="editor-toc-rail__tick" />
+                    <span className="editor-toc-rail__label">{item.text}</span>
+                  </button>
+                </li>
+              ))}
+            </ol>
+          </nav>
+        </div>
+      </div>
+    </aside>
+  );
+}
+
+function LinkResourcePreview({
+  fileName,
+  preview,
+  workspaceUuid,
+}: {
+  fileName: string;
+  preview: LinkPreviewMetadata;
+  workspaceUuid: string;
+}) {
+  const title = preview.title || fileName.replace(/\.mdx?$/i, "");
+  const readerMarkdown = getLinkReaderMarkdown(preview, fileName);
+  const readerContent = readerMarkdown
+    ? stripDuplicateReaderTitle(readerMarkdown, title)
+    : null;
+  const articleRef = useRef<HTMLElement | null>(null);
+  const [activeTocId, setActiveTocId] = useState<string | null>(null);
+  const [tocItems, setTocItems] = useState<LinkReaderTocItem[]>([]);
+  const readerStyle = {
+    "--link-reader-line-width": "52em",
+  } as CSSProperties;
+  const handleTocSelect = useCallback((id: string) => {
+    const heading = articleRef.current?.querySelector(`#${id}`);
+    heading?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!readerContent) {
+      setTocItems([]);
+      setActiveTocId(null);
+      return;
+    }
+
+    const article = articleRef.current;
+    if (!article) {
+      return;
+    }
+
+    const headings = Array.from(
+      article.querySelectorAll<HTMLHeadingElement>("h1, h2, h3")
+    );
+    const nextItems = headings
+      .map((heading, index) => {
+        const text = heading.textContent?.replace(/\s+/g, " ").trim() ?? "";
+        if (!text) {
+          return null;
+        }
+        const id = `link-reader-heading-${index}`;
+        heading.id = id;
+        return {
+          id,
+          isActive: false,
+          level: Number.parseInt(heading.tagName.slice(1), 10),
+          text,
+        };
+      })
+      .filter((item): item is LinkReaderTocItem => Boolean(item));
+
+    setTocItems(nextItems);
+    setActiveTocId((current) =>
+      current && nextItems.some((item) => item.id === current)
+        ? current
+        : (nextItems[0]?.id ?? null)
+    );
+  }, [readerContent]);
+
+  useEffect(() => {
+    const article = articleRef.current;
+    if (!(article && tocItems.length > 0)) {
+      return;
+    }
+
+    const headings = Array.from(
+      article.querySelectorAll<HTMLHeadingElement>("h1, h2, h3")
+    );
+    const scrollRoot = article.closest(".markdown-note-preview");
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((entry) => entry.isIntersecting)
+          .sort(
+            (left, right) =>
+              left.boundingClientRect.top - right.boundingClientRect.top
+          );
+        const nextId = visible[0]?.target.id;
+        if (nextId) {
+          setActiveTocId(nextId);
+        }
+      },
+      {
+        root: scrollRoot,
+        rootMargin: "-14% 0px -72% 0px",
+        threshold: [0, 1],
+      }
+    );
+
+    for (const heading of headings) {
+      observer.observe(heading);
+    }
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [tocItems]);
+
+  const resolvedTocItems = useMemo(
+    () =>
+      tocItems.map((item) => ({
+        ...item,
+        isActive: item.id === activeTocId,
+      })),
+    [activeTocId, tocItems]
+  );
+
+  return (
+    <div className="mx-auto w-full max-w-[1360px] px-4 py-6 sm:px-8">
+      {readerContent ? (
+        <div className="link-reader-shell" style={readerStyle}>
+          <LinkReaderTocRail
+            items={resolvedTocItems}
+            onSelect={handleTocSelect}
+          />
+          <article className="link-reader-document" ref={articleRef}>
+            <Markdown
+              className="link-reader-markdown scribe-surface max-w-full px-4 py-8 sm:px-10 sm:py-10 [&_img]:my-4 [&_img]:rounded-md"
+              content={readerContent}
+              enableMath={false}
+              id={`link-preview-${preview.sourceUrl}`}
+              parseIncompleteMarkdown={false}
+              textSize="default"
+              variant="reader"
+              workspaceUuid={workspaceUuid}
+            />
+          </article>
+        </div>
+      ) : (
+        <div className="flex min-h-[420px] flex-col items-center justify-center gap-3 bg-background p-6 text-center text-muted-foreground text-sm">
+          <LinkSimple className="size-8" />
+          <p>Reader content unavailable.</p>
+          <Button
+            onClick={() =>
+              window.open(preview.sourceUrl, "_blank", "noopener,noreferrer")
+            }
+            size="sm"
+            type="button"
+            variant="outline"
+          >
+            Open source
+          </Button>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -344,20 +760,12 @@ export function FilePreviewPanel({
 
   const activeFileIsMarkdown = detectPreviewKind(activeFile).isMarkdown;
   const activeCustomIcon = normalizeFilePageIcon(activeFile.page?.icon);
-  const activeLinkSourceUrl =
-    activeFile.metadata &&
-    typeof activeFile.metadata === "object" &&
-    !Array.isArray(activeFile.metadata) &&
-    activeFile.metadata.link &&
-    typeof activeFile.metadata.link === "object" &&
-    !Array.isArray(activeFile.metadata.link) &&
-    typeof (activeFile.metadata.link as Record<string, unknown>).sourceUrl ===
-      "string"
-      ? ((activeFile.metadata.link as Record<string, unknown>)
-          .sourceUrl as string)
-      : null;
+  const activeLinkPreview = useMemo(
+    () => getLinkPreviewMetadata(activeFile),
+    [activeFile]
+  );
   const activeFileSourceUrl = activeFileIsMarkdown
-    ? (activeLinkSourceUrl ??
+    ? (activeLinkPreview?.sourceUrl ??
       `/api/workspaces/${workspaceUuid}/files/${activeFile.id}/stream`)
     : activeFile.storageUrl;
   const activePageFromFile = useMemo(
@@ -989,7 +1397,7 @@ export function FilePreviewPanel({
             ) : (
               <span className="text-base leading-none">{activeCustomIcon}</span>
             )
-          ) : activeLinkSourceUrl ? (
+          ) : activeLinkPreview ? (
             <LinkSimple className="size-4" />
           ) : (
             <FileText className="size-4" />
@@ -1209,7 +1617,7 @@ export function FilePreviewPanel({
     activeCustomIcon,
     activeFile.name,
     activeFile.readOnly,
-    activeLinkSourceUrl,
+    activeLinkPreview,
     allFolders,
     currentInfoEntries,
     openFileShareDialog,
@@ -1265,7 +1673,7 @@ export function FilePreviewPanel({
               onDefinitionsChange={setPropertyDefinitions}
               properties={notePage.properties}
             />
-            {activeFileIsMarkdown ? (
+            {activeFileIsMarkdown && !activeLinkPreview ? (
               <input
                 accept="image/*"
                 className="hidden"
@@ -1283,12 +1691,12 @@ export function FilePreviewPanel({
           ref={filePreviewScrollRef}
         >
           <div className="min-h-full w-full min-w-0">
-            {markdownError ? (
+            {markdownError && !activeLinkPreview ? (
               <div className="mx-auto flex h-[70vh] max-w-[820px] flex-col items-center justify-center gap-3 p-0 text-center sm:p-4">
                 <FileText className="size-8 text-muted-foreground" />
                 <p className="text-muted-foreground text-xs">{markdownError}</p>
               </div>
-            ) : markdownLoading || !isMarkdownReady ? (
+            ) : (markdownLoading || !isMarkdownReady) && !activeLinkPreview ? (
               <div className="mx-auto flex h-[70vh] max-w-[820px] items-center justify-center p-0 text-muted-foreground text-sm sm:p-4">
                 <div className="inline-flex items-center gap-2">
                   <Spinner className="size-4" />
@@ -1297,7 +1705,7 @@ export function FilePreviewPanel({
               </div>
             ) : (
               <div className="flex min-h-full w-full min-w-0 flex-col items-stretch">
-                {activeFileIsMarkdown ? (
+                {activeFileIsMarkdown && !activeLinkPreview ? (
                   <div className="w-full min-w-0 bg-background">
                     {noteBannerUrl ? (
                       <div className="group/banner relative w-full overflow-hidden border-border/60 bg-muted/30">
@@ -1309,7 +1717,9 @@ export function FilePreviewPanel({
                           loading="lazy"
                           onError={(event) => {
                             const img = event.currentTarget;
-                            if (img.dataset.fellBack) return;
+                            if (img.dataset.fellBack) {
+                              return;
+                            }
                             img.dataset.fellBack = "1";
                             img.src = STATIC_ASSETS.banner1;
                           }}
@@ -1521,45 +1931,56 @@ export function FilePreviewPanel({
                   </div>
                 ) : null}
                 <div className="w-full min-w-0">
-                  <AvenireEditor
-                    defaultValue={markdownBody}
-                    key={activeFile.id}
-                    noteTitle={noteDisplayTitle}
-                    onChange={handleMarkdownBodyChange}
-                    onOpenWikiLink={(page, options) => {
-                      if (!options.openInNewPane) {
-                        openFileById(page.id);
-                        return;
-                      }
+                  {activeLinkPreview ? (
+                    <LinkResourcePreview
+                      fileName={activeFile.name}
+                      key={`${activeFile.id}:${activeLinkPreview.sourceUrl}`}
+                      preview={activeLinkPreview}
+                      workspaceUuid={workspaceUuid}
+                    />
+                  ) : (
+                    <AvenireEditor
+                      defaultValue={markdownBody}
+                      key={`${activeFile.id}:${_noteRemoteUpdatedAt ?? activeFileUpdatedAt ?? loadedMarkdownFileId}`}
+                      noteTitle={noteDisplayTitle}
+                      onChange={handleMarkdownBodyChange}
+                      onOpenWikiLink={(page, options) => {
+                        if (!options.openInNewPane) {
+                          openFileById(page.id);
+                          return;
+                        }
 
-                      const targetFile = allFiles.find(
-                        (file) => file.id === page.id
-                      );
-                      if (!targetFile) {
-                        return;
-                      }
+                        const targetFile = allFiles.find(
+                          (file) => file.id === page.id
+                        );
+                        if (!targetFile) {
+                          return;
+                        }
 
-                      const params = new URLSearchParams();
-                      params.set("file", page.id);
-                      openPane(
-                        `/workspace/files/${workspaceUuid}/folder/${targetFile.folderId}?${params.toString()}`,
-                        { sourcePaneId: paneId }
-                      );
-                    }}
-                    onPagePropertiesChange={(properties) => {
-                      setNotePage((current) => ({
-                        ...current,
-                        properties,
-                      }));
-                    }}
-                    onPropertyDefinitionsChange={setPropertyDefinitions}
-                    pageProperties={notePage.properties}
-                    propertyDefinitions={propertyDefinitions}
-                    saveState={activeFileIsMarkdown ? noteSaveState : undefined}
-                    scrollContainerRef={filePreviewScrollRef}
-                    wikiPages={wikiLinkableFiles}
-                    workspaceUuid={workspaceUuid}
-                  />
+                        const params = new URLSearchParams();
+                        params.set("file", page.id);
+                        openPane(
+                          `/workspace/files/${workspaceUuid}/folder/${targetFile.folderId}?${params.toString()}`,
+                          { sourcePaneId: paneId }
+                        );
+                      }}
+                      onPagePropertiesChange={(properties) => {
+                        setNotePage((current) => ({
+                          ...current,
+                          properties,
+                        }));
+                      }}
+                      onPropertyDefinitionsChange={setPropertyDefinitions}
+                      pageProperties={notePage.properties}
+                      propertyDefinitions={propertyDefinitions}
+                      saveState={
+                        activeFileIsMarkdown ? noteSaveState : undefined
+                      }
+                      scrollContainerRef={filePreviewScrollRef}
+                      wikiPages={wikiLinkableFiles}
+                      workspaceUuid={workspaceUuid}
+                    />
+                  )}
                 </div>
               </div>
             )}
@@ -1568,7 +1989,7 @@ export function FilePreviewPanel({
       ) : isPdf ? (
         <div className="min-h-0 flex-1 overflow-hidden">
           <PDFViewer
-            className="h-full min-h-0 rounded-none border-0 sm:rounded-xl sm:border sm:border-border/70"
+            className="h-full min-h-0 rounded-none border-0"
             fallbackHighlightText={query}
             highlightPage={activeRetrievalResult?.page ?? null}
             highlightText={
@@ -1588,7 +2009,7 @@ export function FilePreviewPanel({
         <div className="min-h-0 flex-1 overflow-hidden">
           <OfficeViewer
             fileName={activeFile.name}
-            key={activeFile.id}
+            key={`${activeFile.id}:${activeRetrievalChunkId ?? ""}`}
             kind={
               isSpreadsheet
                 ? "spreadsheet"
@@ -1596,6 +2017,13 @@ export function FilePreviewPanel({
                   ? "presentation"
                   : "document"
             }
+            retrievalTarget={{
+              page: activeRetrievalResult?.page ?? null,
+              text:
+                activeRetrievalResult?.highlightText ??
+                activeRetrievalResult?.snippet ??
+                query,
+            }}
             source={
               activeFile.storageUrl ||
               `/api/workspaces/${workspaceUuid}/files/${activeFile.id}/stream`
@@ -1668,7 +2096,7 @@ export function FilePreviewPanel({
         </div>
       ) : (
         <div className="flex min-h-0 flex-1 overflow-hidden">
-          <div className="flex h-full min-h-[55vh] flex-col items-center justify-center gap-3 rounded-none border-0 bg-card p-0 text-center sm:rounded-md sm:border sm:border-border/70 sm:p-4">
+          <div className="flex h-full min-h-[55vh] flex-col items-center justify-center gap-3 bg-background p-0 text-center sm:p-4">
             <FileText className="size-8 text-muted-foreground" />
             <p className="text-muted-foreground text-xs">
               In-app preview is unavailable for this file type.

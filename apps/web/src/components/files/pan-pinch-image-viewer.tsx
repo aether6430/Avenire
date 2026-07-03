@@ -278,7 +278,7 @@ export function PanPinchImageViewer({
 
   return (
     <div
-      className="group relative flex min-h-[62vh] w-full touch-none select-none items-center justify-center overflow-hidden overscroll-none rounded-none border-0 sm:min-h-[68vh] sm:rounded-2xl sm:border sm:border-border/60"
+      className="group relative flex min-h-[62vh] w-full touch-none select-none items-center justify-center overflow-hidden overscroll-none rounded-none border-0 sm:min-h-[68vh]"
       onDoubleClick={() => {
         if (transformRef.current.scale > 1) {
           resetView();
@@ -321,7 +321,7 @@ export function PanPinchImageViewer({
       >
         <img
           alt={alt}
-          className="block max-h-[76vh] w-auto max-w-full rounded-xl border border-white/70 bg-white/85 object-contain shadow-[0_24px_70px_rgba(15,23,42,0.14)] sm:max-h-[82vh]"
+          className="block max-h-[76vh] w-auto max-w-full rounded-md bg-white/85 object-contain sm:max-h-[82vh]"
           draggable={false}
           onDragStart={(event) => {
             event.preventDefault();

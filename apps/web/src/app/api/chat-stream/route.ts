@@ -14,12 +14,19 @@ function copyStreamingHeaders(response: Response) {
   const headers = new Headers();
   response.headers.forEach((value, key) => {
     const lowerKey = key.toLowerCase();
-    if (lowerKey === "connection" || lowerKey === "transfer-encoding") {
+    if (
+      lowerKey === "connection" ||
+      lowerKey === "content-encoding" ||
+      lowerKey === "content-length" ||
+      lowerKey === "transfer-encoding"
+    ) {
       return;
     }
     headers.set(key, value);
   });
   headers.set("Cache-Control", "no-store");
+  headers.set("Content-Type", "text/event-stream; charset=utf-8");
+  headers.set("X-Accel-Buffering", "no");
   return headers;
 }
 
@@ -58,6 +65,7 @@ export async function GET(request: Request) {
   const upstreamResponse = await fetch(upstreamUrl, {
     headers: {
       ...(acceptHeader ? { Accept: acceptHeader } : {}),
+      "Accept-Encoding": "identity",
       ...(getDurableChatStreamReadHeaders() ?? {}),
     },
     method: "GET",

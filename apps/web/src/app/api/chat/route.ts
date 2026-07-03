@@ -37,14 +37,14 @@ import {
   isChatIconName,
 } from "@/lib/chat-icons";
 import {
-  createChatTools,
-  getActiveMisconceptionContext,
-} from "@/lib/chat-tools";
-import {
   CHAT_TOOL_APPROVAL_POLICY,
   requiresChatToolApproval,
   stripUnconfiguredToolApprovalParts,
 } from "@/lib/chat-tool-approval-policy";
+import {
+  createChatTools,
+  getActiveMisconceptionContext,
+} from "@/lib/chat-tools";
 import { invalidateChatReadCaches } from "@/lib/domain-cache";
 import {
   buildChatStreamPath,
@@ -60,13 +60,12 @@ import {
   getRecentRelevantSessionSummary,
 } from "@avenire/database";
 import { buildAiTelemetry } from "@avenire/observability";
-import { normalizeMediaType } from "@/lib/media-type";
+import { schedulePostStartMisconceptionSignalCheck } from "@/lib/chat-misconception-signal-scheduler";
 import {
   ACTIVE_MISCONCEPTION_CONTEXT_TIMEOUT_MS,
   CHAT_STARTUP_CONTEXT_TIMEOUT_MS,
-  MISCONCEPTION_SIGNAL_TIMEOUT_MS,
 } from "@/lib/chat-startup-latency-budgets";
-import { schedulePostStartMisconceptionSignalCheck } from "@/lib/chat-misconception-signal-scheduler";
+import { normalizeMediaType } from "@/lib/media-type";
 import { detectMisconceptionSignals } from "@/lib/misconception-signal-detector";
 import { createApiLogger } from "@/lib/observability";
 import {
@@ -104,6 +103,12 @@ const DEFAULT_THINKING_MESSAGES = [
   "Putting the pieces together",
   "Finishing the last pass",
 ];
+const UNSAFE_STREAM_RESPONSE_HEADERS = new Set([
+  "connection",
+  "content-encoding",
+  "content-length",
+  "transfer-encoding",
+]);
 const MODEL_TOOL_ALLOW_LIST = new Set([
   "avenire_agent",
   // Granular file operations (replacing file_manager_agent)
@@ -204,6 +209,24 @@ function logWarn(message: string, meta?: Record<string, unknown>) {
   }
 
   console.warn(`${LOG_PREFIX} ${message}`);
+}
+
+function sanitizeDurableStreamResponse(response: Response) {
+  const responseHeaders = new Headers();
+  response.headers.forEach((value, key) => {
+    if (!UNSAFE_STREAM_RESPONSE_HEADERS.has(key.toLowerCase())) {
+      responseHeaders.set(key, value);
+    }
+  });
+  responseHeaders.set("Cache-Control", "no-store");
+  responseHeaders.set("Content-Type", "text/event-stream; charset=utf-8");
+  responseHeaders.set("X-Accel-Buffering", "no");
+
+  return new Response(response.body, {
+    headers: responseHeaders,
+    status: response.status,
+    statusText: response.statusText,
+  });
 }
 
 async function withStartupTimeout<T>(
@@ -335,9 +358,11 @@ async function signMissingToolApprovalRequests(
               : null;
 
           if (
-            !toolName ||
-            !requiresChatToolApproval(toolName) ||
-            !("state" in part) ||
+            !(
+              toolName &&
+              requiresChatToolApproval(toolName) &&
+              "state" in part
+            ) ||
             part.state !== "approval-requested" ||
             !approval ||
             typeof approval.id !== "string" ||
@@ -415,9 +440,12 @@ function getUnresolvedToolApprovalRequests(messages: UIMessage[]) {
   for (const message of messages) {
     for (const part of message.parts ?? []) {
       if (
-        !(part.type.startsWith("tool-") && "state" in part) ||
-        !("approval" in part) ||
-        !part.approval ||
+        !(
+          part.type.startsWith("tool-") &&
+          "state" in part &&
+          "approval" in part &&
+          part.approval
+        ) ||
         typeof part.approval !== "object"
       ) {
         continue;
@@ -472,7 +500,8 @@ async function validateApprovedToolCallsAgainstPersistedHistory(input: {
       input.chatSlug,
       input.workspaceId
     )) ?? [];
-  const persistedRequests = getUnresolvedToolApprovalRequests(persistedMessages);
+  const persistedRequests =
+    getUnresolvedToolApprovalRequests(persistedMessages);
 
   return approvedResponses.every((response) => {
     const request = persistedRequests.get(response.approvalId);
@@ -1620,7 +1649,9 @@ export async function POST(request: Request) {
     }
     const originalMessages = await signMissingToolApprovalRequests(
       stripUnconfiguredToolApprovalParts(
-        stripNonHttpFileParts(normalizeMessageFileMediaTypes(body.messages ?? []))
+        stripNonHttpFileParts(
+          normalizeMessageFileMediaTypes(body.messages ?? [])
+        )
       ),
       process.env.TOOL_APPROVAL_SECRET
     );
@@ -2297,37 +2328,31 @@ export async function POST(request: Request) {
           });
           logInfo("Model stream initialized", {
             chatId: chatSlug,
-            elapsedMs: Math.round(
-              (performance.now() - streamSetupStartedAtMs) * 1000
-            ) / 1000,
+            elapsedMs:
+              Math.round((performance.now() - streamSetupStartedAtMs) * 1000) /
+              1000,
           });
           scheduleMisconceptionSignalCheck = () => {
             schedulePostStartMisconceptionSignalCheck({
               detect: () =>
-                withStartupTimeout(
-                  detectMisconceptionSignals({
-                    abortSignal: request.signal,
-                    latestUserText,
-                    subject: resolvedSubject,
-                    topic: resolvedTopic,
-                    userId: session.user.id,
-                    workspaceId: workspace.workspaceId,
-                  }).catch((error) => {
-                    logWarn(
-                      "Failed to detect real-time misconception signal; continuing without it",
-                      {
-                        chatId: chat.id,
-                        error: formatError(error),
-                        subject: resolvedSubject,
-                        topic: resolvedTopic,
-                      }
-                    );
-                    return null;
-                  }),
-                  "misconception-signal-detector",
-                  null,
-                  MISCONCEPTION_SIGNAL_TIMEOUT_MS
-                ),
+                detectMisconceptionSignals({
+                  latestUserText,
+                  subject: resolvedSubject,
+                  topic: resolvedTopic,
+                  userId: session.user.id,
+                  workspaceId: workspace.workspaceId,
+                }).catch((error) => {
+                  logWarn(
+                    "Failed to detect real-time misconception signal; continuing without it",
+                    {
+                      chatId: chat.id,
+                      error: formatError(error),
+                      subject: resolvedSubject,
+                      topic: resolvedTopic,
+                    }
+                  );
+                  return null;
+                }),
               onComplete: ({ elapsedMs, signal }) => {
                 logInfo("Resolved post-start misconception signal", {
                   chatId: chatSlug,
@@ -2583,7 +2608,7 @@ export async function POST(request: Request) {
       selectedModel: body.selectedModel ?? "apollo-apex",
       streamPath,
     });
-    return response;
+    return sanitizeDurableStreamResponse(response);
   } catch (error) {
     logError("Unhandled chat POST error", { error: formatError(error) });
     if (idempotencyRedisKey && idempotencyLockAcquired) {

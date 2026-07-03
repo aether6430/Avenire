@@ -72,8 +72,8 @@ const WHITESPACE_REGEX = /\s/;
 const MOBILE_CHAT_VOICE_START_EVENT = "avenire:mobile-chat-voice-start";
 
 interface ChatInputDraft {
-  message: string;
   files_uploaded: string[];
+  message: string;
 }
 
 function readPreferredWorkspaceId() {
@@ -1044,6 +1044,11 @@ function PureMultimodalInput({
     [canSend, handleMentionKeyDown, isMobile, runSubmitForm, sendMode]
   );
 
+  const shouldStackComposerControls = isMultiLine;
+  const composerShapeClassName = shouldStackComposerControls
+    ? "rounded-[1.375rem]"
+    : "rounded-full";
+
   return (
     <div
       className="group/composer w-full"
@@ -1052,8 +1057,8 @@ function PureMultimodalInput({
     >
       <div
         className={cn(
-          "relative flex w-full grow flex-col overflow-visible p-2 transition-colors duration-100 focus-within:ring-1 focus-within:ring-ring",
-          isMultiLine || attachments.length > 0 ? "rounded-2xl" : "rounded-full",
+          "relative flex w-full grow flex-col overflow-visible p-2 transition-[border-radius,box-shadow,color] duration-150 ease-out focus-within:ring-1 focus-within:ring-ring",
+          composerShapeClassName,
           surfaceClasses(2, 2)
         )}
       >
@@ -1161,22 +1166,33 @@ function PureMultimodalInput({
               )}
             </AnimatePresence>
 
-            <div className="relative z-10 flex min-h-9 items-end gap-1.5">
-              <AttachmentsButton
-                onClick={() => fileInputRef.current?.click()}
-                status={status}
-              />
+            <div
+              className={cn(
+                "relative z-10 flex min-h-9 gap-1.5",
+                shouldStackComposerControls
+                  ? "flex-col items-stretch"
+                  : "items-end"
+              )}
+            >
+              {shouldStackComposerControls ? null : (
+                <AttachmentsButton
+                  onClick={() => fileInputRef.current?.click()}
+                  status={status}
+                />
+              )}
 
               <div
                 className={cn(
                   "flex min-w-0 flex-1 overflow-hidden",
-                  centered ? "items-center" : "items-end"
+                  shouldStackComposerControls || centered
+                    ? "items-center"
+                    : "items-end"
                 )}
               >
                 <Textarea
                   autoFocus
                   className={cn(
-                    "max-h-40 min-h-9 w-full flex-1 resize-none overflow-y-hidden border-none! bg-transparent! px-2 py-2 text-[14px] text-foreground leading-5 shadow-none! outline-none ring-0! placeholder:text-muted-foreground focus-visible:border-transparent! focus-visible:ring-0!",
+                    "max-h-40 min-h-9 w-full flex-1 resize-none overflow-y-hidden border-none! bg-transparent! px-2 py-2 text-[14px] text-foreground leading-5 shadow-none! outline-none ring-0! transition-[height] duration-150 ease-out placeholder:text-muted-foreground focus-visible:border-transparent! focus-visible:ring-0!",
                     className
                   )}
                   data-testid="multimodal-input"
@@ -1234,35 +1250,48 @@ function PureMultimodalInput({
                 />
               </div>
 
-              <div className="flex h-9 shrink-0 items-end gap-1.5">
-                {isMobile ? null : (
-                  <ComposerTurboButton
-                    disabled={isRunning}
-                    enabled={turboEnabled}
-                    onToggle={() => onTurboChange(!turboEnabled)}
-                  />
+              <div
+                className={cn(
+                  "flex h-9 shrink-0 items-end gap-1.5",
+                  shouldStackComposerControls && "justify-between"
                 )}
-                {speechSupported ? (
-                  <ComposerVoiceButton
-                    isRecording={isRecording}
-                    isRunning={isRunning}
-                    isTranscribing={isTranscribing}
-                    onToggle={() => {
-                      if (isRecording) {
-                        stopRecording();
-                        return;
-                      }
-
-                      void startRecording();
-                    }}
+              >
+                {shouldStackComposerControls ? (
+                  <AttachmentsButton
+                    onClick={() => fileInputRef.current?.click()}
+                    status={status}
                   />
                 ) : null}
-                <ComposerActionButton
-                  canSend={canSend}
-                  isRunning={isRunning}
-                  onSend={runSubmitForm}
-                  onStop={stop}
-                />
+                <div className="flex items-end gap-1.5">
+                  {isMobile ? null : (
+                    <ComposerTurboButton
+                      disabled={isRunning}
+                      enabled={turboEnabled}
+                      onToggle={() => onTurboChange(!turboEnabled)}
+                    />
+                  )}
+                  {speechSupported ? (
+                    <ComposerVoiceButton
+                      isRecording={isRecording}
+                      isRunning={isRunning}
+                      isTranscribing={isTranscribing}
+                      onToggle={() => {
+                        if (isRecording) {
+                          stopRecording();
+                          return;
+                        }
+
+                        void startRecording();
+                      }}
+                    />
+                  ) : null}
+                  <ComposerActionButton
+                    canSend={canSend}
+                    isRunning={isRunning}
+                    onSend={runSubmitForm}
+                    onStop={stop}
+                  />
+                </div>
               </div>
             </div>
           </div>

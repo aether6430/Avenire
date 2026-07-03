@@ -120,6 +120,7 @@ export async function executeNoteAgent(
     await enqueueIngestionForFile({
       fileId: file.id,
       folderId: file.folderId,
+      reason: "file.created",
       workspaceId: ctx.workspaceId,
     });
 

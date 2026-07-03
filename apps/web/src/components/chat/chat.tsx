@@ -11,12 +11,16 @@ import {
   lastAssistantMessageIsCompleteWithApprovalResponses,
 } from "ai";
 import { AnimatePresence, motion } from "motion/react";
-import type { Route } from "next";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDropzone } from "react-dropzone";
 import { toast } from "sonner";
+import type { WorkspaceInvalidationDetail } from "@/components/dashboard/workspace-realtime-bridge";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { getChatErrorMessage } from "@/lib/chat-errors";
+import {
+  getChatErrorMessage,
+  getChatErrorSignature,
+  isRecoverableChatDisconnect,
+} from "@/lib/chat-errors";
 import {
   CHAT_NAME_UPDATED_EVENT,
   CHAT_STREAM_FINISHED_EVENT,
@@ -36,7 +40,8 @@ import {
 } from "@/lib/chat-message-cache";
 import { normalizeMediaType } from "@/lib/media-type";
 import { emitPetNotification } from "@/lib/pet-preferences";
-import { usePaneRouter } from "@/lib/workspace-panes";
+import { useCurrentWorkspacePane } from "@/lib/workspace-panes";
+import { useWorkspacePaneStore } from "@/stores/workspacePaneStore";
 import { type Attachment, createLocalAttachment } from "./attachment";
 import { Messages } from "./messages";
 import { MultimodalInput } from "./multimodal-input";
@@ -58,6 +63,15 @@ type SendMessageInput = Parameters<UseChatHelpers<UIMessage>["sendMessage"]>[0];
 type SendMessageOptions = Parameters<
   UseChatHelpers<UIMessage>["sendMessage"]
 >[1];
+type ChatStatus = UseChatHelpers<UIMessage>["status"];
+type NoteMutationReason = "file.created" | "file.updated";
+
+interface NoteMutationEvent {
+  cacheKey: string;
+  fileId: string;
+  reason: NoteMutationReason;
+}
+
 const ACTIVE_REPLY_MIN_HEIGHT = "calc(100dvh - 250px)";
 const EMPTY_COMPOSER_SHELL_CLASSNAME =
   "mx-auto mb-3 w-full max-w-4xl px-4 md:mb-3 md:px-0";
@@ -69,6 +83,129 @@ const MOBILE_CHAT_COMPOSER_STATE_EVENT = "avenire:mobile-chat-composer-state";
 const MOBILE_CHAT_VOICE_START_EVENT = "avenire:mobile-chat-voice-start";
 const NEW_CHAT_REQUESTED_EVENT = "avenire:new-chat-requested";
 const CHAT_MESSAGE_SENT_EVENT = "avenire:chat-message-sent";
+
+function recordValue(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function stringValue(record: Record<string, unknown> | null, key: string) {
+  const value = record?.[key];
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function outputRecordFromToolPart(part: UIMessage["parts"][number]) {
+  const record = recordValue(part);
+  if (
+    !record ||
+    typeof record.type !== "string" ||
+    !record.type.startsWith("tool-") ||
+    record.state !== "output-available"
+  ) {
+    return null;
+  }
+
+  const output = recordValue(record.output);
+  return output ? { output, type: record.type } : null;
+}
+
+function buildNoteMutationCacheKey(input: {
+  fileId: string;
+  messageId: string;
+  output: Record<string, unknown>;
+  partIndex: number;
+  reason: NoteMutationReason;
+  type: string;
+}) {
+  return [
+    input.messageId,
+    input.partIndex,
+    input.type,
+    input.fileId,
+    input.reason,
+    stringValue(input.output, "updatedAt"),
+    stringValue(input.output, "workspacePath"),
+    stringValue(input.output, "content")?.length ?? 0,
+  ].join(":");
+}
+
+function collectNoteMutationEvents(messages: UIMessage[]): NoteMutationEvent[] {
+  const events: NoteMutationEvent[] = [];
+
+  for (const message of messages) {
+    for (const [partIndex, part] of message.parts.entries()) {
+      const toolPart = outputRecordFromToolPart(part);
+      if (!toolPart) {
+        continue;
+      }
+
+      if (
+        toolPart.type === "tool-create_note" ||
+        toolPart.type === "tool-update_note"
+      ) {
+        const fileId = stringValue(toolPart.output, "fileId");
+        if (!fileId) {
+          continue;
+        }
+        const reason =
+          toolPart.type === "tool-create_note"
+            ? "file.created"
+            : "file.updated";
+        events.push({
+          cacheKey: buildNoteMutationCacheKey({
+            fileId,
+            messageId: message.id,
+            output: toolPart.output,
+            partIndex,
+            reason,
+            type: toolPart.type,
+          }),
+          fileId,
+          reason,
+        });
+        continue;
+      }
+
+      if (toolPart.type !== "tool-note_agent") {
+        continue;
+      }
+
+      const operation = stringValue(toolPart.output, "operation");
+      if (operation !== "created" && operation !== "updated") {
+        continue;
+      }
+
+      const notes = Array.isArray(toolPart.output.notes)
+        ? toolPart.output.notes
+        : [];
+      const reason = operation === "created" ? "file.created" : "file.updated";
+      for (const [noteIndex, note] of notes.entries()) {
+        const noteRecord = recordValue(note);
+        const fileId = stringValue(noteRecord, "fileId");
+        if (!fileId) {
+          continue;
+        }
+        events.push({
+          cacheKey: [
+            message.id,
+            partIndex,
+            noteIndex,
+            toolPart.type,
+            fileId,
+            reason,
+            stringValue(noteRecord, "workspacePath"),
+            stringValue(noteRecord, "content")?.length ?? 0,
+          ].join(":"),
+          fileId,
+          reason,
+        });
+      }
+    }
+  }
+
+  return events;
+}
 
 export function Chat({
   id,
@@ -91,7 +228,8 @@ export function Chat({
   const [mobileComposerOpen, setMobileComposerOpen] = useState(false);
   const [turboEnabled, setTurboEnabled] = useState(false);
   const isMobile = useIsMobile();
-  const paneRouter = usePaneRouter();
+  const { paneId } = useCurrentWorkspacePane();
+  const setPaneRoute = useWorkspacePaneStore((state) => state.setPaneRoute);
   const activeSelectedModel = turboEnabled ? "apex-turbo" : selectedModel;
   const lastCompletedMessageIdRef = useRef<string | null>(null);
   const previousStatusRef = useRef<string | null>(null);
@@ -101,19 +239,11 @@ export function Chat({
   const autoPromptSentRef = useRef<string | null>(null);
   const previousNewChatKeyRef = useRef(newChatKey);
   const previousRouteIdRef = useRef(id);
+  const latestChatStatusRef = useRef<ChatStatus>("ready");
+  const pendingStreamRequestRef = useRef(false);
+  const recoverableStreamErrorSignatureRef = useRef<string | null>(null);
+  const publishedNoteMutationKeysRef = useRef<Set<string>>(new Set());
   const MAX_FILES = 3;
-
-  const handleError = useCallback((error: Error) => {
-    toast.error(getChatErrorMessage(error), {
-      description: "If this issue persists, please contact support.",
-      duration: 5000,
-    });
-    emitPetNotification({
-      message: "Chat failed",
-      tone: "failure",
-      animation: "failed",
-    });
-  }, []);
 
   const publishChatStreamStatus = useCallback(
     (nextStatus: ChatStreamStatus) => {
@@ -129,20 +259,74 @@ export function Chat({
     [chatId]
   );
 
-  const publishChatStreamFinished = useCallback(
-    () => {
-      if (lastFinishedStreamEventRef.current === chatId) {
-        return;
-      }
-      lastFinishedStreamEventRef.current = chatId;
-      window.dispatchEvent(
-        new CustomEvent<ChatStreamFinishedDetail>(CHAT_STREAM_FINISHED_EVENT, {
-          detail: { chatId },
-        })
-      );
-    },
+  const canRecoverChatDisconnect = useCallback(
+    (error: Error) =>
+      isRecoverableChatDisconnect(error) &&
+      (pendingStreamRequestRef.current ||
+        isActiveChatStreamStatus(publishedStreamStatusRef.current) ||
+        isChatStreamActive(chatId) ||
+        latestChatStatusRef.current === "submitted" ||
+        latestChatStatusRef.current === "streaming"),
     [chatId]
   );
+
+  const rememberRecoverableChatDisconnect = useCallback(
+    (error: Error) => {
+      recoverableStreamErrorSignatureRef.current = getChatErrorSignature(error);
+      pendingStreamRequestRef.current = true;
+      publishChatStreamStatus("submitted");
+    },
+    [publishChatStreamStatus]
+  );
+
+  const handleError = useCallback(
+    (error: Error) => {
+      if (canRecoverChatDisconnect(error)) {
+        rememberRecoverableChatDisconnect(error);
+        return;
+      }
+
+      recoverableStreamErrorSignatureRef.current = null;
+      pendingStreamRequestRef.current = false;
+      toast.error(getChatErrorMessage(error), {
+        description: "If this issue persists, please contact support.",
+        duration: 5000,
+      });
+      emitPetNotification({
+        message: "Chat failed",
+        tone: "failure",
+        animation: "failed",
+      });
+    },
+    [canRecoverChatDisconnect, rememberRecoverableChatDisconnect]
+  );
+
+  const publishChatStreamFinished = useCallback(() => {
+    if (lastFinishedStreamEventRef.current === chatId) {
+      return;
+    }
+    lastFinishedStreamEventRef.current = chatId;
+    window.dispatchEvent(
+      new CustomEvent<ChatStreamFinishedDetail>(CHAT_STREAM_FINISHED_EVENT, {
+        detail: { chatId },
+      })
+    );
+  }, [chatId]);
+
+  const finalizePromotedNewChatRoute = useCallback(() => {
+    if (id !== "new" || !hasPushedNewChatUrlRef.current) {
+      return;
+    }
+
+    setPaneRoute(
+      paneId,
+      {
+        pathname: `/workspace/chats/${chatId}`,
+        search: "",
+      },
+      { replace: true }
+    );
+  }, [chatId, id, paneId, setPaneRoute]);
 
   const transport = useMemo<ChatTransport<UIMessage>>(() => {
     const durableTransport = createDurableChatTransport<UIMessage>({
@@ -190,12 +374,20 @@ export function Chat({
     sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithApprovalResponses,
     onFinish: ({ isAbort, isError }) => {
       if (isError) {
+        if (recoverableStreamErrorSignatureRef.current) {
+          publishChatStreamStatus("submitted");
+          return;
+        }
+        pendingStreamRequestRef.current = false;
         publishChatStreamStatus("error");
         return;
       }
 
+      pendingStreamRequestRef.current = false;
+      recoverableStreamErrorSignatureRef.current = null;
       setAgentActivity(null);
       publishChatStreamStatus("ready");
+      finalizePromotedNewChatRoute();
       if (!isAbort) {
         publishChatStreamFinished();
       }
@@ -219,9 +411,19 @@ export function Chat({
       }
     },
   });
+  const isRecoveringFromStreamDisconnect = Boolean(
+    error &&
+      getChatErrorSignature(error) ===
+        recoverableStreamErrorSignatureRef.current &&
+      canRecoverChatDisconnect(error)
+  );
+  const effectiveStatus: ChatStatus = isRecoveringFromStreamDisconnect
+    ? "submitted"
+    : status;
+
   const displayedMessages = useMemo(() => {
     const lastMessage = messages.at(-1);
-    if (!(status === "submitted" && lastMessage?.role === "user")) {
+    if (!(effectiveStatus === "submitted" && lastMessage?.role === "user")) {
       return messages;
     }
 
@@ -233,9 +435,64 @@ export function Chat({
         parts: [{ type: "text", text: "" }],
       } as UIMessage,
     ];
-  }, [messages, status]);
+  }, [effectiveStatus, messages]);
+
+  useEffect(() => {
+    latestChatStatusRef.current = status;
+
+    if (status === "submitted" || status === "streaming") {
+      pendingStreamRequestRef.current = true;
+      return;
+    }
+
+    if (status === "ready" && !recoverableStreamErrorSignatureRef.current) {
+      pendingStreamRequestRef.current = false;
+    }
+  }, [status]);
+
+  const visibleError =
+    error &&
+    getChatErrorSignature(error) !==
+      recoverableStreamErrorSignatureRef.current &&
+    !isRecoveringFromStreamDisconnect &&
+    !canRecoverChatDisconnect(error)
+      ? error
+      : undefined;
+
+  useEffect(() => {
+    const mutationEvents = collectNoteMutationEvents(messages);
+    if (mutationEvents.length === 0) {
+      return;
+    }
+
+    for (const mutationEvent of mutationEvents) {
+      if (publishedNoteMutationKeysRef.current.has(mutationEvent.cacheKey)) {
+        continue;
+      }
+
+      publishedNoteMutationKeysRef.current.add(mutationEvent.cacheKey);
+      window.dispatchEvent(
+        new CustomEvent<WorkspaceInvalidationDetail>(
+          "avenire:workspace-data-invalidated",
+          {
+            detail: {
+              kind: "files",
+              payload: {
+                at: Date.now(),
+                fileId: mutationEvent.fileId,
+                reason: mutationEvent.reason,
+                workspaceUuid,
+              },
+              workspaceUuid,
+            },
+          }
+        )
+      );
+    }
+  }, [messages, workspaceUuid]);
+
   const shouldFollowStreamingTail =
-    status === "streaming" || status === "submitted";
+    effectiveStatus === "streaming" || effectiveStatus === "submitted";
   const {
     bottomSpacerHeight,
     containerRef: messagesContainerRef,
@@ -274,9 +531,12 @@ export function Chat({
         previousNewChatKeyRef.current !== newChatKey;
       previousNewChatKeyRef.current = newChatKey;
       if (shouldResetNewChat) {
+        publishedNoteMutationKeysRef.current.clear();
         hasPushedNewChatUrlRef.current = false;
         autoPromptSentRef.current = null;
         publishedStreamStatusRef.current = null;
+        pendingStreamRequestRef.current = false;
+        recoverableStreamErrorSignatureRef.current = null;
         setAgentActivity(null);
         setAttachments([]);
         setInput("");
@@ -288,6 +548,7 @@ export function Chat({
 
     hasPushedNewChatUrlRef.current = true;
     if (id !== chatId) {
+      publishedNoteMutationKeysRef.current.clear();
       publishedStreamStatusRef.current = null;
       setChatId(id);
     }
@@ -299,9 +560,12 @@ export function Chat({
     }
 
     const resetNewChat = () => {
+      publishedNoteMutationKeysRef.current.clear();
       hasPushedNewChatUrlRef.current = false;
       autoPromptSentRef.current = null;
       publishedStreamStatusRef.current = null;
+      pendingStreamRequestRef.current = false;
+      recoverableStreamErrorSignatureRef.current = null;
       setAgentActivity(null);
       setAttachments([]);
       setInput("");
@@ -322,10 +586,8 @@ export function Chat({
 
     hasPushedNewChatUrlRef.current = true;
     publishChatStreamStatus("submitted");
-    paneRouter.replace(`/workspace/chats/${chatId}` as Route, {
-      scroll: false,
-    });
-  }, [chatId, id, paneRouter, publishChatStreamStatus]);
+    window.history.replaceState(null, "", `/workspace/chats/${chatId}`);
+  }, [chatId, id, publishChatStreamStatus]);
 
   const sendMessage = useCallback(
     async (message: SendMessageInput, options?: SendMessageOptions) => {
@@ -336,13 +598,28 @@ export function Chat({
 
   const handleResumeStreamError = useCallback(
     (error: Error) => {
+      if (canRecoverChatDisconnect(error)) {
+        rememberRecoverableChatDisconnect(error);
+        return;
+      }
+
+      pendingStreamRequestRef.current = false;
+      recoverableStreamErrorSignatureRef.current = null;
       publishChatStreamStatus("error");
       handleError(error);
     },
-    [handleError, publishChatStreamStatus]
+    [
+      canRecoverChatDisconnect,
+      handleError,
+      publishChatStreamStatus,
+      rememberRecoverableChatDisconnect,
+    ]
   );
 
   const handleStop = useCallback(() => {
+    latestChatStatusRef.current = "ready";
+    pendingStreamRequestRef.current = false;
+    recoverableStreamErrorSignatureRef.current = null;
     setAgentActivity(null);
     publishChatStreamStatus("ready");
     stop();
@@ -382,11 +659,13 @@ export function Chat({
   const latestMessageRole = latestMessage?.role ?? null;
   const latestUserMessageId =
     latestMessageRole === "user" ? (latestMessage?.id ?? null) : null;
+  const canResumeStream =
+    status === "ready" || isRecoveringFromStreamDisconnect;
   const shouldResumeKnownStream =
-    id !== "new" && status === "ready" && isChatStreamActive(chatId);
+    id !== "new" && canResumeStream && isChatStreamActive(chatId);
 
   useEffect(() => {
-    if (id === "new" || status !== "ready") {
+    if (id === "new" || !canResumeStream) {
       return;
     }
     if (!(latestUserMessageId || shouldResumeKnownStream)) {
@@ -424,13 +703,12 @@ export function Chat({
       }
     };
   }, [
-    chatId,
     handleResumeStreamError,
     id,
+    canResumeStream,
     latestUserMessageId,
     resumeStream,
     shouldResumeKnownStream,
-    status,
   ]);
 
   useEffect(() => {
@@ -441,7 +719,7 @@ export function Chat({
     const resumeExistingStream = () => {
       if (
         document.visibilityState === "hidden" ||
-        status !== "ready" ||
+        !canResumeStream ||
         !(latestMessageRole === "user" || isChatStreamActive(chatId))
       ) {
         return;
@@ -459,10 +737,10 @@ export function Chat({
   }, [
     chatId,
     id,
+    canResumeStream,
     handleResumeStreamError,
     latestMessageRole,
     resumeStream,
-    status,
   ]);
 
   useEffect(() => {
@@ -479,11 +757,21 @@ export function Chat({
     }
 
     autoPromptSentRef.current = prompt;
+    pendingStreamRequestRef.current = true;
     promoteNewChatRoute();
-    void sendMessage({ text: prompt }).catch((error: Error) => {
+    void sendMessage({ text: prompt }).catch((error) => {
+      const normalizedError =
+        error instanceof Error ? error : new Error("Failed to send message");
+      if (canRecoverChatDisconnect(normalizedError)) {
+        rememberRecoverableChatDisconnect(normalizedError);
+        return;
+      }
+
       autoPromptSentRef.current = null;
+      pendingStreamRequestRef.current = false;
+      recoverableStreamErrorSignatureRef.current = null;
       publishChatStreamStatus("error");
-      handleError(error);
+      handleError(normalizedError);
     });
   }, [
     id,
@@ -494,6 +782,8 @@ export function Chat({
     sendMessage,
     status,
     handleError,
+    canRecoverChatDisconnect,
+    rememberRecoverableChatDisconnect,
   ]);
 
   useEffect(() => {
@@ -502,29 +792,29 @@ export function Chat({
     const shouldClearRememberedStream =
       isChatStreamActive(chatId) && latestMessageRole !== "user";
     const shouldPublish =
-      isActiveChatStreamStatus(status) ||
+      isActiveChatStreamStatus(effectiveStatus) ||
       isActiveChatStreamStatus(previousPublishedStatus) ||
       shouldClearRememberedStream;
 
     if (!shouldPublish) {
-      publishedStreamStatusRef.current = status;
+      publishedStreamStatusRef.current = effectiveStatus;
       return;
     }
 
-    publishChatStreamStatus(status);
+    publishChatStreamStatus(effectiveStatus);
 
-    if (isActiveChatStreamStatus(status)) {
+    if (isActiveChatStreamStatus(effectiveStatus)) {
       lastFinishedStreamEventRef.current = null;
     }
 
     if (
-      status === "ready" &&
+      effectiveStatus === "ready" &&
       isActiveChatStreamStatus(previousPublishedStatus)
     ) {
       publishChatStreamFinished();
     }
 
-    if (status === "submitted") {
+    if (effectiveStatus === "submitted") {
       emitPetNotification({
         message: "Thinking",
         tone: "working",
@@ -534,19 +824,19 @@ export function Chat({
     }
   }, [
     chatId,
+    effectiveStatus,
     latestMessageRole,
     publishChatStreamFinished,
     publishChatStreamStatus,
-    status,
   ]);
 
   useEffect(() => {
-    if (status !== "ready") {
-      previousStatusRef.current = status;
+    if (effectiveStatus !== "ready") {
+      previousStatusRef.current = effectiveStatus;
       return;
     }
     const previousStatus = previousStatusRef.current;
-    previousStatusRef.current = status;
+    previousStatusRef.current = effectiveStatus;
     if (previousStatus !== "submitted" && previousStatus !== "streaming") {
       return;
     }
@@ -564,25 +854,25 @@ export function Chat({
       tone: "success",
       animation: "waving",
     });
-  }, [messages, status]);
+  }, [effectiveStatus, messages]);
 
   useEffect(() => {
-    if (status === "submitted") {
+    if (effectiveStatus === "submitted") {
       setAgentActivity(null);
     }
-  }, [status]);
+  }, [effectiveStatus]);
 
   useEffect(() => {
     if (displayedMessages.length === 0) {
       return;
     }
 
-    followIfNeeded(status === "submitted" ? "smooth" : "auto");
-  }, [displayedMessages.length, followIfNeeded, status]);
+    followIfNeeded(effectiveStatus === "submitted" ? "smooth" : "auto");
+  }, [displayedMessages.length, effectiveStatus, followIfNeeded]);
 
   const regenerateFromMessage = useCallback(
     async (assistantMessageId: string) => {
-      if (status === "submitted" || status === "streaming") {
+      if (effectiveStatus === "submitted" || effectiveStatus === "streaming") {
         return;
       }
 
@@ -632,6 +922,8 @@ export function Chat({
 
       const preservedMessages = messages.slice(0, userIndex);
       setMessages(preservedMessages);
+      pendingStreamRequestRef.current = true;
+      publishChatStreamStatus("submitted");
 
       try {
         await sendMessage({
@@ -639,17 +931,36 @@ export function Chat({
           ...(userFiles.length > 0 ? { files: userFiles } : {}),
         });
       } catch (error) {
+        const normalizedError =
+          error instanceof Error ? error : new Error("Failed to regenerate");
+        if (canRecoverChatDisconnect(normalizedError)) {
+          rememberRecoverableChatDisconnect(normalizedError);
+          return;
+        }
+
+        pendingStreamRequestRef.current = false;
+        recoverableStreamErrorSignatureRef.current = null;
         setMessages(messages);
-        handleError(
-          error instanceof Error ? error : new Error("Failed to regenerate")
-        );
+        publishChatStreamStatus("error");
+        handleError(normalizedError);
       }
     },
-    [handleError, messages, sendMessage, setMessages, status]
+    [
+      canRecoverChatDisconnect,
+      handleError,
+      messages,
+      publishChatStreamStatus,
+      rememberRecoverableChatDisconnect,
+      sendMessage,
+      setMessages,
+      effectiveStatus,
+    ]
   );
 
   const handleSubmit = async (inputValue: string, files: Attachment[]) => {
     promoteNewChatRoute();
+    pendingStreamRequestRef.current = true;
+    publishChatStreamStatus("submitted");
     window.dispatchEvent(
       new CustomEvent(CHAT_MESSAGE_SENT_EVENT, {
         detail: { chatId, text: inputValue, workspaceUuid },
@@ -704,8 +1015,17 @@ export function Chat({
         await sendMessage({ text: inputValue });
       }
     } catch (error) {
+      const normalizedError =
+        error instanceof Error ? error : new Error("Failed to send message");
+      if (canRecoverChatDisconnect(normalizedError)) {
+        rememberRecoverableChatDisconnect(normalizedError);
+        return;
+      }
+
+      pendingStreamRequestRef.current = false;
+      recoverableStreamErrorSignatureRef.current = null;
       publishChatStreamStatus("error");
-      throw error;
+      throw normalizedError;
     }
   };
 
@@ -736,11 +1056,13 @@ export function Chat({
 
   const hasConversationSurface = displayedMessages.length > 0;
   const isEmptyState =
-    !hasConversationSurface && status !== "submitted" && status !== "streaming";
+    !hasConversationSurface &&
+    effectiveStatus !== "submitted" &&
+    effectiveStatus !== "streaming";
   const isTransitioningFromNewChat =
     id === "new" &&
     !hasConversationSurface &&
-    (status === "submitted" || status === "streaming");
+    (effectiveStatus === "submitted" || effectiveStatus === "streaming");
   const shouldUseCenteredComposerLayout =
     (!isMobile && isEmptyState) || isTransitioningFromNewChat;
   const showBottomComposer = !isMobile || mobileComposerOpen;
@@ -761,7 +1083,7 @@ export function Chat({
         onTurboChange={setTurboEnabled}
         setAttachments={setAttachments}
         setInput={setInput}
-        status={status}
+        status={effectiveStatus}
         stop={handleStop}
         turboEnabled={turboEnabled}
         workspaceUuid={workspaceUuid}
@@ -840,7 +1162,7 @@ export function Chat({
             agentActivity={agentActivity}
             bottomSpacerHeight={bottomSpacerHeight}
             chatId={chatId}
-            error={error}
+            error={visibleError}
             isReadonly={isReadonly}
             messages={displayedMessages}
             messagesContainerRef={messagesContainerRef}
@@ -848,7 +1170,7 @@ export function Chat({
             onRegenerate={regenerateFromMessage}
             replyMinHeight={ACTIVE_REPLY_MIN_HEIGHT}
             sendMessage={sendMessage}
-            status={status}
+            status={effectiveStatus}
             workspaceUuid={workspaceUuid}
           />
         )}

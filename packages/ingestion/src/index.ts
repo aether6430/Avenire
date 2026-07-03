@@ -39,7 +39,14 @@ export async function retrieveWorkspaceChunks(input: {
   userId?: string;
   query: string;
   limit?: number;
-  sourceType?: "pdf" | "image" | "video" | "audio" | "document" | "markdown" | "link";
+  sourceType?:
+    | "pdf"
+    | "image"
+    | "video"
+    | "audio"
+    | "document"
+    | "markdown"
+    | "link";
   provider?: string;
 }) {
   const vectorStore = new PostgresVectorStore(input.workspaceId);

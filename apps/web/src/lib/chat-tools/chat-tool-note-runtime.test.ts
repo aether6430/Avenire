@@ -5,6 +5,7 @@ const {
   ensureWritableTargetFolderMock,
   generateTextMock,
   languageModelMock,
+  publishFilesInvalidationEventMock,
   publishWorkspaceStreamEventMock,
   resolveFolderIdByPathHintMock,
   scheduleIngestionJobMock,
@@ -14,6 +15,7 @@ const {
   ensureWritableTargetFolderMock: vi.fn(),
   generateTextMock: vi.fn(),
   languageModelMock: vi.fn(() => "apollo-core"),
+  publishFilesInvalidationEventMock: vi.fn(),
   publishWorkspaceStreamEventMock: vi.fn(),
   resolveFolderIdByPathHintMock: vi.fn(),
   scheduleIngestionJobMock: vi.fn(),
@@ -48,6 +50,10 @@ vi.mock("@/lib/chat-tools/workspace-file-helpers", () => ({
   resolveFolderIdByPathHint: resolveFolderIdByPathHintMock,
 }));
 
+vi.mock("@/lib/files-realtime-publisher", () => ({
+  publishFilesInvalidationEvent: publishFilesInvalidationEventMock,
+}));
+
 vi.mock("@/lib/workspace-event-stream", () => ({
   publishWorkspaceStreamEvent: publishWorkspaceStreamEventMock,
 }));
@@ -65,6 +71,7 @@ describe("chat tool note runtime", () => {
     createFolderMock.mockReset();
     ensureWritableTargetFolderMock.mockReset();
     generateTextMock.mockReset();
+    publishFilesInvalidationEventMock.mockReset();
     publishWorkspaceStreamEventMock.mockReset();
     resolveFolderIdByPathHintMock.mockReset();
     scheduleIngestionJobMock.mockReset();
@@ -266,5 +273,11 @@ describe("chat tool note runtime", () => {
     ).resolves.toEqual({ id: "job-1" });
 
     expect(publishWorkspaceStreamEventMock).toHaveBeenCalledTimes(2);
+    expect(publishFilesInvalidationEventMock).toHaveBeenCalledWith({
+      fileId: "file-1",
+      folderId: "folder-1",
+      reason: "file.updated",
+      workspaceUuid: "workspace-1",
+    });
   });
 });

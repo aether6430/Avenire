@@ -114,6 +114,7 @@ export async function executeCreateNote(
   await enqueueIngestionForFile({
     fileId: file.id,
     folderId: file.folderId,
+    reason: "file.created",
     workspaceId: ctx.workspaceId,
   });
 

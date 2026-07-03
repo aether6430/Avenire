@@ -5,10 +5,7 @@ import {
   useDocxEditor,
   type DocxEditorController,
 } from "@extend-ai/react-docx";
-import {
-  XlsxViewer,
-  useXlsxViewerController,
-} from "@extend-ai/react-xlsx";
+import { XlsxViewer, useXlsxViewerController } from "@extend-ai/react-xlsx";
 import { Button } from "@avenire/ui/components/button";
 import { Spinner } from "@avenire/ui/components/spinner";
 import { Tabs, TabsList, TabsTrigger } from "@avenire/ui/components/tabs";
@@ -42,6 +39,10 @@ type PreviewSection = {
   id: string;
   title: string;
   text: string;
+};
+type OfficeRetrievalTarget = {
+  page?: number | null;
+  text?: string | null;
 };
 
 const DOCX_MIME_TYPE =
@@ -220,6 +221,45 @@ function sectionsFromText(text: string): PreviewSection[] {
     }));
 }
 
+function tokenizePreviewSearchText(value: string | null | undefined) {
+  return new Set(
+    (value ?? "")
+      .toLowerCase()
+      .replace(/[^\p{L}\p{N}\s]/gu, " ")
+      .split(/\s+/)
+      .filter((token) => token.length >= 3)
+      .slice(0, 80)
+  );
+}
+
+function findBestSectionIndex(
+  sections: PreviewSection[],
+  targetText: string | null | undefined
+) {
+  const targetTokens = tokenizePreviewSearchText(targetText);
+  if (targetTokens.size === 0) {
+    return null;
+  }
+
+  let bestIndex: number | null = null;
+  let bestScore = 0;
+  sections.forEach((section, index) => {
+    const sectionText = `${section.title} ${section.text}`.toLowerCase();
+    let score = 0;
+    for (const token of targetTokens) {
+      if (sectionText.includes(token)) {
+        score += 1;
+      }
+    }
+    if (score > bestScore) {
+      bestIndex = index;
+      bestScore = score;
+    }
+  });
+
+  return bestScore > 0 ? bestIndex : null;
+}
+
 function scrollDocxPageIntoView({
   page,
   totalPages,
@@ -242,9 +282,11 @@ function scrollDocxPageIntoView({
 
 function DocxPreview({
   fileName,
+  retrievalTarget,
   source,
 }: {
   fileName?: string;
+  retrievalTarget?: OfficeRetrievalTarget;
   source: string;
 }) {
   const editor = useDocxEditor();
@@ -284,6 +326,18 @@ function DocxPreview({
           { type: blob.type || DOCX_MIME_TYPE }
         );
         await importDocxFileRef.current(docxFile);
+        if (
+          typeof retrievalTarget?.page === "number" &&
+          retrievalTarget.page > 0
+        ) {
+          window.requestAnimationFrame(() => {
+            scrollDocxPageIntoView({
+              page: retrievalTarget.page ?? 1,
+              totalPages: Math.max(retrievalTarget.page ?? 1, 1),
+              viewport: viewportRef.current,
+            });
+          });
+        }
       } catch (error) {
         if (controller.signal.aborted) {
           return;
@@ -297,7 +351,7 @@ function DocxPreview({
     void load();
 
     return () => controller.abort();
-  }, [fileName, source]);
+  }, [fileName, retrievalTarget?.page, source]);
 
   const currentPage = Math.max(1, editor.currentPage || 1);
   const totalPages = Math.max(1, editor.totalPages || 1);
@@ -372,10 +426,12 @@ function DocxPreview({
 function ExtractedOfficePreview({
   fileName,
   kind,
+  retrievalTarget,
   source,
 }: {
   fileName?: string;
   kind: OfficeViewerKind;
+  retrievalTarget?: OfficeRetrievalTarget;
   source: string;
 }) {
   const viewportRef = useRef<HTMLDivElement | null>(null);
@@ -384,6 +440,9 @@ function ExtractedOfficePreview({
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [sections, setSections] = useState<PreviewSection[]>([]);
+  const [initialSectionTargetIndex, setInitialSectionTargetIndex] = useState<
+    number | null
+  >(null);
   const [zoom, setZoom] = useState(1);
   const dockVisible = useScrollActivatedDock(viewportRef, !isLoading);
   const parserHint = parserHintForFile({ fileName, kind, source });
@@ -391,6 +450,7 @@ function ExtractedOfficePreview({
   useEffect(() => {
     const controller = new AbortController();
     setActiveSection(0);
+    setInitialSectionTargetIndex(null);
     setIsLoading(true);
     setLoadError(null);
     setSections([]);
@@ -432,6 +492,17 @@ function ExtractedOfficePreview({
         if (nextSections.length === 0) {
           throw new Error("No readable preview text was found in this file.");
         }
+        const targetIndex =
+          typeof retrievalTarget?.page === "number" && retrievalTarget.page > 0
+            ? Math.min(
+                Math.max(Math.round(retrievalTarget.page) - 1, 0),
+                nextSections.length - 1
+              )
+            : findBestSectionIndex(nextSections, retrievalTarget?.text);
+        if (targetIndex !== null) {
+          setActiveSection(targetIndex);
+          setInitialSectionTargetIndex(targetIndex);
+        }
         setSections(nextSections);
       } catch (error) {
         if (controller.signal.aborted) {
@@ -452,7 +523,7 @@ function ExtractedOfficePreview({
     void load();
 
     return () => controller.abort();
-  }, [parserHint, source]);
+  }, [parserHint, retrievalTarget?.page, retrievalTarget?.text, source]);
 
   useEffect(() => {
     const node = viewportRef.current;
@@ -521,6 +592,15 @@ function ExtractedOfficePreview({
                 key={section.id}
                 ref={(node) => {
                   sectionRefs.current[index] = node;
+                  if (node && initialSectionTargetIndex === index) {
+                    window.requestAnimationFrame(() => {
+                      node.scrollIntoView({
+                        behavior: "smooth",
+                        block: "start",
+                      });
+                      setInitialSectionTargetIndex(null);
+                    });
+                  }
                 }}
               >
                 <div className="mb-5 flex items-center justify-between gap-3 border-border/60 border-b pb-3">
@@ -561,6 +641,7 @@ function WorkbookPreview({
   source,
 }: {
   fileName?: string;
+  retrievalTarget?: OfficeRetrievalTarget;
   source: string;
 }) {
   const controller = useXlsxViewerController({
@@ -571,7 +652,10 @@ function WorkbookPreview({
     src: source,
   });
   const viewportRef = useRef<HTMLDivElement | null>(null);
-  const dockVisible = useScrollActivatedDock(viewportRef, !controller.isLoading);
+  const dockVisible = useScrollActivatedDock(
+    viewportRef,
+    !controller.isLoading
+  );
   const sheetValue = useMemo(
     () => String(controller.activeTabIndex),
     [controller.activeTabIndex]
@@ -610,7 +694,7 @@ function WorkbookPreview({
 
   return (
     <div className="relative flex h-full min-h-0 flex-col overflow-hidden bg-background">
-      {controller.tabs.length > 0 ? (
+      {controller.tabs.length > 1 ? (
         <div className="flex min-h-10 items-center border-border border-b bg-background px-2">
           <Tabs
             onValueChange={(value) => {
@@ -702,11 +786,13 @@ export default function OfficeViewer({
   className,
   fileName,
   kind,
+  retrievalTarget,
   source,
 }: {
   className?: string;
   fileName?: string;
   kind: OfficeViewerKind;
+  retrievalTarget?: OfficeRetrievalTarget;
   source: string;
 }) {
   return (
@@ -717,11 +803,24 @@ export default function OfficeViewer({
       )}
     >
       {kind === "document" && isDocxPreviewFile(fileName, source) ? (
-        <DocxPreview fileName={fileName} source={source} />
+        <DocxPreview
+          fileName={fileName}
+          retrievalTarget={retrievalTarget}
+          source={source}
+        />
       ) : kind === "spreadsheet" && isWorkbookPreviewFile(fileName, source) ? (
-        <WorkbookPreview fileName={fileName} source={source} />
+        <WorkbookPreview
+          fileName={fileName}
+          retrievalTarget={retrievalTarget}
+          source={source}
+        />
       ) : parserHintForFile({ fileName, kind, source }) ? (
-        <ExtractedOfficePreview fileName={fileName} kind={kind} source={source} />
+        <ExtractedOfficePreview
+          fileName={fileName}
+          kind={kind}
+          retrievalTarget={retrievalTarget}
+          source={source}
+        />
       ) : (
         <DocumentFallback source={source} />
       )}

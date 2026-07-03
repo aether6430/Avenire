@@ -1417,6 +1417,33 @@ function normalizeFilePageIcon(icon: string | null | undefined) {
   return trimmed.slice(0, 8);
 }
 
+function getLinkResourceThumbnailUrl(file: FileRecord) {
+  const metadata = file.metadata;
+  const link =
+    metadata &&
+    typeof metadata === "object" &&
+    !Array.isArray(metadata) &&
+    metadata.link &&
+    typeof metadata.link === "object" &&
+    !Array.isArray(metadata.link)
+      ? (metadata.link as Record<string, unknown>)
+      : null;
+  if (!link) {
+    return null;
+  }
+
+  const snapshot =
+    link.snapshot && typeof link.snapshot === "object"
+      ? (link.snapshot as Record<string, unknown>)
+      : null;
+  const imageUrl =
+    (typeof snapshot?.imageUrl === "string" && snapshot.imageUrl.trim()) ||
+    (typeof link.imageUrl === "string" && link.imageUrl.trim()) ||
+    null;
+
+  return imageUrl;
+}
+
 function isRenderableIconUrl(icon: string) {
   return (
     icon.startsWith("http://") ||
@@ -6752,6 +6779,8 @@ export function FileExplorer({
                           const fileKind = detectFileKind(file);
                           const fileCardType =
                             fileKind === "sheet" ? "document" : fileKind;
+                          const linkThumbnailUrl =
+                            getLinkResourceThumbnailUrl(file);
                           const searchResult = searchResultByFileId.get(
                             file.id
                           );
@@ -6914,7 +6943,7 @@ export function FileExplorer({
                                               hoveredPreviewFileId === file.id
                                             }
                                           />
-                                        ) : isMarkdown ? (
+                                        ) : isMarkdown && !linkThumbnailUrl ? (
                                           <MarkdownThumbnail
                                             className="h-full w-full"
                                             content={file.noteContent ?? null}
@@ -6926,6 +6955,7 @@ export function FileExplorer({
                                           />
                                         ) : undefined
                                       }
+                                      previewUrl={linkThumbnailUrl ?? undefined}
                                       variant={
                                         isSearchFilteredView ? "row" : "grid"
                                       }

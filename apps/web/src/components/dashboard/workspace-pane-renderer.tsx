@@ -57,6 +57,7 @@ import { FlashcardSetPageClient } from "@/components/flashcards/set-detail-page"
 import { WorkspaceFlashcardsPageClient } from "@/components/flashcards/workspace-flashcards-page-client";
 import { WorkspaceTasksPageClient } from "@/components/tasks/workspace-tasks-page-client";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { isChatStreamActive } from "@/lib/chat-events";
 import {
   buildRouteState,
   WorkspacePaneInteractionBoundary,
@@ -572,6 +573,18 @@ export function WorkspacePaneRenderer() {
       return;
     }
 
+    const browserChatMatch = browserRoute.pathname.match(
+      /^\/workspace\/chats\/([^/?#]+)$/
+    );
+    if (
+      activePane.route.pathname === "/workspace/chats/new" &&
+      browserChatMatch?.[1] &&
+      browserChatMatch[1] !== "new" &&
+      isChatStreamActive(browserChatMatch[1])
+    ) {
+      return;
+    }
+
     pendingBrowserSyncRef.current = nextHref;
     router.replace(nextHref as never);
   }, [
@@ -706,7 +719,7 @@ export function WorkspacePaneRenderer() {
       sensors={sensors}
     >
       <div className="flex h-full min-h-0 w-full flex-col bg-background">
-        {tabs.length > 0 ? (
+        {tabs.length > 1 ? (
           <div className="flex h-9 shrink-0 items-center gap-1 border-border/70 border-b bg-background px-1.5">
             <DndContext onDragEnd={handleTabDragEnd} sensors={sensors}>
               <div

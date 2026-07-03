@@ -60,6 +60,7 @@ export async function handleWorkspaceLinksPost(input: {
     normalizedUrl,
   });
   const content = buildWorkspaceLinkNoteContent({
+    displayMode: linkPreview.displayMode,
     title: noteTitle,
     url: normalizedUrl,
   });
@@ -84,7 +85,16 @@ export async function handleWorkspaceLinksPost(input: {
       type: "note",
       resourceType: "link-resource",
       link: {
+        description: linkPreview.description,
+        displayMode: linkPreview.displayMode,
+        extractionMode: linkPreview.mode,
         favicon: linkPreview.favicon,
+        imageUrl: linkPreview.imageUrl,
+        kind: linkPreview.kind,
+        mediaUrls: linkPreview.mediaUrls,
+        provider: linkPreview.provider ?? null,
+        readerMarkdown: linkPreview.readerMarkdown,
+        snapshot: linkPreview.snapshot,
         title: linkPreview.title,
         sourceUrl: normalizedUrl,
       },

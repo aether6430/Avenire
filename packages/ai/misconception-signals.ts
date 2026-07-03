@@ -1,8 +1,5 @@
 import { generateText } from "ai";
-import {
-  APOLLO_INGESTION_COHERE_EMBED_MODEL,
-  apollo,
-} from "./models";
+import { APOLLO_INGESTION_COHERE_EMBED_MODEL, apollo } from "./models";
 import type { PromptMemoryBlock } from "./prompts/chat";
 
 const COHERE_EMBED_URL = "https://api.cohere.com/v2/embed";
@@ -13,13 +10,12 @@ const CLASSIFIER_MIN_COSINE_SIMILARITY = 0.62;
 const MAX_DETECTOR_TEXT_CHARS = 2000;
 const MAX_MISCONCEPTION_TEXT_CHARS = 1200;
 const EMBEDDING_CACHE_TTL_MS = 1000 * 60 * 60 * 6;
-const DETECTOR_PROVIDER_TIMEOUT_MS = 850;
 
 type CohereEmbedInputType = "search_document" | "search_query";
 
 export interface MisconceptionSignalRecord {
-  confidence: number;
   concept: string;
+  confidence: number;
   id: string;
   reason: string;
   subject: string;
@@ -72,6 +68,13 @@ function createDetectorAbortSignal(input: {
   parent?: AbortSignal;
   timeoutMs: number | null;
 }) {
+  if (!input.parent && typeof input.timeoutMs !== "number") {
+    return {
+      signal: undefined,
+      cleanup: () => {},
+    };
+  }
+
   const controller = new AbortController();
   const timeout =
     typeof input.timeoutMs === "number"
@@ -160,10 +163,8 @@ function extractEmbeddingsFromResponse(json: unknown): number[][] {
     embeddings?: number[][] | { float?: number[][] };
   };
 
-  if (Array.isArray(value.embeddings)) {
-    if (Array.isArray(value.embeddings[0])) {
-      return value.embeddings as number[][];
-    }
+  if (Array.isArray(value.embeddings) && Array.isArray(value.embeddings[0])) {
+    return value.embeddings as number[][];
   }
 
   if (
@@ -406,7 +407,7 @@ export async function detectMisconceptionSignals(input: {
   const now = options.now?.() ?? Date.now();
   const detectorAbort = createDetectorAbortSignal({
     parent: input.abortSignal,
-    timeoutMs: options.providerTimeoutMs ?? DETECTOR_PROVIDER_TIMEOUT_MS,
+    timeoutMs: options.providerTimeoutMs ?? null,
   });
 
   try {

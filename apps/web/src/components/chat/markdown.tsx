@@ -41,10 +41,12 @@ import "katex/dist/katex.min.css";
 interface MarkdownProps {
   className?: string;
   content: string;
+  enableMath?: boolean;
   id: string;
   minimal?: boolean;
   parseIncompleteMarkdown?: boolean;
   textSize?: "default" | "small";
+  variant?: "default" | "reader";
   workspaceUuid?: string;
 }
 
@@ -93,6 +95,52 @@ function normalizeWorkspaceFileLinks(content: string) {
     );
     return `[${label}](${normalizedUrl})`;
   });
+}
+
+function normalizeReaderMarkdownContent(content: string) {
+  return content
+    .replace(/\r\n?/g, "\n")
+    .replace(/&num;|&#35;|&#x23;/gi, "#")
+    .replace(/&amp;/gi, "&")
+    .split("\n")
+    .map((line) =>
+      line
+        .replace(
+          /^(\s*)((?:\\#){1,6})(\s+)/,
+          (_match, leading, hashes, spacing) =>
+            `${leading}${hashes.replace(/\\/g, "")}${spacing}`
+        )
+        .replace(/^(\s*)\\+(#{1,6}\s+)/, "$1$2")
+        .replace(/^(\s*)\\+([-*+]\s+)/, "$1$2")
+        .replace(/^(\s*)\\+(\d+\.\s+)/, "$1$2")
+        .replace(/^(\s*)\\+(!?\[)/, "$1$2")
+        .replace(/\\([[\]()])/g, "$1")
+    )
+    .filter((line) => {
+      const normalized = line.trim().replace(/\\/g, "");
+      if (!normalized) {
+        return true;
+      }
+      if (/^!+$/.test(normalized)) {
+        return false;
+      }
+      if (/^!\[\s*]\([^)]*\)\s*$/i.test(normalized)) {
+        return false;
+      }
+      if (
+        /^!\[.*?]\([^)]*\.(?:svg|png|jpe?g|webp)(?:[?#][^)]*)?\)\s*$/i.test(
+          normalized
+        )
+      ) {
+        return false;
+      }
+      return !/^!?https?:\/\/\S+\.(?:svg|png|jpe?g|webp)(?:[?#]\S*)?$/i.test(
+        normalized
+      );
+    })
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 }
 
 function normalizeMathDelimiters(content: string) {
@@ -373,19 +421,25 @@ const MemoizedMarkdown = memo(
     minimal = false,
     parseIncompleteMarkdown = true,
     className,
+    enableMath = true,
     textSize = "default",
+    variant = "default",
     workspaceUuid,
   }: Omit<MarkdownProps, "id">) => {
     const normalized = useMemo(() => {
       const contentWithWorkspaceLinks = normalizeWorkspaceFileLinks(content);
-      const contentWithNormalizedMath = normalizeMathDelimiters(
-        contentWithWorkspaceLinks
-      );
+      const contentForVariant =
+        variant === "reader"
+          ? normalizeReaderMarkdownContent(contentWithWorkspaceLinks)
+          : contentWithWorkspaceLinks;
+      const contentWithNormalizedMath = enableMath
+        ? normalizeMathDelimiters(contentForVariant)
+        : contentForVariant;
       return parseIncompleteMarkdown &&
         !contentWithNormalizedMath.includes("workspace-file://")
         ? remend(contentWithNormalizedMath)
         : contentWithNormalizedMath;
-    }, [content, parseIncompleteMarkdown]);
+    }, [content, enableMath, parseIncompleteMarkdown, variant]);
 
     const sizeClasses =
       textSize === "small"
@@ -419,11 +473,10 @@ const MemoizedMarkdown = memo(
           td: () => null,
           pre: ({ children }: any) => {
             const codeElement = children as any;
-            const codeText =
-              codeElement?.props?.children ?? "";
+            const codeText = codeElement?.props?.children ?? "";
             return (
-              <div className="rounded bg-muted/30 px-3 py-2 my-2">
-                <code className="whitespace-pre-wrap break-words text-xs text-muted-foreground">
+              <div className="my-2 rounded bg-muted/30 px-3 py-2">
+                <code className="whitespace-pre-wrap break-words text-muted-foreground text-xs">
                   {typeof codeText === "string"
                     ? codeText.slice(0, 300)
                     : "[code block]"}
@@ -438,7 +491,7 @@ const MemoizedMarkdown = memo(
       <div
         className={cn(
           minimal
-            ? "max-w-full break-words space-y-1"
+            ? "max-w-full space-y-1 break-words"
             : "prose prose-sm dark:prose-invert prose-blockquote:my-2 prose-hr:my-3 prose-ol:my-2 prose-p:my-2 prose-pre:my-3 prose-ul:my-2 max-w-full break-words",
           minimal && textSize !== "default" ? "" : sizeClasses.body,
           className
@@ -610,8 +663,8 @@ const MemoizedMarkdown = memo(
               </h6>
             ),
           }}
-          rehypePlugins={[rehypeKatex]}
-          remarkPlugins={[remarkGfm, remarkMath]}
+          rehypePlugins={enableMath ? [rehypeKatex] : []}
+          remarkPlugins={enableMath ? [remarkGfm, remarkMath] : [remarkGfm]}
           urlTransform={(url) => {
             if (url.startsWith("workspace-file://")) {
               return url;
@@ -626,10 +679,12 @@ const MemoizedMarkdown = memo(
   },
   (prev, next) =>
     prev.content === next.content &&
+    prev.enableMath === next.enableMath &&
     prev.minimal === next.minimal &&
     prev.parseIncompleteMarkdown === next.parseIncompleteMarkdown &&
     prev.className === next.className &&
     prev.textSize === next.textSize &&
+    prev.variant === next.variant &&
     prev.workspaceUuid === next.workspaceUuid
 );
 
@@ -637,21 +692,25 @@ MemoizedMarkdown.displayName = "MemoizedMarkdown";
 
 export const Markdown = memo(function Markdown({
   content,
+  enableMath,
   id,
   minimal,
   parseIncompleteMarkdown,
   className,
   textSize,
+  variant,
   workspaceUuid,
 }: MarkdownProps) {
   return (
     <MemoizedMarkdown
       className={className}
       content={content}
+      enableMath={enableMath}
       key={id}
       minimal={minimal}
       parseIncompleteMarkdown={parseIncompleteMarkdown}
       textSize={textSize}
+      variant={variant}
       workspaceUuid={workspaceUuid}
     />
   );

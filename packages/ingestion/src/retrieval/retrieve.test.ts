@@ -170,6 +170,9 @@ describe("retrieve helpers", () => {
     expect(
       getPreferredSourceTypes({ visual: true, audio: true, document: false })
     ).toBeNull();
+    expect(
+      getPreferredSourceTypes({ visual: false, audio: false, document: true })
+    ).toEqual(new Set(["pdf", "document", "markdown", "link"]));
 
     expect(
       lexicalOverlapScore(
@@ -188,6 +191,12 @@ describe("retrieve helpers", () => {
     );
     expect(extractTrigramQuery("renderGraphQLSchema for tests")).toBe(
       "renderGraphQLSchema for tests"
+    );
+    expect(extractTrigramQuery("find the .docx lecture notes")).toBe(
+      "find the .docx lecture notes"
+    );
+    expect(extractTrigramQuery("quote the .pptx slide title")).toBe(
+      "quote the .pptx slide title"
     );
     expect(extractTrigramQuery("plain search terms only")).toBeNull();
   });

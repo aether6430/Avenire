@@ -13,12 +13,13 @@ const posthogHost =
   process.env.NEXT_PUBLIC_POSTHOG_HOST ??
   "https://us.i.posthog.com";
 
-const posthog = posthogKey && shouldEnableObservability()
-  ? new PostHog(posthogKey, {
-      host: posthogHost,
-      enableExceptionAutocapture: true,
-    })
-  : null;
+const posthog =
+  posthogKey && shouldEnableObservability()
+    ? new PostHog(posthogKey, {
+        host: posthogHost,
+        enableExceptionAutocapture: true,
+      })
+    : null;
 
 const aiTelemetryGlobal = globalThis as typeof globalThis & {
   __avenirePostHogAiSdk?: NodeSDK;
@@ -473,7 +474,7 @@ export async function logEvent(
 }
 
 export async function flushObservability() {
-  if (!posthog || !shouldEnableObservability()) {
+  if (!(posthog && shouldEnableObservability())) {
     return;
   }
 
@@ -486,10 +487,26 @@ export async function flushObservability() {
   }
 }
 
+function shouldFlushOnShutdown() {
+  return process.env.OBSERVABILITY_FLUSH_ON_SHUTDOWN === "true";
+}
+
 export function shutdownObservability(timeoutMs = 5000) {
-  if (!posthog || !shouldEnableObservability()) {
+  if (!(posthog && shouldEnableObservability())) {
     return;
   }
 
-  posthog.shutdown(timeoutMs);
+  if (!shouldFlushOnShutdown()) {
+    void posthog.disable().catch(() => {
+      // Shutdown is a best-effort process-exit path; failed telemetry teardown
+      // should not surface as an app/runtime error.
+    });
+    return;
+  }
+
+  void posthog.shutdown(timeoutMs).catch((error: unknown) => {
+    if (process.env.NODE_ENV !== "production") {
+      console.warn("[posthog-shutdown-failed]", safeError(error));
+    }
+  });
 }

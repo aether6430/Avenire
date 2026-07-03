@@ -19,6 +19,7 @@ import {
   type WorkspacePathMaps,
 } from "@/lib/chat-tools/workspace-file-helpers";
 import { createFolder, updateFileAsset } from "@/lib/file-data";
+import { publishFilesInvalidationEvent } from "@/lib/files-realtime-publisher";
 import { publishWorkspaceStreamEvent } from "@/lib/workspace-event-stream";
 
 const NOTES_FOLDER_NAME = "Notes";
@@ -183,6 +184,7 @@ export async function resolveCreateNoteFolder(
 export async function enqueueIngestionForFile(input: {
   fileId: string;
   folderId?: string;
+  reason?: "file.created" | "file.updated";
   workspaceId: string;
 }) {
   const ingestionJob = await scheduleIngestionJob({
@@ -191,6 +193,12 @@ export async function enqueueIngestionForFile(input: {
   }).catch(() => null);
 
   await Promise.allSettled([
+    publishFilesInvalidationEvent({
+      workspaceUuid: input.workspaceId,
+      fileId: input.fileId,
+      folderId: input.folderId,
+      reason: input.reason ?? "file.updated",
+    }),
     publishWorkspaceStreamEvent({
       workspaceUuid: input.workspaceId,
       type: "upload.finalized",
