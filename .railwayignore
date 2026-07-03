@@ -13,6 +13,8 @@ scripts
 !packages/ai/skills/scripts
 !packages/ai/skills/scripts/**
 drizzle
+!packages/database/drizzle
+!packages/database/drizzle/**
 *.md
 !apps/web/content
 !apps/web/content/**
