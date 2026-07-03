@@ -2547,17 +2547,15 @@ function EditorTableOfContentsRail({
       item.originalLevel >= 1 &&
       item.originalLevel <= 3
   );
-  const activeIndex = Math.max(
-    0,
-    visibleItems.findIndex((item) => item.isActive)
-  );
-  const getMarkerWidth = (
-    item: TableOfContentDataItem,
-    itemIndex: number
-  ) => {
+  const activeIndex = visibleItems.findIndex((item) => item.isActive);
+  const getMarkerWidth = (item: TableOfContentDataItem, itemIndex: number) => {
+    if (activeIndex < 0) {
+      return Math.max(8, 14 - Math.max(0, item.originalLevel - 1) * 3);
+    }
+
     const distance = Math.abs(itemIndex - activeIndex);
     const levelInset = Math.max(0, item.originalLevel - 1) * 3;
-    const width = 34 - distance * 4 - levelInset;
+    const width = 34 - distance * 10 - levelInset;
 
     return Math.max(8, Math.min(34, width));
   };

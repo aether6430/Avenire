@@ -252,20 +252,13 @@
   background: transparent;
   border: 0;
   border-radius: 0;
-  mask-image: linear-gradient(
-    to bottom,
-    transparent,
-    black 10%,
-    black 90%,
-    transparent
-  );
 }
 
 .editor-toc-rail__list {
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
   gap: 0.38rem;
+  align-items: flex-end;
   padding: 0;
 }
 
@@ -307,16 +300,17 @@
   max-width: min(18rem, calc(50vw - 6rem));
   padding: 0.42rem 0.62rem;
   overflow: hidden;
+  text-overflow: ellipsis;
   font-size: 0.78rem;
   line-height: 1.1rem;
   color: var(--foreground);
-  text-overflow: ellipsis;
   white-space: nowrap;
   pointer-events: none;
   background: color-mix(in oklch, var(--background) 86%, var(--foreground) 14%);
   border: 1px solid color-mix(in oklch, var(--border) 72%, transparent 28%);
   border-radius: 0.5rem;
-  box-shadow: 0 10px 28px color-mix(in oklch, var(--foreground) 12%, transparent 88%);
+  box-shadow: 0 10px 28px
+    color-mix(in oklch, var(--foreground) 12%, transparent 88%);
   opacity: 0;
   transform: translate(0.35rem, -50%);
   transition:
