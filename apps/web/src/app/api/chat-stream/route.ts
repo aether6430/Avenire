@@ -25,8 +25,10 @@ function copyStreamingHeaders(response: Response) {
     headers.set(key, value);
   });
   headers.set("Cache-Control", "no-store");
-  headers.set("Content-Type", "text/event-stream; charset=utf-8");
-  headers.set("X-Accel-Buffering", "no");
+  if (response.ok) {
+    headers.set("Content-Type", "text/event-stream; charset=utf-8");
+    headers.set("X-Accel-Buffering", "no");
+  }
   return headers;
 }
 

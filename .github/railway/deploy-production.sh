@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-PROJECT_ID="${RAILWAY_PROJECT_ID:-273da88e-d4fc-46c6-b9d9-b3ca4ef2ce33}"
+PROJECT_ID="${RAILWAY_PROJECT_ID:-e9780f2a-ae1b-40b9-aff8-779a03f35393}"
 ENVIRONMENT="${RAILWAY_ENVIRONMENT_NAME:-production}"
 ENV_FILE="${ENV_FILE:-.env.production}"
 
@@ -19,7 +19,7 @@ if [[ ! -f "$ENV_FILE" ]]; then
   exit 1
 fi
 
-if [[ -z "${RAILWAY_TOKEN:-}" && -z "${RAILWAY_API_TOKEN:-}" ]]; then
+if [[ "${CI:-}" == "true" && -z "${RAILWAY_TOKEN:-}" && -z "${RAILWAY_API_TOKEN:-}" ]]; then
   echo "RAILWAY_TOKEN or RAILWAY_API_TOKEN must be set for non-interactive deploys." >&2
   exit 1
 fi
@@ -52,6 +52,8 @@ sync_env_to_service() {
 
     local key="${line%%=*}"
     local value="${line#*=}"
+
+    [[ -z "$value" ]] && continue
 
     case "$key" in
       APP_ROLE|RAILWAY_*|PORT)

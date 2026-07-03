@@ -10,8 +10,12 @@ dist
 .codex
 plans
 scripts
+!packages/ai/skills/scripts
+!packages/ai/skills/scripts/**
 drizzle
 *.md
+!packages/ai/skills/sections
+!packages/ai/skills/sections/**
 .env
 .env.*
 !.env.example

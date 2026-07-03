@@ -44,6 +44,7 @@
   --link-reader-text: var(--foreground);
   --link-reader-muted: var(--muted-foreground);
   --link-reader-accent: var(--foreground);
+
   position: relative;
   display: grid;
   grid-template-columns:
@@ -285,7 +286,7 @@
   min-width: 0.5rem;
   height: 1px;
   margin-block: auto;
-  background: currentColor;
+  background: currentcolor;
   border-radius: 999px;
   transition:
     width 160ms ease,
@@ -342,12 +343,6 @@
 
 .editor-toc-rail__item.is-active .editor-toc-rail__tick {
   height: 2px;
-}
-
-@media (hover: none), (pointer: coarse) {
-  .editor-toc-rail__inner {
-    width: 4.25rem;
-  }
 }
 
 @media (max-width: 1023px) {

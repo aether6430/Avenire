@@ -518,13 +518,15 @@ export const extractLinkPreview = async (
   }
 
   if (providerExtraction) {
+    const htmlImageUrl = html
+      ? resolvePreviewImageUrl(getPageImageFromHtml(html), safeUrl)
+      : null;
+
     return {
       description: html ? getDescriptionFromHtml(html) : null,
       displayMode: "embed",
       favicon,
-      imageUrl: html
-        ? resolvePreviewImageUrl(getPageImageFromHtml(html), safeUrl)
-        : (providerExtraction.mediaUrls[0] ?? null),
+      imageUrl: htmlImageUrl ?? providerExtraction.mediaUrls[0] ?? null,
       kind: "provider",
       mode: "provider",
       title: providerExtraction.title ?? (html ? getTitleFromHtml(html) : null),
@@ -627,6 +629,7 @@ export const ingestLink = async (
         previewKind: preview.kind,
         mediaUrls: preview.mediaUrls,
         extractionMode: preview.mode,
+        snapshot: preview.snapshot,
       },
       chunks: semanticChunkText({
         text: synthesized,
