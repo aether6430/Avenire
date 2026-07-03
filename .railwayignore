@@ -14,6 +14,8 @@ scripts
 !packages/ai/skills/scripts/**
 drizzle
 *.md
+!apps/web/content
+!apps/web/content/**
 !packages/ai/skills/sections
 !packages/ai/skills/sections/**
 .env
