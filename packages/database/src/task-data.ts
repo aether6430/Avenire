@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { and, asc, desc, eq, isNull, lte, or } from "drizzle-orm";
+import { and, asc, desc, eq, lte, or } from "drizzle-orm";
 import { member, user } from "./auth-schema";
 import { db } from "./client";
 import { listChatsForUser } from "./chat-data";
@@ -281,10 +281,7 @@ export async function listTasksForUser(
   }
 
   if (options?.dueBefore) {
-    const dueOrNull = or(isNull(task.dueAt), lte(task.dueAt, options.dueBefore));
-    if (dueOrNull) {
-      conditions.push(dueOrNull);
-    }
+    conditions.push(lte(task.dueAt, options.dueBefore));
   }
 
   const rows = await db
@@ -316,7 +313,7 @@ export async function listTasksDueToday(
           eq(task.status, "drafting"),
           eq(task.status, "polishing")
         ),
-        or(isNull(task.dueAt), lte(task.dueAt, today))
+        lte(task.dueAt, today)
       )
     )
     .orderBy(asc(task.dueAt), desc(task.priority), asc(task.createdAt));
