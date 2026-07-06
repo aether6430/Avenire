@@ -16,7 +16,7 @@
   },
   "dependencies": {
     "@uploadthing/react": "latest",
-    "files-sdk": "^1.2.0",
+    "files-sdk": "^2.1.0",
     "uploadthing": "latest"
   },
   "devDependencies": {
