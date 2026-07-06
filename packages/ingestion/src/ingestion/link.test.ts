@@ -1,4 +1,14 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("../utils/safety", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../utils/safety")>();
+  return {
+    ...actual,
+    safeRemoteFetch: vi.fn(),
+  };
+});
+
+import { safeRemoteFetch } from "../utils/safety";
 import { extractLinkPreview } from "./link";
 
 const articleHtml = `<!doctype html>
@@ -32,13 +42,12 @@ const articleHtml = `<!doctype html>
 
 describe("link ingestion", () => {
   afterEach(() => {
-    vi.unstubAllGlobals();
+    vi.mocked(safeRemoteFetch).mockReset();
   });
 
   it("extracts blog posts as clean reader markdown instead of raw HTML", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => new Response(articleHtml, { status: 200 }))
+    vi.mocked(safeRemoteFetch).mockResolvedValue(
+      new Response(articleHtml, { status: 200 })
     );
 
     const preview = await extractLinkPreview("https://anthropic.com/glasswing");

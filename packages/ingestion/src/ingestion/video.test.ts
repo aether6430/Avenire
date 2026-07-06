@@ -22,6 +22,7 @@ vi.mock("./transcription", () => ({
 }));
 
 vi.mock("../utils/safety", () => ({
+  assertResolvedRemoteUrlIsSafe: vi.fn(async (value: string) => new URL(value)),
   assertSafeUrl: vi.fn(),
 }));
 
@@ -33,7 +34,7 @@ vi.mock("../config", () => ({
 }));
 
 import { extractKeyframesFromVideoUrl } from "../utils/ffmpeg";
-import { assertSafeUrl } from "../utils/safety";
+import { assertResolvedRemoteUrlIsSafe, assertSafeUrl } from "../utils/safety";
 import { extractFromSupportedProvider } from "./provider-extractors";
 import {
   buildVideoResource,
@@ -289,5 +290,57 @@ describe("video helpers", () => {
       hasTranscript: true,
       keyframeCount: 0,
     });
+  });
+
+  it("revalidates provider media URLs before ffmpeg receives them", async () => {
+    vi.clearAllMocks();
+    vi.mocked(extractFromSupportedProvider).mockResolvedValue({
+      provider: "reddit",
+      content: "Video",
+      mediaUrls: ["https://cdn.example.com/video.mp4"],
+    });
+    vi.mocked(assertResolvedRemoteUrlIsSafe).mockResolvedValue(
+      new URL("https://cdn.example.com/video.mp4")
+    );
+    vi.mocked(extractKeyframesFromVideoUrl).mockResolvedValue([
+      {
+        timestampMs: 0,
+        imageBase64: "ZmFrZQ==",
+        imageMimeType: "image/png",
+      },
+    ]);
+
+    await ingestVideo({
+      url: "https://www.reddit.com/r/test/comments/1/video",
+      transcript: Array.from({ length: 20 }, (_, index) => `word${index}`).join(
+        " "
+      ),
+    });
+
+    expect(assertResolvedRemoteUrlIsSafe).toHaveBeenCalledWith(
+      "https://cdn.example.com/video.mp4"
+    );
+    expect(extractKeyframesFromVideoUrl).toHaveBeenCalledWith(
+      "https://cdn.example.com/video.mp4"
+    );
+  });
+
+  it("does not pass unsafe provider media URLs to ffmpeg", async () => {
+    vi.clearAllMocks();
+    vi.mocked(extractFromSupportedProvider).mockResolvedValue({
+      provider: "reddit",
+      content: "Video",
+      mediaUrls: ["http://127.0.0.1/private.mp4"],
+    });
+    vi.mocked(assertResolvedRemoteUrlIsSafe).mockRejectedValue(
+      new Error("Unsafe DNS address is not allowed for ingestion")
+    );
+
+    await expect(
+      ingestVideo({ url: "https://www.reddit.com/r/test/comments/1/video" })
+    ).rejects.toThrow(
+      /requires transcript or extractable keyframes|Unsafe DNS/
+    );
+    expect(extractKeyframesFromVideoUrl).not.toHaveBeenCalled();
   });
 });

@@ -8,7 +8,7 @@ import {
   extractKeyframesFromVideoUrl,
   getMediaDurationSeconds,
 } from "../utils/ffmpeg";
-import { assertSafeUrl } from "../utils/safety";
+import { assertResolvedRemoteUrlIsSafe, assertSafeUrl } from "../utils/safety";
 import { semanticChunkText } from "./chunking";
 import { ingestLink } from "./link";
 import { extractFromSupportedProvider } from "./provider-extractors";
@@ -391,7 +391,7 @@ const resolveVideoMediaSource = async (url: string): Promise<string> => {
     /\.(mp4|mov|mkv|webm)(\?|$)/i.test(mediaUrl)
   );
 
-  return targetMedia ?? url;
+  return (await assertResolvedRemoteUrlIsSafe(targetMedia ?? url)).toString();
 };
 
 const transcribeFromResolvedUrl = async (
