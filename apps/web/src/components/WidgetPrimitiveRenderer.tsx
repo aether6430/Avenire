@@ -332,7 +332,9 @@ export function sanitizeWidgetHtml(html: string) {
   template.innerHTML = sanitized;
   enforceWidgetHtmlPolicy(template.content);
 
-  for (const link of template.content.querySelectorAll('a[target="_blank"]')) {
+  for (const link of Array.from(
+    template.content.querySelectorAll('a[target="_blank"]')
+  )) {
     link.setAttribute("rel", "noopener noreferrer");
   }
 

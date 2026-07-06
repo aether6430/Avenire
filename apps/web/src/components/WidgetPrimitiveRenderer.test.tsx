@@ -64,7 +64,7 @@ describe("WidgetPrimitiveRenderer html nodes", () => {
 
   it("removes inline event attributes and styles", () => {
     renderHtml(
-      '<img alt="diagram" src="https://example.com/diagram.png" onerror="globalThis.widgetHtmlExecuted = true" style="position:fixed"><p onclick="globalThis.widgetHtmlExecuted = true">Click target</p>'
+      '<img alt="diagram" src="/diagram.png" onerror="globalThis.widgetHtmlExecuted = true" style="position:fixed"><p onclick="globalThis.widgetHtmlExecuted = true">Click target</p>'
     );
 
     const image = container.querySelector("img");
@@ -91,7 +91,7 @@ describe("WidgetPrimitiveRenderer html nodes", () => {
 
   it("removes active embedded and form elements", () => {
     renderHtml(
-      '<iframe src="https://example.com"></iframe><form action="/x"><input name="answer"><button>Submit</button></form><object data="/x"></object><embed src="/x">'
+      '<iframe></iframe><form action="/x"><input name="answer"><button>Submit</button></form><object data="/x"></object><embed src="/x">'
     );
 
     expect(container.querySelector("iframe")).toBeNull();
@@ -131,13 +131,11 @@ describe("WidgetPrimitiveRenderer html nodes", () => {
   });
 
   it("adds noopener noreferrer to blank-target links", () => {
-    renderHtml(
-      '<a href="https://example.com/lesson" target="_blank">Open lesson</a>'
-    );
+    renderHtml('<a href="/lesson" target="_blank">Open lesson</a>');
 
     const link = container.querySelector("a");
 
-    expect(link?.getAttribute("href")).toBe("https://example.com/lesson");
+    expect(link?.getAttribute("href")).toBe("/lesson");
     expect(link?.getAttribute("target")).toBe("_blank");
     expect(link?.getAttribute("rel")).toBe("noopener noreferrer");
   });
