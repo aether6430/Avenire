@@ -14,11 +14,13 @@ import { springs } from "@avenire/ui/lib/springs";
 import { surfaceClasses } from "@avenire/ui/lib/surface-classes";
 import {
   ArrowUpIcon,
+  Check,
   FileText as FileTextIcon,
   Lightning,
   Microphone,
   Plus,
   Square,
+  X,
 } from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "motion/react";
@@ -502,9 +504,11 @@ function PureMultimodalInput({
     [input, setInput, setLocalStorageInput, updateTextareaSelection]
   );
   const {
+    cancelRecording,
     error: transcriptionError,
     isRecording,
     isTranscribing,
+    meterLevels,
     startRecording,
     stopRecording,
     supported: speechSupported,
@@ -519,6 +523,7 @@ function PureMultimodalInput({
       : isMobile
         ? "What to learn?"
         : "What do you want to learn?";
+  const isVoiceInputActive = isRecording || isTranscribing;
 
   useEffect(() => {
     latestInputRef.current = input;
@@ -551,6 +556,28 @@ function PureMultimodalInput({
       toast.error(transcriptionError);
     }
   }, [transcriptionError]);
+
+  useEffect(() => {
+    if (!isVoiceInputActive) {
+      return;
+    }
+
+    const acceptVoiceInput = (event: KeyboardEvent) => {
+      if (event.key !== "Enter" || event.isComposing) {
+        return;
+      }
+
+      event.preventDefault();
+      if (isRecording) {
+        stopRecording();
+      }
+    };
+
+    window.addEventListener("keydown", acceptVoiceInput);
+    return () => {
+      window.removeEventListener("keydown", acceptVoiceInput);
+    };
+  }, [isRecording, isVoiceInputActive, stopRecording]);
 
   useEffect(() => {
     const startVoiceInput = () => {
@@ -1019,6 +1046,18 @@ function PureMultimodalInput({
         return;
       }
 
+      if (
+        (isRecording || isTranscribing) &&
+        event.key === "Enter" &&
+        !event.nativeEvent.isComposing
+      ) {
+        event.preventDefault();
+        if (isRecording) {
+          stopRecording();
+        }
+        return;
+      }
+
       if (isMobile || event.key !== "Enter" || event.nativeEvent.isComposing) {
         return;
       }
@@ -1041,13 +1080,20 @@ function PureMultimodalInput({
         }
       }
     },
-    [canSend, handleMentionKeyDown, isMobile, runSubmitForm, sendMode]
+    [
+      canSend,
+      handleMentionKeyDown,
+      isMobile,
+      isRecording,
+      isTranscribing,
+      runSubmitForm,
+      sendMode,
+      stopRecording,
+    ]
   );
 
   const shouldStackComposerControls = isMultiLine;
-  const composerShapeClassName = shouldStackComposerControls
-    ? "rounded-[1.375rem]"
-    : "rounded-full";
+  const composerShapeClassName = "rounded-[28px]";
 
   return (
     <div
@@ -1057,7 +1103,7 @@ function PureMultimodalInput({
     >
       <div
         className={cn(
-          "relative flex w-full grow flex-col overflow-visible p-2 transition-[border-radius,box-shadow,color] duration-150 ease-out focus-within:ring-1 focus-within:ring-ring",
+          "relative flex w-full grow flex-col overflow-visible p-2 transition-[box-shadow,color] duration-150 ease-out focus-within:ring-1 focus-within:ring-ring",
           composerShapeClassName,
           surfaceClasses(2, 2)
         )}
@@ -1181,74 +1227,83 @@ function PureMultimodalInput({
                 />
               )}
 
-              <div
-                className={cn(
-                  "flex min-w-0 flex-1 overflow-hidden",
-                  shouldStackComposerControls || centered
-                    ? "items-center"
-                    : "items-end"
-                )}
-              >
-                <Textarea
-                  autoFocus
-                  className={cn(
-                    "max-h-40 min-h-9 w-full flex-1 resize-none overflow-y-hidden border-none! bg-transparent! px-2 py-2 text-[14px] text-foreground leading-5 shadow-none! outline-none ring-0! transition-[height] duration-150 ease-out placeholder:text-muted-foreground focus-visible:border-transparent! focus-visible:ring-0!",
-                    className
-                  )}
-                  data-testid="multimodal-input"
-                  enterKeyHint={isMobile ? "enter" : "send"}
-                  onChange={(event) => {
-                    const nextValue = event.target.value;
-                    setDismissedMentionKey(null);
-                    latestInputRef.current = nextValue;
-                    setInput(nextValue);
-                    setLocalStorageInput({
-                      message: nextValue,
-                      files_uploaded: [],
-                    });
-                    updateTextareaSelection(
-                      event.target.selectionStart ?? 0,
-                      event.target.selectionEnd ?? 0
-                    );
-                  }}
-                  onClick={() => {
-                    updateTextareaSelection();
-                  }}
-                  onKeyDown={handleTextareaKeyDown}
-                  onKeyUp={() => {
-                    updateTextareaSelection();
-                  }}
-                  onPaste={(event) => {
-                    const pastedFiles: File[] = [];
-                    for (const item of Array.from(event.clipboardData.items)) {
-                      if (
-                        item.kind !== "file" ||
-                        !item.type.startsWith("image/")
-                      ) {
-                        continue;
-                      }
-                      const file = item.getAsFile();
-                      if (file) {
-                        pastedFiles.push(file);
-                      }
-                    }
-
-                    if (pastedFiles.length > 0) {
-                      enqueueFiles(pastedFiles);
-                      toast.success(
-                        `Added ${pastedFiles.length} pasted image${pastedFiles.length > 1 ? "s" : ""}.`
-                      );
-                    }
-                  }}
-                  onSelect={() => {
-                    updateTextareaSelection();
-                  }}
-                  placeholder={composerPlaceholder}
-                  ref={textareaRef}
-                  rows={1}
-                  value={input}
+              {isVoiceInputActive ? (
+                <VoiceCaptureMeter
+                  isTranscribing={isTranscribing}
+                  levels={meterLevels}
                 />
-              </div>
+              ) : (
+                <div
+                  className={cn(
+                    "flex min-w-0 flex-1 overflow-hidden",
+                    shouldStackComposerControls || centered
+                      ? "items-center"
+                      : "items-end"
+                  )}
+                >
+                  <Textarea
+                    autoFocus
+                    className={cn(
+                      "max-h-40 min-h-9 w-full flex-1 resize-none overflow-y-hidden border-none! bg-transparent! px-2 py-2 text-[14px] text-foreground leading-5 shadow-none! outline-none ring-0! transition-[height] duration-150 ease-out placeholder:text-muted-foreground focus-visible:border-transparent! focus-visible:ring-0!",
+                      className
+                    )}
+                    data-testid="multimodal-input"
+                    enterKeyHint={isMobile ? "enter" : "send"}
+                    onChange={(event) => {
+                      const nextValue = event.target.value;
+                      setDismissedMentionKey(null);
+                      latestInputRef.current = nextValue;
+                      setInput(nextValue);
+                      setLocalStorageInput({
+                        message: nextValue,
+                        files_uploaded: [],
+                      });
+                      updateTextareaSelection(
+                        event.target.selectionStart ?? 0,
+                        event.target.selectionEnd ?? 0
+                      );
+                    }}
+                    onClick={() => {
+                      updateTextareaSelection();
+                    }}
+                    onKeyDown={handleTextareaKeyDown}
+                    onKeyUp={() => {
+                      updateTextareaSelection();
+                    }}
+                    onPaste={(event) => {
+                      const pastedFiles: File[] = [];
+                      for (const item of Array.from(
+                        event.clipboardData.items
+                      )) {
+                        if (
+                          item.kind !== "file" ||
+                          !item.type.startsWith("image/")
+                        ) {
+                          continue;
+                        }
+                        const file = item.getAsFile();
+                        if (file) {
+                          pastedFiles.push(file);
+                        }
+                      }
+
+                      if (pastedFiles.length > 0) {
+                        enqueueFiles(pastedFiles);
+                        toast.success(
+                          `Added ${pastedFiles.length} pasted image${pastedFiles.length > 1 ? "s" : ""}.`
+                        );
+                      }
+                    }}
+                    onSelect={() => {
+                      updateTextareaSelection();
+                    }}
+                    placeholder={composerPlaceholder}
+                    ref={textareaRef}
+                    rows={1}
+                    value={input}
+                  />
+                </div>
+              )}
 
               <div
                 className={cn(
@@ -1263,14 +1318,20 @@ function PureMultimodalInput({
                   />
                 ) : null}
                 <div className="flex items-end gap-1.5">
-                  {isMobile ? null : (
+                  {isMobile || isVoiceInputActive ? null : (
                     <ComposerTurboButton
                       disabled={isRunning}
                       enabled={turboEnabled}
                       onToggle={() => onTurboChange(!turboEnabled)}
                     />
                   )}
-                  {speechSupported ? (
+                  {isVoiceInputActive ? (
+                    <VoiceCaptureActions
+                      disabled={isTranscribing}
+                      onAccept={stopRecording}
+                      onCancel={cancelRecording}
+                    />
+                  ) : speechSupported ? (
                     <ComposerVoiceButton
                       isRecording={isRecording}
                       isRunning={isRunning}
@@ -1285,12 +1346,14 @@ function PureMultimodalInput({
                       }}
                     />
                   ) : null}
-                  <ComposerActionButton
-                    canSend={canSend}
-                    isRunning={isRunning}
-                    onSend={runSubmitForm}
-                    onStop={stop}
-                  />
+                  {isVoiceInputActive ? null : (
+                    <ComposerActionButton
+                      canSend={canSend}
+                      isRunning={isRunning}
+                      onSend={runSubmitForm}
+                      onStop={stop}
+                    />
+                  )}
                 </div>
               </div>
             </div>
@@ -1338,6 +1401,82 @@ function PureAttachmentsButton({
 }
 
 const AttachmentsButton = memo(PureAttachmentsButton);
+
+function VoiceCaptureMeter({
+  isTranscribing,
+  levels,
+}: {
+  isTranscribing: boolean;
+  levels: number[];
+}) {
+  return (
+    <div
+      aria-label={
+        isTranscribing ? "Transcribing voice input" : "Recording voice input"
+      }
+      className="flex min-h-9 min-w-0 flex-1 items-center overflow-hidden px-2"
+      role="status"
+    >
+      <div className="relative flex h-9 w-full min-w-0 items-center gap-1">
+        <span className="pointer-events-none absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-[repeating-linear-gradient(to_right,var(--muted-foreground)_0_3px,transparent_3px_8px)] opacity-35" />
+        {levels.map((level, index) => (
+          <span
+            className={cn(
+              "relative block w-1 shrink-0 rounded-full bg-muted-foreground transition-[height,opacity] duration-100",
+              level > 0.05 ? "opacity-85" : "opacity-35",
+              isTranscribing && "opacity-45"
+            )}
+            key={index}
+            style={{ height: Math.max(2, Math.round(level * 18)) }}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function VoiceCaptureActions({
+  disabled,
+  onAccept,
+  onCancel,
+}: {
+  disabled: boolean;
+  onAccept: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <div className="flex items-center gap-1.5">
+      <Button
+        aria-label="Cancel voice input"
+        className="flex h-9 w-9 items-center justify-center rounded-full border border-transparent bg-transparent p-0 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring"
+        disabled={disabled}
+        onClick={(event) => {
+          event.preventDefault();
+          onCancel();
+        }}
+        size="icon"
+        type="button"
+        variant="ghost"
+      >
+        <X className="size-[18px]" weight="regular" />
+      </Button>
+      <Button
+        aria-label="Append voice input"
+        className="flex h-9 w-9 items-center justify-center rounded-full border border-transparent bg-transparent p-0 text-foreground transition-colors hover:bg-muted focus-visible:ring-1 focus-visible:ring-ring"
+        disabled={disabled}
+        onClick={(event) => {
+          event.preventDefault();
+          onAccept();
+        }}
+        size="icon"
+        type="button"
+        variant="ghost"
+      >
+        <Check className="size-[18px]" weight="regular" />
+      </Button>
+    </div>
+  );
+}
 
 function PureComposerVoiceButton({
   isRecording,
