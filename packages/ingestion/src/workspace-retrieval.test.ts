@@ -140,6 +140,7 @@ describe("workspace retrieval", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     process.env.REDIS_URL = "";
+    delete process.env.RETRIEVAL_WARMUP_MIN_CHUNKS;
     mockRetrieveRelevantChunksAdaptive.mockResolvedValue({
       ambiguityReasons: [],
       confidence: 0.91,
@@ -342,6 +343,23 @@ describe("workspace retrieval", () => {
     expect(adapters.store.listRecentQueries).toHaveBeenCalledWith("ws_1");
     expect(adapters.listSessionSummaries).toHaveBeenCalled();
     expect(adapters.listWorkspaceFiles).toHaveBeenCalledWith("ws_1");
+  });
+
+  it("skips too-small warmup deltas before acquiring a lease", async () => {
+    process.env.RETRIEVAL_WARMUP_MIN_CHUNKS = "8";
+    const { adapters } = createAdapters();
+
+    const result = await warmWorkspaceWithAdapters(
+      {
+        chunkCount: 3,
+        workspaceId: "ws_1",
+      },
+      adapters
+    );
+
+    expect(result.skipped).toBe(true);
+    expect(result.warmupReason).toBe("delta_too_small");
+    expect(adapters.store.acquireWarmupLease).not.toHaveBeenCalled();
   });
 
   it("normalizes bare redis host strings through the shared ingestion export used by backend stream publishers", async () => {
