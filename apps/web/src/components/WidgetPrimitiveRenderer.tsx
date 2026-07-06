@@ -27,6 +27,7 @@ import {
   TableHeader,
   TableRow,
 } from "@avenire/ui/components/table";
+import createDOMPurify from "dompurify";
 import { cn } from "@/lib/utils";
 
 const {
@@ -99,6 +100,245 @@ const complexityRank = new Map([
   ["O(n!)", 7],
 ]);
 
+const widgetHtmlAllowedTags = [
+  "a",
+  "abbr",
+  "b",
+  "blockquote",
+  "br",
+  "caption",
+  "circle",
+  "code",
+  "col",
+  "colgroup",
+  "dd",
+  "defs",
+  "details",
+  "div",
+  "dl",
+  "dt",
+  "em",
+  "figcaption",
+  "figure",
+  "g",
+  "h1",
+  "h2",
+  "h3",
+  "h4",
+  "h5",
+  "h6",
+  "hr",
+  "i",
+  "img",
+  "li",
+  "line",
+  "mark",
+  "ol",
+  "p",
+  "path",
+  "polygon",
+  "polyline",
+  "pre",
+  "rect",
+  "section",
+  "small",
+  "span",
+  "strong",
+  "sub",
+  "summary",
+  "sup",
+  "svg",
+  "table",
+  "tbody",
+  "td",
+  "text",
+  "tfoot",
+  "th",
+  "thead",
+  "tr",
+  "ul",
+] as const;
+
+const widgetHtmlAllowedAttributes = [
+  "alt",
+  "aria-describedby",
+  "aria-hidden",
+  "aria-label",
+  "aria-labelledby",
+  "aria-live",
+  "aria-roledescription",
+  "class",
+  "clip-path",
+  "colspan",
+  "cx",
+  "cy",
+  "d",
+  "fill",
+  "focusable",
+  "height",
+  "href",
+  "preserveAspectRatio",
+  "r",
+  "role",
+  "rowspan",
+  "scope",
+  "src",
+  "stroke",
+  "stroke-linecap",
+  "stroke-linejoin",
+  "stroke-width",
+  "target",
+  "title",
+  "viewBox",
+  "width",
+  "x",
+  "x1",
+  "xlink:href",
+  "x2",
+  "xmlns",
+  "y",
+  "y1",
+  "y2",
+] as const;
+
+const widgetHtmlAllowedTagSet = new Set<string>(widgetHtmlAllowedTags);
+const widgetHtmlAllowedAttributeSet = new Set<string>(
+  widgetHtmlAllowedAttributes.map((attribute) => attribute.toLowerCase())
+);
+const widgetHtmlForbiddenTagSet = new Set([
+  "audio",
+  "base",
+  "button",
+  "embed",
+  "form",
+  "iframe",
+  "input",
+  "link",
+  "meta",
+  "object",
+  "script",
+  "select",
+  "textarea",
+  "video",
+]);
+const widgetHtmlUrlAttributes = new Set(["href", "src", "xlink:href"]);
+const widgetHtmlSafeUrlProtocols = new Set([
+  "http:",
+  "https:",
+  "mailto:",
+  "tel:",
+]);
+
+let widgetHtmlPurifier: ReturnType<typeof createDOMPurify> | null = null;
+
+function getWidgetHtmlPurifier() {
+  if (!widgetHtmlPurifier) {
+    widgetHtmlPurifier = createDOMPurify(window);
+  }
+
+  return widgetHtmlPurifier;
+}
+
+function isSafeWidgetHtmlUrl(value: string) {
+  const trimmedValue = value.trim();
+
+  if (!trimmedValue) {
+    return false;
+  }
+
+  try {
+    const url = new URL(trimmedValue, window.location.href);
+    const originalHasProtocol = /^[a-z][a-z0-9+.-]*:/i.test(trimmedValue);
+
+    return (
+      widgetHtmlSafeUrlProtocols.has(url.protocol) ||
+      !(
+        originalHasProtocol ||
+        ["javascript:", "vbscript:", "data:"].includes(url.protocol)
+      )
+    );
+  } catch {
+    return false;
+  }
+}
+
+function enforceWidgetHtmlPolicy(root: DocumentFragment) {
+  const elements = Array.from(root.querySelectorAll("*"));
+
+  for (const element of elements) {
+    const tagName = element.tagName.toLowerCase();
+
+    if (
+      widgetHtmlForbiddenTagSet.has(tagName) ||
+      !widgetHtmlAllowedTagSet.has(tagName)
+    ) {
+      element.remove();
+      continue;
+    }
+
+    for (const attribute of Array.from(element.attributes)) {
+      const attributeName = attribute.name.toLowerCase();
+
+      if (
+        attributeName.startsWith("on") ||
+        attributeName === "style" ||
+        !(
+          attributeName.startsWith("aria-") ||
+          widgetHtmlAllowedAttributeSet.has(attributeName)
+        )
+      ) {
+        element.removeAttribute(attribute.name);
+        continue;
+      }
+
+      if (
+        widgetHtmlUrlAttributes.has(attributeName) &&
+        !isSafeWidgetHtmlUrl(attribute.value)
+      ) {
+        element.removeAttribute(attribute.name);
+      }
+    }
+  }
+}
+
+export function sanitizeWidgetHtml(html: string) {
+  const sanitized = getWidgetHtmlPurifier().sanitize(html, {
+    ALLOW_ARIA_ATTR: true,
+    ALLOW_DATA_ATTR: false,
+    ALLOWED_ATTR: [...widgetHtmlAllowedAttributes],
+    ALLOWED_TAGS: [...widgetHtmlAllowedTags],
+    ALLOWED_URI_REGEXP:
+      /^(?:(?:(?:https?|mailto|tel):|[^a-z]|[a-z+.-]+(?:[^a-z+.-:]|$)))/i,
+    FORBID_ATTR: ["style"],
+    FORBID_TAGS: [
+      "audio",
+      "base",
+      "button",
+      "embed",
+      "form",
+      "iframe",
+      "input",
+      "link",
+      "meta",
+      "object",
+      "script",
+      "select",
+      "textarea",
+      "video",
+    ],
+  });
+
+  const template = document.createElement("template");
+  template.innerHTML = sanitized;
+  enforceWidgetHtmlPolicy(template.content);
+
+  for (const link of template.content.querySelectorAll('a[target="_blank"]')) {
+    link.setAttribute("rel", "noopener noreferrer");
+  }
+
+  return template.innerHTML;
+}
+
 function renderChildren(
   children: WidgetSpecNode[] | undefined,
   keyPrefix: string
@@ -106,7 +346,9 @@ function renderChildren(
   if (!children?.length) {
     return null;
   }
-  return children.map((child, index) => renderNode(child, `${keyPrefix}-${index}`));
+  return children.map((child, index) =>
+    renderNode(child, `${keyPrefix}-${index}`)
+  );
 }
 
 function renderNode(node: WidgetSpecNode, key: string) {
@@ -147,9 +389,7 @@ function renderNode(node: WidgetSpecNode, key: string) {
               ) : null}
             </div>
           )}
-          <div className="space-y-3">
-            {renderChildren(node.children, key)}
-          </div>
+          <div className="space-y-3">{renderChildren(node.children, key)}</div>
         </section>
       );
     case "card":
@@ -338,7 +578,7 @@ function renderNode(node: WidgetSpecNode, key: string) {
       return (
         <div
           className="contents"
-          dangerouslySetInnerHTML={{ __html: node.html }}
+          dangerouslySetInnerHTML={{ __html: sanitizeWidgetHtml(node.html) }}
           key={key}
         />
       );
