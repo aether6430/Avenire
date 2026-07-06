@@ -12,9 +12,12 @@ honor its STOP conditions, and update your row when done.
 | 002 | Enforce flashcard new-card daily limits across queue refreshes | P1 | M | 001 | DONE |
 | 003 | Verify retrieval-summary evidence before prompting the model | P1 | M | - | DONE |
 | 004 | Replace ingestion response `any` parsing with typed guards | P2 | M | - | DONE |
-| 005 | Sanitize primitive widget HTML without removing the HTML node | P0 | M | - | TODO |
-| 006 | Harden remote ingestion against SSRF and unsafe redirects | P0 | L | - | TODO |
-| 007 | Remediate high-severity production dependency advisories | P0 | M | - | TODO |
+| 005 | Sanitize primitive widget HTML without removing the HTML node | P0 | M | - | DONE |
+| 006 | Harden remote ingestion against SSRF and unsafe redirects | P0 | L | - | DONE |
+| 007 | Remediate high-severity production dependency advisories | P0 | M | - | DONE |
+| 008 | Avoid warmup leases for too-small ingestion deltas | P1 | S | - | DONE |
+| 009 | Invalidate active misconception caches from HTTP routes | P1 | M | - | DONE |
+| 010 | Persist misconception blocks submitted by the chat tool | P1 | S | - | DONE |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJECTED (with one-line rationale - finding fixed independently or approach abandoned)
 
@@ -24,6 +27,9 @@ Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJE
 - 003 and 004 can be executed independently.
 - 005, 006, and 007 can be executed independently. Plan 006 should be reviewed
   alongside 007 if it adds or changes a direct HTTP-client dependency.
+- 008, 009, and 010 can be executed independently. 009 and 010 both touch
+  misconception chat-tool code; if implemented together, run the combined
+  focused web test command from both plans before review.
 
 ## Verification baseline
 
@@ -37,6 +43,15 @@ Commands run during the audit:
 | Ingestion tests | `pnpm --filter @avenire/ingestion test` | 6 files, 39 tests passed |
 | Database tests | `pnpm --filter @avenire/database test` | 3 files, 13 tests passed |
 | Focused web learning tests | `pnpm --filter @avenire/web exec vitest run src/lib/chat-tools/chat-tool-misconception-runtime.test.ts src/lib/chat-tools/chat-tool-due-cards-runtime.test.ts src/lib/chat-tools/study-tool-helpers.test.ts` | 3 files, 20 tests passed; Vitest warned that it could not find base config `@avenire/typescript-config/base.json` from the app context |
+
+## 2026-07-05 ingestion and misconception-engine audit baseline
+
+Additional commands run during the deeper audit:
+
+| Purpose | Command | Result |
+|---------|---------|--------|
+| Focused ingestion warmup tests | `pnpm --filter @avenire/ingestion exec vitest run src/workspace-retrieval.test.ts` | 1 file, 5 tests passed |
+| Focused misconception route/tool tests | `pnpm --filter @avenire/web exec vitest run src/lib/chat-tools/chat-tool-misconception-runtime.test.ts src/app/api/misconceptions/delete/route.test.ts src/app/api/misconceptions/improve/route.test.ts src/app/api/misconceptions/resolve/route.test.ts` | 4 files, 14 tests passed; Vitest warned that it could not find base config `@avenire/typescript-config/base.json` from the app context |
 
 ## Implementation verification
 
@@ -53,8 +68,27 @@ Commands run after implementing all four plans:
 | Database typecheck | `pnpm --filter @avenire/database check-types` | passed |
 | Database tests | `pnpm --filter @avenire/database test` | 4 files, 17 tests passed |
 
+## 2026-07-06 implementation verification for plans 005-010
+
+Commands run after implementing the remaining codebase improvement plans:
+
+| Purpose | Command | Result |
+|---------|---------|--------|
+| Production dependency audit | `pnpm audit --prod --audit-level high` | passed; 0 high findings, 62 lower-severity findings remain |
+| Web typecheck | `pnpm --filter @avenire/web check-types` | passed |
+| Ingestion typecheck | `pnpm --filter @avenire/ingestion check-types` | passed |
+| Storage typecheck | `pnpm --filter @avenire/storage check-types` | passed |
+| Widget sanitizer tests | `pnpm --filter @avenire/web exec vitest run src/components/WidgetPrimitiveRenderer.test.tsx` | 1 file, 6 tests passed |
+| Ingestion safety tests | `pnpm --filter @avenire/ingestion exec vitest run src/utils/safety.test.ts src/ingestion/provider-extractors.test.ts src/ingestion/video.test.ts src/ingestion/link.test.ts` | 4 files, 20 tests passed |
+| Warmup lease tests | `pnpm --filter @avenire/ingestion exec vitest run src/workspace-retrieval.test.ts` | 1 file, 6 tests passed |
+| Misconception route/tool tests | `pnpm --filter @avenire/web exec vitest run src/lib/chat-tools/chat-tool-misconception-runtime.test.ts src/app/api/misconceptions/delete/route.test.ts src/app/api/misconceptions/improve/route.test.ts src/app/api/misconceptions/resolve/route.test.ts` | 4 files, 18 tests passed |
+| Task and file payload tests | `pnpm --filter @avenire/web exec vitest run src/app/api/tasks/route.test.ts src/app/api/capture/route.test.ts 'src/app/api/workspaces/[workspaceUuid]/files/[fileUuid]/route.test.ts' 'src/app/api/workspaces/[workspaceUuid]/files/[fileUuid]/content/route.test.ts'` | 4 files, 4 tests passed |
+| Due date tests | `pnpm --filter @avenire/database exec vitest run src/task-data.test.ts` | 1 file, 2 tests passed |
+
 ## Findings considered and rejected
 
 - Flashcard learning automation bootstrap missing: rejected. `apps/web/src/app/api/flashcards/review/route.ts` and `apps/web/src/app/api/chat/route.ts` import `@/lib/learning-automation`, and `apps/web/src/lib/learning-automation.ts` calls `bootstrapFlashcardLearningAutomation()`.
 - Misconception candidate `active` flag inconsistency after positive reviews: not planned yet. `improveMisconceptionsForConcept()` can set `active` false for candidates while leaving status `candidate`, but most active reads filter by status and default to confirmed-only. Worth revisiting after stronger regressions land.
 - Broad `unknown` usage: rejected as a blanket finding. Much of it is correct at JSON/API boundaries. The concrete type plan targets actual `any` response parsing and unchecked casts in ingestion.
+- Remote ingestion SSRF/redirect safety: already covered by plan 006. The 2026-07-05 audit still found normal `fetch` use in link and provider extraction paths, but this should not be duplicated into a second plan.
+- Misconception blocks in dashboard UI: rejected as a new UI plan. The UI already reads `misconception.blocks`; the concrete gap is the chat-tool persistence path covered by plan 010.
