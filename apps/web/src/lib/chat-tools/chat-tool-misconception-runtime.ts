@@ -17,6 +17,7 @@ import {
   mapMisconceptionForTool,
   normalizeMisconceptionSubjectKey,
 } from "@/lib/chat-tools/study-tool-helpers";
+import { invalidateActiveMisconceptionCaches } from "@/lib/misconception-cache";
 
 interface MisconceptionRuntimeContext {
   chatSlug: string;
@@ -26,10 +27,6 @@ interface MisconceptionRuntimeContext {
 
 const ACTIVE_MISCONCEPTIONS_CACHE_TTL_SECONDS = 60 * 5;
 type ActiveMisconceptionsCacheStatus = "hit" | "miss";
-const ACTIVE_MISCONCEPTION_CACHE_TOOL_NAMES = [
-  "list_misconceptions",
-  "misconception_signal_active_misconceptions",
-] as const;
 
 function normalizeMisconceptionField(value: string) {
   return value.trim();
@@ -115,23 +112,6 @@ async function getCachedActiveMisconceptions(input: {
   };
 }
 
-async function invalidateActiveMisconceptionCaches(ctx: {
-  userId: string;
-  workspaceId: string;
-}) {
-  await Promise.allSettled(
-    ACTIVE_MISCONCEPTION_CACHE_TOOL_NAMES.map((toolName) =>
-      invalidateToolResultScope({
-        scope: {
-          userId: ctx.userId,
-          workspaceId: ctx.workspaceId,
-        },
-        toolName,
-      })
-    )
-  );
-}
-
 export async function prewarmActiveMisconceptionsCache(params: {
   subject?: string | null;
   topic?: string | null;
@@ -200,6 +180,11 @@ export async function getActiveMisconceptionContext(params: {
 export async function logMisconceptionForTool(
   ctx: MisconceptionRuntimeContext,
   input: {
+    blocks?: {
+      correctedMentalModel?: string;
+      explanation?: string;
+      summary?: string;
+    };
     concept: string;
     confidence: number;
     reason: string;
@@ -219,6 +204,7 @@ export async function logMisconceptionForTool(
   });
 
   const misconception = await upsertMisconception({
+    blocks: input.blocks,
     confidence: input.confidence,
     concept,
     evidenceClass: "manual",
@@ -238,7 +224,15 @@ export async function logMisconceptionForTool(
     userId: ctx.userId,
     workspaceId: ctx.workspaceId,
   });
-  await invalidateActiveMisconceptionCaches(ctx);
+  await invalidateActiveMisconceptionCaches(
+    {
+      userId: ctx.userId,
+      workspaceId: ctx.workspaceId,
+    },
+    {
+      invalidateToolResultScope,
+    }
+  );
 
   return {
     activeMisconceptionsCount: activeMisconceptions.length,
@@ -315,7 +309,15 @@ export async function resolveMisconceptionForTool(
     userId: ctx.userId,
     workspaceId: ctx.workspaceId,
   });
-  await invalidateActiveMisconceptionCaches(ctx);
+  await invalidateActiveMisconceptionCaches(
+    {
+      userId: ctx.userId,
+      workspaceId: ctx.workspaceId,
+    },
+    {
+      invalidateToolResultScope,
+    }
+  );
 
   return {
     remainingActiveCount: remaining.length,
@@ -371,7 +373,15 @@ export async function improveMisconceptionForTool(
     userId: ctx.userId,
     workspaceId: ctx.workspaceId,
   });
-  await invalidateActiveMisconceptionCaches(ctx);
+  await invalidateActiveMisconceptionCaches(
+    {
+      userId: ctx.userId,
+      workspaceId: ctx.workspaceId,
+    },
+    {
+      invalidateToolResultScope,
+    }
+  );
 
   const resolvedCount = improved.filter((item) => !item.active).length;
 

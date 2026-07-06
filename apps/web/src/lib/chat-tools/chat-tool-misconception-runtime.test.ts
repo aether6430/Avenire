@@ -176,6 +176,44 @@ describe("chat tool misconception runtime", () => {
     expect(listed.summary).toBe("Found 1 active misconception(s). Cache miss.");
   });
 
+  it("persists and returns misconception blocks from tool input", async () => {
+    const blocks = {
+      correctedMentalModel: "Impulse is force integrated over time.",
+      explanation: "A small force over a long interval can create impulse.",
+      summary: "Impulse depends on force and time.",
+    };
+
+    upsertMisconceptionMock.mockResolvedValue({
+      active: true,
+      blocks,
+      concept: "Impulse",
+      confidence: 0.75,
+      createdAt: "2026-05-17T00:00:00.000Z",
+      reason: "Confuses force and impulse",
+      resolvedAt: null,
+      source: "chat_tool",
+      subject: "Physics",
+      topic: "Impulse",
+      updatedAt: "2026-05-17T00:00:00.000Z",
+      workspaceId: "workspace-1",
+    });
+    getActiveMisconceptionsMock.mockResolvedValue([]);
+
+    const stored = await logMisconceptionForTool(ctx, {
+      blocks,
+      concept: "Impulse",
+      confidence: 0.75,
+      reason: "Confuses force and impulse",
+      subject: "Physics",
+      topic: "Impulse",
+    });
+
+    expect(upsertMisconceptionMock).toHaveBeenCalledWith(
+      expect.objectContaining({ blocks })
+    );
+    expect(stored.misconception.blocks).toEqual(blocks);
+  });
+
   it("trims misconception mutation inputs before persistence and follow-up reads", async () => {
     upsertMisconceptionMock.mockResolvedValue({
       concept: "Impulse",

@@ -109,6 +109,7 @@ export function buildMisconceptionStudySource(
 
 export function mapMisconceptionForTool(record: MisconceptionRecord) {
   return {
+    blocks: record.blocks,
     confidence: record.confidence,
     concept: record.concept,
     createdAt: record.createdAt,
