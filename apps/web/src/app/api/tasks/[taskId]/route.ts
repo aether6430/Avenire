@@ -6,6 +6,7 @@ import {
 import { NextResponse } from "next/server";
 import { invalidateTaskListCache } from "@/lib/tasks-cache";
 import { getWorkspaceContextForUser } from "@/lib/workspace";
+import { taskMutationSchema } from "../task-route-model";
 
 interface RouteParams {
   params: Promise<{ taskId: string }>;
@@ -36,21 +37,13 @@ export async function PATCH(request: Request, { params }: RouteParams) {
   }
 
   const { taskId } = await params;
-  const body = (await request.json().catch(() => ({}))) as {
-    assigneeUserId?: string | null;
-    title?: string;
-    description?: string | null;
-    resources?: Array<{
-      href: string;
-      resourceId: string;
-      resourceType: "file" | "folder" | "chat";
-      subtitle: string | null;
-      title: string;
-    }>;
-    status?: "planned" | "drafting" | "polishing" | "completed";
-    priority?: "low" | "normal" | "high";
-    dueAt?: string | null;
-  };
+  const parsed = taskMutationSchema.safeParse(
+    await request.json().catch(() => ({}))
+  );
+  if (!parsed.success) {
+    return NextResponse.json({ error: "Invalid request" }, { status: 400 });
+  }
+  const body = parsed.data;
 
   let dueAtValue: Date | null | undefined;
   if (body.dueAt) {

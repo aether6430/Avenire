@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { resolveApiErrorMessage } from "@/lib/api-error-message";
 
 import {
@@ -8,6 +9,21 @@ import {
 export const WORKSPACE_FILE_LOAD_ERROR = "Unable to load file.";
 export const WORKSPACE_FILE_UPDATE_ERROR = "Unable to update file.";
 export const WORKSPACE_FILE_DELETE_ERROR = "Unable to delete file.";
+
+const pagePatchSchema = z.object({
+  bannerUrl: z.string().nullable().optional(),
+  icon: z.string().nullable().optional(),
+  properties: z.record(z.string(), z.unknown()).optional(),
+});
+
+export const workspaceFilePatchSchema = z.object({
+  folderId: z.string().min(1).optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
+  name: z.string().optional(),
+  page: pagePatchSchema.optional(),
+});
+
+export type WorkspaceFilePatchBody = z.infer<typeof workspaceFilePatchSchema>;
 
 export function buildWorkspaceFileRouteSummary(file: {
   id: string;

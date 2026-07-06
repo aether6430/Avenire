@@ -14,19 +14,11 @@ import {
   resolveWorkspaceFileRoutePatchMetadata,
   WORKSPACE_FILE_DELETE_ERROR,
   WORKSPACE_FILE_UPDATE_ERROR,
+  type WorkspaceFilePatchBody,
 } from "./workspace-file-route-model";
 
 export async function handleWorkspaceFilePatch(input: {
-  body: {
-    name?: string;
-    folderId?: string;
-    metadata?: Record<string, unknown>;
-    page?: {
-      bannerUrl?: string | null;
-      icon?: string | null;
-      properties?: Record<string, unknown>;
-    };
-  };
+  body: WorkspaceFilePatchBody;
   fileUuid: string;
   userId: string;
   workspaceUuid: string;

@@ -11,6 +11,7 @@ import {
   setCachedTaskList,
 } from "@/lib/tasks-cache";
 import { getWorkspaceContextForUser } from "@/lib/workspace";
+import { taskCreateSchema } from "./task-route-model";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -70,25 +71,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const body = (await request.json().catch(() => ({}))) as {
-    assigneeUserId?: string | null;
-    title?: string;
-    description?: string | null;
-    resources?: Array<{
-      href: string;
-      resourceId: string;
-      resourceType: "file" | "folder" | "chat";
-      subtitle: string | null;
-      title: string;
-    }>;
-    status?: "planned" | "drafting" | "polishing" | "completed";
-    priority?: "low" | "normal" | "high";
-    dueAt?: string | null;
-  };
-
-  if (!body.title?.trim()) {
+  const parsed = taskCreateSchema.safeParse(
+    await request.json().catch(() => ({}))
+  );
+  if (!parsed.success) {
     return NextResponse.json({ error: "Title is required" }, { status: 400 });
   }
+  const body = parsed.data;
 
   try {
     const task = await createTaskForUser(
