@@ -55,6 +55,20 @@ function assertMisconceptionScopeFields(input: {
   }
 }
 
+async function invalidateMisconceptionCachesForCtx(
+  ctx: MisconceptionRuntimeContext
+) {
+  await invalidateActiveMisconceptionCaches(
+    {
+      userId: ctx.userId,
+      workspaceId: ctx.workspaceId,
+    },
+    {
+      invalidateToolResultScope,
+    }
+  );
+}
+
 function isMisconceptionRecordArray(
   value: unknown
 ): value is MisconceptionRecord[] {
@@ -224,15 +238,7 @@ export async function logMisconceptionForTool(
     userId: ctx.userId,
     workspaceId: ctx.workspaceId,
   });
-  await invalidateActiveMisconceptionCaches(
-    {
-      userId: ctx.userId,
-      workspaceId: ctx.workspaceId,
-    },
-    {
-      invalidateToolResultScope,
-    }
-  );
+  await invalidateMisconceptionCachesForCtx(ctx);
 
   return {
     activeMisconceptionsCount: activeMisconceptions.length,
@@ -309,15 +315,7 @@ export async function resolveMisconceptionForTool(
     userId: ctx.userId,
     workspaceId: ctx.workspaceId,
   });
-  await invalidateActiveMisconceptionCaches(
-    {
-      userId: ctx.userId,
-      workspaceId: ctx.workspaceId,
-    },
-    {
-      invalidateToolResultScope,
-    }
-  );
+  await invalidateMisconceptionCachesForCtx(ctx);
 
   return {
     remainingActiveCount: remaining.length,
@@ -373,15 +371,7 @@ export async function improveMisconceptionForTool(
     userId: ctx.userId,
     workspaceId: ctx.workspaceId,
   });
-  await invalidateActiveMisconceptionCaches(
-    {
-      userId: ctx.userId,
-      workspaceId: ctx.workspaceId,
-    },
-    {
-      invalidateToolResultScope,
-    }
-  );
+  await invalidateMisconceptionCachesForCtx(ctx);
 
   const resolvedCount = improved.filter((item) => !item.active).length;
 

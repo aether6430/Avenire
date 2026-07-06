@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-const taskDueAtSchema = z
+export const taskDueAtSchema = z
   .string()
   .trim()
   .min(1)

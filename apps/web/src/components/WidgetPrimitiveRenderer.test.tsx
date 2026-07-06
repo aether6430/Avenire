@@ -3,8 +3,11 @@
 import type { WidgetSpec } from "@avenire/ai/tools";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { WidgetPrimitiveRenderer } from "./WidgetPrimitiveRenderer";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  sanitizeWidgetHtml,
+  WidgetPrimitiveRenderer,
+} from "./WidgetPrimitiveRenderer";
 
 function htmlWidgetSpec(html: string): WidgetSpec {
   return {
@@ -60,6 +63,15 @@ describe("WidgetPrimitiveRenderer html nodes", () => {
       (globalThis as typeof globalThis & { widgetHtmlExecuted?: boolean })
         .widgetHtmlExecuted
     ).toBeUndefined();
+  });
+
+  it("returns a safe fallback without DOM globals", () => {
+    vi.stubGlobal("window", undefined);
+    vi.stubGlobal("document", undefined);
+
+    expect(sanitizeWidgetHtml("<p>Safe text</p>")).toBe("");
+
+    vi.unstubAllGlobals();
   });
 
   it("removes inline event attributes and styles", () => {

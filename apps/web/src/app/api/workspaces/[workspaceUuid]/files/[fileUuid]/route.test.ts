@@ -37,6 +37,23 @@ const patchFile = (body: unknown) =>
     }
   );
 
+const patchFileRaw = (body: string) =>
+  PATCH(
+    new Request(
+      "http://localhost:3003/api/workspaces/workspace-1/files/file-1",
+      {
+        body,
+        method: "PATCH",
+      }
+    ),
+    {
+      params: Promise.resolve({
+        fileUuid: "file-1",
+        workspaceUuid: "workspace-1",
+      }),
+    }
+  );
+
 describe("/api/workspaces/[workspaceUuid]/files/[fileUuid] route", () => {
   beforeEach(() => {
     getSessionUserMock.mockReset();
@@ -49,6 +66,28 @@ describe("/api/workspaces/[workspaceUuid]/files/[fileUuid] route", () => {
     const response = await patchFile({
       metadata: ["not", "an", "object"],
       name: "Lecture.md",
+    });
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: "Invalid request",
+    });
+    expect(handleWorkspaceFilePatchMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects malformed JSON before mutating the file", async () => {
+    const response = await patchFileRaw("{");
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: "Invalid request",
+    });
+    expect(handleWorkspaceFilePatchMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects blank file names before mutating the file", async () => {
+    const response = await patchFile({
+      name: "",
     });
 
     expect(response.status).toBe(400);

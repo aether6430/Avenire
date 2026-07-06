@@ -7,12 +7,7 @@ import { upsertMisconception } from "@/lib/learning-data";
 import { ensureNotesFolder } from "@/lib/quick-capture";
 import { invalidateTaskListCache } from "@/lib/tasks-cache";
 import { getWorkspaceContextForUser } from "@/lib/workspace";
-import {
-  captureKindSchema,
-  misconceptionCaptureSchema,
-  noteCaptureSchema,
-  taskCaptureSchema,
-} from "./capture-route-model";
+import { capturePayloadSchema } from "./capture-route-model";
 
 function normalizeText(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
@@ -25,21 +20,14 @@ export async function POST(request: Request) {
   }
 
   const payload = await request.json().catch(() => ({}));
-  const parsedKind = captureKindSchema.safeParse(payload);
-  if (!parsedKind.success) {
-    return NextResponse.json(
-      { error: "Invalid capture kind" },
-      { status: 400 }
-    );
+  const parsedPayload = capturePayloadSchema.safeParse(payload);
+  if (!parsedPayload.success) {
+    return NextResponse.json({ error: "Invalid request" }, { status: 400 });
   }
-  const kind = parsedKind.data.kind;
+  const body = parsedPayload.data;
+  const kind = body.kind;
 
   if (kind === "task") {
-    const parsedTask = taskCaptureSchema.safeParse(payload);
-    if (!parsedTask.success) {
-      return NextResponse.json({ error: "Invalid request" }, { status: 400 });
-    }
-    const body = parsedTask.data;
     const title = normalizeText(body.title);
     if (!title) {
       return NextResponse.json(
@@ -86,11 +74,6 @@ export async function POST(request: Request) {
   }
 
   if (kind === "note") {
-    const parsedNote = noteCaptureSchema.safeParse(payload);
-    if (!parsedNote.success) {
-      return NextResponse.json({ error: "Invalid request" }, { status: 400 });
-    }
-    const body = parsedNote.data;
     const title = normalizeText(body.title);
     const content = normalizeText(body.content);
     if (!title) {
@@ -128,11 +111,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ kind, note }, { status: 201 });
   }
 
-  const parsedMisconception = misconceptionCaptureSchema.safeParse(payload);
-  if (!parsedMisconception.success) {
-    return NextResponse.json({ error: "Invalid request" }, { status: 400 });
-  }
-  const body = parsedMisconception.data;
   const subject = normalizeText(body.subject);
   const topic = normalizeText(body.topic);
   const concept = normalizeText(body.concept);

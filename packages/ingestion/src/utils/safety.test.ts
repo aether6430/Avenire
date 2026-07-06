@@ -93,11 +93,45 @@ describe("remote ingestion URL safety", () => {
     await agent.close();
   });
 
+  it("preserves POST requests across 308 redirects", async () => {
+    const agent = new MockAgent();
+    agent.disableNetConnect();
+    agent
+      .get("https://example.com")
+      .intercept({ path: "/start", method: "POST" })
+      .reply(308, "", { headers: { location: "/final" } });
+    agent
+      .get("https://example.com")
+      .intercept({ body: "payload", path: "/final", method: "POST" })
+      .reply(200, "ok");
+
+    const response = await safeRemoteFetch("https://example.com/start", {
+      body: "payload",
+      dispatcher: agent,
+      lookup: publicLookup,
+      method: "POST",
+    });
+
+    expect(response.status).toBe(200);
+    expect(await response.text()).toBe("ok");
+    await agent.close();
+  });
+
   it("fails closed when the connection-time lookup selects a private address", async () => {
+    let lookupCount = 0;
     await expect(
       safeRemoteFetch("https://rebind.example/file", {
-        lookup: async () => [{ address: "127.0.0.1", family: 4 as const }],
+        lookup: async () => {
+          lookupCount += 1;
+          return [
+            {
+              address: lookupCount === 1 ? "93.184.216.34" : "127.0.0.1",
+              family: 4 as const,
+            },
+          ];
+        },
       })
-    ).rejects.toThrow(/Unsafe DNS address|Unsafe connection address/);
+    ).rejects.toThrow(/Unsafe connection address/);
+    expect(lookupCount).toBeGreaterThanOrEqual(2);
   });
 });

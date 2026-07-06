@@ -19,7 +19,7 @@ const pagePatchSchema = z.object({
 export const workspaceFilePatchSchema = z.object({
   folderId: z.string().min(1).optional(),
   metadata: z.record(z.string(), z.unknown()).optional(),
-  name: z.string().optional(),
+  name: z.string().min(1).optional(),
   page: pagePatchSchema.optional(),
 });
 

@@ -9,11 +9,9 @@ vi.mock("./provider-extractors", () => ({
 }));
 
 vi.mock("../utils/ffmpeg", () => ({
-  extractAudioFromVideoUrl: vi.fn(),
   extractAudioSegmentsFromVideoFile: vi.fn(),
-  extractAudioSegmentsFromVideoUrl: vi.fn(),
+  extractAudioFromVideoFile: vi.fn(),
   extractKeyframesFromVideoFile: vi.fn(),
-  extractKeyframesFromVideoUrl: vi.fn(),
   getMediaDurationSeconds: vi.fn(),
 }));
 
@@ -22,19 +20,31 @@ vi.mock("./transcription", () => ({
 }));
 
 vi.mock("../utils/safety", () => ({
+  assertMaxSize: vi.fn((name: string, size: number, maxSize: number) => {
+    if (size > maxSize) {
+      throw new Error(`${name} exceeds max size (${size} > ${maxSize} bytes).`);
+    }
+  }),
   assertResolvedRemoteUrlIsSafe: vi.fn(async (value: string) => new URL(value)),
   assertSafeUrl: vi.fn(),
+  safeRemoteFetch: vi.fn(),
 }));
 
 vi.mock("../config", () => ({
   config: {
     ingestionStageTimingLog: false,
+    remoteFetchTimeoutMs: 15_000,
+    remoteVideoMaxBytes: 1024 * 1024,
     videoTranscriptionSegmentSeconds: 600,
   },
 }));
 
-import { extractKeyframesFromVideoUrl } from "../utils/ffmpeg";
-import { assertResolvedRemoteUrlIsSafe, assertSafeUrl } from "../utils/safety";
+import { extractKeyframesFromVideoFile } from "../utils/ffmpeg";
+import {
+  assertResolvedRemoteUrlIsSafe,
+  assertSafeUrl,
+  safeRemoteFetch,
+} from "../utils/safety";
 import { extractFromSupportedProvider } from "./provider-extractors";
 import {
   buildVideoResource,
@@ -284,7 +294,7 @@ describe("video helpers", () => {
 
     expect(assertSafeUrl).not.toHaveBeenCalled();
     expect(extractFromSupportedProvider).not.toHaveBeenCalled();
-    expect(extractKeyframesFromVideoUrl).not.toHaveBeenCalled();
+    expect(extractKeyframesFromVideoFile).not.toHaveBeenCalled();
     expect(resource.source).toMatch(/^video:inline:/);
     expect(resource.metadata).toMatchObject({
       hasTranscript: true,
@@ -292,7 +302,7 @@ describe("video helpers", () => {
     });
   });
 
-  it("revalidates provider media URLs before ffmpeg receives them", async () => {
+  it("fetches provider media safely before ffmpeg receives local bytes", async () => {
     vi.clearAllMocks();
     vi.mocked(extractFromSupportedProvider).mockResolvedValue({
       provider: "reddit",
@@ -302,7 +312,10 @@ describe("video helpers", () => {
     vi.mocked(assertResolvedRemoteUrlIsSafe).mockResolvedValue(
       new URL("https://cdn.example.com/video.mp4")
     );
-    vi.mocked(extractKeyframesFromVideoUrl).mockResolvedValue([
+    vi.mocked(safeRemoteFetch).mockResolvedValue(
+      new Response(new Uint8Array([1, 2, 3]), { status: 200 })
+    );
+    vi.mocked(extractKeyframesFromVideoFile).mockResolvedValue([
       {
         timestampMs: 0,
         imageBase64: "ZmFrZQ==",
@@ -320,8 +333,15 @@ describe("video helpers", () => {
     expect(assertResolvedRemoteUrlIsSafe).toHaveBeenCalledWith(
       "https://cdn.example.com/video.mp4"
     );
-    expect(extractKeyframesFromVideoUrl).toHaveBeenCalledWith(
-      "https://cdn.example.com/video.mp4"
+    expect(safeRemoteFetch).toHaveBeenCalledWith(
+      "https://cdn.example.com/video.mp4",
+      expect.objectContaining({
+        timeoutMs: 15_000,
+      })
+    );
+    expect(extractKeyframesFromVideoFile).toHaveBeenCalledWith(
+      new Uint8Array([1, 2, 3]),
+      "mp4"
     );
   });
 
@@ -341,6 +361,7 @@ describe("video helpers", () => {
     ).rejects.toThrow(
       /requires transcript or extractable keyframes|Unsafe DNS/
     );
-    expect(extractKeyframesFromVideoUrl).not.toHaveBeenCalled();
+    expect(safeRemoteFetch).not.toHaveBeenCalled();
+    expect(extractKeyframesFromVideoFile).not.toHaveBeenCalled();
   });
 });

@@ -62,7 +62,7 @@ describe("/api/tasks route", () => {
 
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toEqual({
-      error: "Title is required",
+      error: "Invalid request",
     });
     expect(createTaskForUserMock).not.toHaveBeenCalled();
     expect(invalidateTaskListCacheMock).not.toHaveBeenCalled();

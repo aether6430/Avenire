@@ -1,14 +1,16 @@
 import { config } from "../config";
 import {
   type ExtractedVideoKeyframe,
-  extractAudioFromVideoUrl,
+  extractAudioFromVideoFile,
   extractAudioSegmentsFromVideoFile,
-  extractAudioSegmentsFromVideoUrl,
   extractKeyframesFromVideoFile,
-  extractKeyframesFromVideoUrl,
-  getMediaDurationSeconds,
 } from "../utils/ffmpeg";
-import { assertResolvedRemoteUrlIsSafe, assertSafeUrl } from "../utils/safety";
+import {
+  assertMaxSize,
+  assertResolvedRemoteUrlIsSafe,
+  assertSafeUrl,
+  safeRemoteFetch,
+} from "../utils/safety";
 import { semanticChunkText } from "./chunking";
 import { ingestLink } from "./link";
 import { extractFromSupportedProvider } from "./provider-extractors";
@@ -385,19 +387,111 @@ export const canFallbackToLinkExtraction = (url: string): boolean => {
   }
 };
 
-const resolveVideoMediaSource = async (url: string): Promise<string> => {
+interface ResolvedVideoMediaSource {
+  bytes: Uint8Array;
+  extension: string;
+}
+
+interface RemoteByteResponse {
+  arrayBuffer: () => Promise<ArrayBuffer>;
+  body: {
+    getReader: () => {
+      read: () => Promise<{ done: boolean; value?: Uint8Array }>;
+      releaseLock: () => void;
+    };
+  } | null;
+  headers: {
+    get: (name: string) => string | null;
+  };
+}
+
+const getVideoExtensionFromUrl = (url: URL) => {
+  const match = url.pathname.match(/\.([a-z0-9]+)$/i);
+  return match?.[1]?.toLowerCase() ?? "mp4";
+};
+
+const readResponseBytesWithLimit = async (
+  response: RemoteByteResponse,
+  maxBytes: number
+): Promise<Uint8Array> => {
+  const contentLength = response.headers.get("content-length");
+  if (contentLength) {
+    assertMaxSize("Remote video", Number(contentLength), maxBytes);
+  }
+
+  if (!response.body) {
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    assertMaxSize("Remote video", bytes.byteLength, maxBytes);
+    return bytes;
+  }
+
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let totalBytes = 0;
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) {
+        break;
+      }
+      if (!value) {
+        continue;
+      }
+
+      totalBytes += value.byteLength;
+      assertMaxSize("Remote video", totalBytes, maxBytes);
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+
+  const bytes = new Uint8Array(totalBytes);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return bytes;
+};
+
+const resolveVideoMediaSource = async (
+  url: string
+): Promise<ResolvedVideoMediaSource> => {
   const providerExtracted = await extractFromSupportedProvider(url);
   const targetMedia = providerExtracted?.mediaUrls.find((mediaUrl) =>
     /\.(mp4|mov|mkv|webm)(\?|$)/i.test(mediaUrl)
   );
+  const resolvedUrl = await assertResolvedRemoteUrlIsSafe(targetMedia ?? url);
+  const response = await safeRemoteFetch(resolvedUrl.toString(), {
+    headers: {
+      accept: "video/*,audio/*,*/*;q=0.8",
+    },
+    timeoutMs: config.remoteFetchTimeoutMs,
+  });
+  if (!response.ok) {
+    throw new Error(
+      `Failed to fetch video media (${response.status}) from ${resolvedUrl.hostname}`
+    );
+  }
 
-  return (await assertResolvedRemoteUrlIsSafe(targetMedia ?? url)).toString();
+  return {
+    bytes: await readResponseBytesWithLimit(
+      response,
+      config.remoteVideoMaxBytes
+    ),
+    extension: getVideoExtensionFromUrl(resolvedUrl),
+  };
 };
 
-const transcribeFromResolvedUrl = async (
-  sourceForFfmpeg: string
+const transcribeFromResolvedMedia = async (
+  mediaSource: ResolvedVideoMediaSource
 ): Promise<{ text: string; segments: TranscriptSegment[] }> => {
-  const audioBytes = await extractAudioFromVideoUrl(sourceForFfmpeg);
+  const audioBytes = await extractAudioFromVideoFile(
+    mediaSource.bytes,
+    mediaSource.extension
+  );
   return transcribeAudio(audioBytes);
 };
 
@@ -434,46 +528,37 @@ const transcribeSegments = async (
   };
 };
 
-const transcribeFromResolvedUrlWithFallback = async (
-  sourceForFfmpeg: string
+const transcribeFromResolvedMediaWithFallback = async (
+  mediaSource: ResolvedVideoMediaSource
 ): Promise<{ text: string; segments: TranscriptSegment[]; error?: string }> => {
-  const durationSeconds = await getMediaDurationSeconds(sourceForFfmpeg);
-  const shouldChunk =
-    typeof durationSeconds === "number" &&
-    durationSeconds > config.videoTranscriptionSegmentSeconds * 1.25;
-
-  if (!shouldChunk) {
-    try {
-      return await transcribeFromResolvedUrl(sourceForFfmpeg);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Unknown error";
-      const segmented = await extractAudioSegmentsFromVideoUrl(sourceForFfmpeg);
-      const result = await transcribeSegments(
-        segmented.map((segment) => ({
-          bytes: segment.bytes,
-          offsetMs: segment.startMs,
-        }))
-      );
-      return {
-        ...result,
-        error: result.error ? `${message}; ${result.error}` : message,
-      };
-    }
+  try {
+    return await transcribeFromResolvedMedia(mediaSource);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    const segmented = await extractAudioSegmentsFromVideoFile(
+      mediaSource.bytes,
+      mediaSource.extension
+    );
+    const result = await transcribeSegments(
+      segmented.map((segment) => ({
+        bytes: segment.bytes,
+        offsetMs: segment.startMs,
+      }))
+    );
+    return {
+      ...result,
+      error: result.error ? `${message}; ${result.error}` : message,
+    };
   }
-
-  const segmented = await extractAudioSegmentsFromVideoUrl(sourceForFfmpeg);
-  return transcribeSegments(
-    segmented.map((segment) => ({
-      bytes: segment.bytes,
-      offsetMs: segment.startMs,
-    }))
-  );
 };
 
-const extractKeyframesFromResolvedUrl = async (
-  sourceForFfmpeg: string
+const extractKeyframesFromResolvedMedia = async (
+  mediaSource: ResolvedVideoMediaSource
 ): Promise<Array<{ timestampMs: number; imageBase64: string }>> => {
-  const keyframes = await extractKeyframesFromVideoUrl(sourceForFfmpeg);
+  const keyframes = await extractKeyframesFromVideoFile(
+    mediaSource.bytes,
+    mediaSource.extension
+  );
   return keyframes.map((frame) => ({
     timestampMs: frame.timestampMs,
     imageBase64: frame.imageBase64,
@@ -506,7 +591,7 @@ export const ingestVideo = async (input: {
 
   if (normalizedUrl && (!(transcript && keyframes) || keyframes.length === 0)) {
     const resolveStartedAt = Date.now();
-    const sourceForFfmpeg = await resolveVideoMediaSource(normalizedUrl);
+    const mediaSource = await resolveVideoMediaSource(normalizedUrl);
     logVideoStageTiming({
       stage: "resolve-media-source",
       durationMs: Date.now() - resolveStartedAt,
@@ -517,7 +602,7 @@ export const ingestVideo = async (input: {
     const transcriptionPromise = shouldTranscribe
       ? (() => {
           const transcribeStartedAt = Date.now();
-          return transcribeFromResolvedUrlWithFallback(sourceForFfmpeg).finally(
+          return transcribeFromResolvedMediaWithFallback(mediaSource).finally(
             () => {
               logVideoStageTiming({
                 stage: "transcribe-audio",
@@ -531,15 +616,13 @@ export const ingestVideo = async (input: {
     const keyframePromise = shouldExtractKeyframes
       ? (() => {
           const keyframesStartedAt = Date.now();
-          return extractKeyframesFromResolvedUrl(sourceForFfmpeg).finally(
-            () => {
-              logVideoStageTiming({
-                stage: "extract-keyframes",
-                durationMs: Date.now() - keyframesStartedAt,
-                source,
-              });
-            }
-          );
+          return extractKeyframesFromResolvedMedia(mediaSource).finally(() => {
+            logVideoStageTiming({
+              stage: "extract-keyframes",
+              durationMs: Date.now() - keyframesStartedAt,
+              source,
+            });
+          });
         })()
       : undefined;
 
@@ -587,8 +670,8 @@ export const ingestVideo = async (input: {
     }
   } else if ((!keyframes || keyframes.length === 0) && normalizedUrl) {
     try {
-      const sourceForFfmpeg = await resolveVideoMediaSource(normalizedUrl);
-      keyframes = await extractKeyframesFromResolvedUrl(sourceForFfmpeg);
+      const mediaSource = await resolveVideoMediaSource(normalizedUrl);
+      keyframes = await extractKeyframesFromResolvedMedia(mediaSource);
     } catch {
       keyframes = [];
     }

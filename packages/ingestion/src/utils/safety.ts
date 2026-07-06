@@ -276,6 +276,8 @@ const createSafeDispatcher = (lookup: LookupFunction): Dispatcher =>
     },
   });
 
+const defaultSafeDispatcher = createSafeDispatcher(defaultLookup);
+
 const safeUrlForMessage = (url: URL): string => `${url.protocol}//${url.host}`;
 
 export const safeRemoteFetch = async (
@@ -283,7 +285,9 @@ export const safeRemoteFetch = async (
   init: SafeRemoteFetchInit = {}
 ): Promise<Response> => {
   const lookup = init.lookup ?? defaultLookup;
-  const dispatcher = init.dispatcher ?? createSafeDispatcher(lookup);
+  const dispatcher =
+    init.dispatcher ??
+    (init.lookup ? createSafeDispatcher(lookup) : defaultSafeDispatcher);
   let currentUrl = await assertResolvedRemoteUrlIsSafe(value, lookup);
   let redirects = 0;
   let method = init.method ?? "GET";
@@ -336,13 +340,19 @@ export const safeRemoteFetch = async (
       );
       if (
         response.status === 303 ||
-        (response.status !== 307 && method === "POST")
+        ((response.status === 301 || response.status === 302) &&
+          method === "POST")
       ) {
         method = "GET";
         body = null;
       }
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Unknown error";
+      const cause =
+        error instanceof Error && error.cause instanceof Error
+          ? `: ${error.cause.message}`
+          : "";
+      const message =
+        error instanceof Error ? `${error.message}${cause}` : "Unknown error";
       throw new Error(
         `Safe remote fetch failed for ${safeUrlForMessage(currentUrl)}: ${message}`
       );

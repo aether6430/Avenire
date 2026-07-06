@@ -302,6 +302,10 @@ function enforceWidgetHtmlPolicy(root: DocumentFragment) {
 }
 
 export function sanitizeWidgetHtml(html: string) {
+  if (typeof window === "undefined" || typeof document === "undefined") {
+    return "";
+  }
+
   const sanitized = getWidgetHtmlPurifier().sanitize(html, {
     ALLOW_ARIA_ATTR: true,
     ALLOW_DATA_ATTR: false,
@@ -310,22 +314,7 @@ export function sanitizeWidgetHtml(html: string) {
     ALLOWED_URI_REGEXP:
       /^(?:(?:(?:https?|mailto|tel):|[^a-z]|[a-z+.-]+(?:[^a-z+.-:]|$)))/i,
     FORBID_ATTR: ["style"],
-    FORBID_TAGS: [
-      "audio",
-      "base",
-      "button",
-      "embed",
-      "form",
-      "iframe",
-      "input",
-      "link",
-      "meta",
-      "object",
-      "script",
-      "select",
-      "textarea",
-      "video",
-    ],
+    FORBID_TAGS: [...widgetHtmlForbiddenTagSet],
   });
 
   const template = document.createElement("template");

@@ -1,13 +1,5 @@
 import { z } from "zod";
-import { taskResourceSchema } from "../tasks/task-route-model";
-
-const optionalDateStringSchema = z
-  .string()
-  .trim()
-  .min(1)
-  .refine((value) => Number.isFinite(new Date(value).getTime()), {
-    message: "dueAt must be a valid date",
-  });
+import { taskDueAtSchema, taskResourceSchema } from "../tasks/task-route-model";
 
 export const captureKindSchema = z.object({
   kind: z.enum(["task", "note", "misconception"]),
@@ -16,7 +8,7 @@ export const captureKindSchema = z.object({
 export const taskCaptureSchema = z.object({
   assigneeUserId: z.string().trim().min(1).optional(),
   description: z.string().optional(),
-  dueAt: optionalDateStringSchema.optional(),
+  dueAt: taskDueAtSchema.optional(),
   kind: z.literal("task"),
   resources: z.array(taskResourceSchema).optional(),
   title: z.string().optional(),

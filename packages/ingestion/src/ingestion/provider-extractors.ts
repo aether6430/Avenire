@@ -1,3 +1,4 @@
+import { config } from "../config";
 import {
   assertResolvedRemoteUrlIsSafe,
   assertSafeUrl,
@@ -18,6 +19,7 @@ const fetchText = async (url: string): Promise<string> => {
         "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36",
       accept: "text/html,application/json;q=0.9,*/*;q=0.8",
     },
+    timeoutMs: config.remoteFetchTimeoutMs,
   });
 
   if (!response.ok) {
@@ -82,7 +84,9 @@ const extractYouTube = async (url: URL): Promise<ProviderExtracted> => {
   oembedUrl.searchParams.set("url", url.toString());
   oembedUrl.searchParams.set("format", "json");
 
-  const response = await fetch(oembedUrl);
+  const response = await safeRemoteFetch(oembedUrl.toString(), {
+    timeoutMs: config.remoteFetchTimeoutMs,
+  });
   const json = (await response.json().catch(() => ({}))) as {
     title?: string;
     author_name?: string;
@@ -178,6 +182,7 @@ const extractReddit = async (url: URL): Promise<ProviderExtracted> => {
         "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36",
       accept: "application/json",
     },
+    timeoutMs: config.remoteFetchTimeoutMs,
   });
 
   const payload: unknown = await response.json().catch(() => null);

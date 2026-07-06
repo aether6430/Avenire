@@ -18,9 +18,13 @@ export async function PATCH(
     }
 
     const { workspaceUuid, fileUuid } = await context.params;
-    const parsed = workspaceFileContentPatchSchema.safeParse(
-      await request.json().catch(() => ({}))
-    );
+    let json: unknown;
+    try {
+      json = await request.json();
+    } catch {
+      return NextResponse.json({ error: "Invalid request" }, { status: 400 });
+    }
+    const parsed = workspaceFileContentPatchSchema.safeParse(json);
     if (!parsed.success) {
       return NextResponse.json({ error: "Invalid request" }, { status: 400 });
     }

@@ -75,7 +75,7 @@ export async function POST(request: Request) {
     await request.json().catch(() => ({}))
   );
   if (!parsed.success) {
-    return NextResponse.json({ error: "Title is required" }, { status: 400 });
+    return NextResponse.json({ error: "Invalid request" }, { status: 400 });
   }
   const body = parsed.data;
 
