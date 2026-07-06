@@ -6,6 +6,7 @@ import {
   WORKSPACE_FILE_DELETE_ERROR,
   WORKSPACE_FILE_LOAD_ERROR,
   WORKSPACE_FILE_UPDATE_ERROR,
+  workspaceFilePatchSchema,
 } from "./workspace-file-route-model";
 import {
   handleWorkspaceFileDelete,
@@ -49,18 +50,18 @@ export async function PATCH(
     }
 
     const { workspaceUuid, fileUuid } = await context.params;
-    const body = (await request.json().catch(() => ({}))) as {
-      name?: string;
-      folderId?: string;
-      metadata?: Record<string, unknown>;
-      page?: {
-        bannerUrl?: string | null;
-        icon?: string | null;
-        properties?: Record<string, unknown>;
-      };
-    };
+    let json: unknown;
+    try {
+      json = await request.json();
+    } catch {
+      return NextResponse.json({ error: "Invalid request" }, { status: 400 });
+    }
+    const parsed = workspaceFilePatchSchema.safeParse(json);
+    if (!parsed.success) {
+      return NextResponse.json({ error: "Invalid request" }, { status: 400 });
+    }
     return await handleWorkspaceFilePatch({
-      body,
+      body: parsed.data,
       fileUuid,
       userId: user.id,
       workspaceUuid,

@@ -1,4 +1,9 @@
-import { assertSafeUrl } from "../utils/safety";
+import { config } from "../config";
+import {
+  assertResolvedRemoteUrlIsSafe,
+  assertSafeUrl,
+  safeRemoteFetch,
+} from "../utils/safety";
 
 export interface ProviderExtracted {
   content: string;
@@ -8,12 +13,13 @@ export interface ProviderExtracted {
 }
 
 const fetchText = async (url: string): Promise<string> => {
-  const response = await fetch(url, {
+  const response = await safeRemoteFetch(url, {
     headers: {
       "user-agent":
         "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36",
       accept: "text/html,application/json;q=0.9,*/*;q=0.8",
     },
+    timeoutMs: config.remoteFetchTimeoutMs,
   });
 
   if (!response.ok) {
@@ -21,6 +27,23 @@ const fetchText = async (url: string): Promise<string> => {
   }
 
   return response.text();
+};
+
+const filterSafeMediaUrls = async (
+  mediaUrls: string[],
+  baseUrl: URL
+): Promise<string[]> => {
+  const safeUrls: string[] = [];
+  for (const mediaUrl of mediaUrls) {
+    try {
+      const resolved = new URL(mediaUrl, baseUrl);
+      await assertResolvedRemoteUrlIsSafe(resolved.toString());
+      safeUrls.push(resolved.toString());
+    } catch {
+      // Provider metadata is untrusted; unsafe media candidates are ignored.
+    }
+  }
+  return safeUrls;
 };
 
 const getOgValue = (html: string, property: string): string | null => {
@@ -61,7 +84,9 @@ const extractYouTube = async (url: URL): Promise<ProviderExtracted> => {
   oembedUrl.searchParams.set("url", url.toString());
   oembedUrl.searchParams.set("format", "json");
 
-  const response = await fetch(oembedUrl);
+  const response = await safeRemoteFetch(oembedUrl.toString(), {
+    timeoutMs: config.remoteFetchTimeoutMs,
+  });
   const json = (await response.json().catch(() => ({}))) as {
     title?: string;
     author_name?: string;
@@ -80,7 +105,9 @@ const extractYouTube = async (url: URL): Promise<ProviderExtracted> => {
     provider: "youtube",
     title: json.title,
     content,
-    mediaUrls: json.thumbnail_url ? [json.thumbnail_url] : [],
+    mediaUrls: json.thumbnail_url
+      ? await filterSafeMediaUrls([json.thumbnail_url], url)
+      : [],
   };
 };
 
@@ -89,12 +116,15 @@ const extractPinterest = async (url: URL): Promise<ProviderExtracted> => {
   const videoRegex = /"url":"(https:[^"]*pinimg[^"]*)"/g;
   const imageRegex = /src="(https:\/\/i\.pinimg\.com\/.*?\.(jpg|gif|png))"/g;
 
-  const mediaUrls = [
-    ...Array.from(html.matchAll(videoRegex)).map((match) =>
-      match[1]?.replaceAll("\\/", "/")
-    ),
-    ...Array.from(html.matchAll(imageRegex)).map((match) => match[1]),
-  ].filter((value): value is string => Boolean(value));
+  const mediaUrls = await filterSafeMediaUrls(
+    [
+      ...Array.from(html.matchAll(videoRegex)).map((match) =>
+        match[1]?.replaceAll("\\/", "/")
+      ),
+      ...Array.from(html.matchAll(imageRegex)).map((match) => match[1]),
+    ].filter((value): value is string => Boolean(value)),
+    url
+  );
 
   return {
     provider: "pinterest",
@@ -146,12 +176,13 @@ const extractReddit = async (url: URL): Promise<ProviderExtracted> => {
     ? new URL(url.toString())
     : new URL(`${url.origin}${pathname}.json`);
 
-  const response = await fetch(jsonUrl, {
+  const response = await safeRemoteFetch(jsonUrl.toString(), {
     headers: {
       "user-agent":
         "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36",
       accept: "application/json",
     },
+    timeoutMs: config.remoteFetchTimeoutMs,
   });
 
   const payload: unknown = await response.json().catch(() => null);
@@ -185,7 +216,7 @@ const extractReddit = async (url: URL): Promise<ProviderExtracted> => {
     ]
       .filter(Boolean)
       .join("\n\n"),
-    mediaUrls,
+    mediaUrls: await filterSafeMediaUrls(mediaUrls, url),
   };
 };
 
@@ -195,11 +226,14 @@ const extractFromOgTags = async (
 ): Promise<ProviderExtracted> => {
   const html = await fetchText(url.toString());
 
-  const mediaUrls = [
-    getOgValue(html, "og:video"),
-    getOgValue(html, "og:video:url"),
-    getOgValue(html, "og:image"),
-  ].filter((value): value is string => Boolean(value));
+  const mediaUrls = await filterSafeMediaUrls(
+    [
+      getOgValue(html, "og:video"),
+      getOgValue(html, "og:video:url"),
+      getOgValue(html, "og:image"),
+    ].filter((value): value is string => Boolean(value)),
+    url
+  );
 
   return {
     provider,

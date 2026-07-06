@@ -4,11 +4,13 @@ const {
   adjustMisconceptionConfidenceForConceptMock,
   getWorkspaceContextForUserMock,
   improveMisconceptionsForConceptMock,
+  invalidateActiveMisconceptionCachesMock,
   recomputeConceptMasteryMock,
 } = vi.hoisted(() => ({
   adjustMisconceptionConfidenceForConceptMock: vi.fn(),
   getWorkspaceContextForUserMock: vi.fn(),
   improveMisconceptionsForConceptMock: vi.fn(),
+  invalidateActiveMisconceptionCachesMock: vi.fn(),
   recomputeConceptMasteryMock: vi.fn(),
 }));
 
@@ -21,6 +23,10 @@ vi.mock("@avenire/database", () => ({
 
 vi.mock("@/lib/workspace", () => ({
   getWorkspaceContextForUser: getWorkspaceContextForUserMock,
+}));
+
+vi.mock("@/lib/misconception-cache", () => ({
+  invalidateActiveMisconceptionCaches: invalidateActiveMisconceptionCachesMock,
 }));
 
 import { POST } from "./route";
@@ -43,6 +49,7 @@ describe("/api/misconceptions/improve route", () => {
     adjustMisconceptionConfidenceForConceptMock.mockReset();
     getWorkspaceContextForUserMock.mockReset();
     improveMisconceptionsForConceptMock.mockReset();
+    invalidateActiveMisconceptionCachesMock.mockReset();
     recomputeConceptMasteryMock.mockReset();
 
     getWorkspaceContextForUserMock.mockResolvedValue(workspaceContext);
@@ -63,5 +70,32 @@ describe("/api/misconceptions/improve route", () => {
     expect(adjustMisconceptionConfidenceForConceptMock).not.toHaveBeenCalled();
     expect(improveMisconceptionsForConceptMock).not.toHaveBeenCalled();
     expect(recomputeConceptMasteryMock).not.toHaveBeenCalled();
+    expect(invalidateActiveMisconceptionCachesMock).not.toHaveBeenCalled();
+  });
+
+  it("invalidates active misconception caches after improving misconceptions", async () => {
+    improveMisconceptionsForConceptMock.mockResolvedValue([
+      { active: false },
+      { active: true },
+    ]);
+
+    const response = await postImprove({
+      concept: "Diffusion",
+      decay: 0.2,
+      resolveThreshold: 0.3,
+      subject: "Biology",
+      topic: "Cells",
+    });
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      improvedCount: 2,
+      resolvedCount: 1,
+    });
+    expect(invalidateActiveMisconceptionCachesMock).toHaveBeenCalledTimes(1);
+    expect(invalidateActiveMisconceptionCachesMock).toHaveBeenCalledWith({
+      userId: "user-1",
+      workspaceId: "workspace-1",
+    });
   });
 });

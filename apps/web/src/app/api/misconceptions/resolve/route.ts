@@ -3,6 +3,7 @@ import {
   resolveMisconceptionsForConcept,
 } from "@avenire/database";
 import { NextResponse } from "next/server";
+import { invalidateActiveMisconceptionCaches } from "@/lib/misconception-cache";
 import { getWorkspaceContextForUser } from "@/lib/workspace";
 import { misconceptionScopeSchema } from "../misconception-route-model";
 
@@ -35,6 +36,11 @@ export async function POST(request: Request) {
     concept,
     subject,
     topic,
+    userId: ctx.user.id,
+    workspaceId: ctx.workspace.workspaceId,
+  });
+
+  await invalidateActiveMisconceptionCaches({
     userId: ctx.user.id,
     workspaceId: ctx.workspace.workspaceId,
   });

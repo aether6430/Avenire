@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { resolveApiErrorMessage } from "@/lib/api-error-message";
 
 import {
@@ -17,6 +18,21 @@ export interface WorkspaceFileContentRouteBody {
   storageKey?: string;
   storageUrl?: string;
 }
+
+export const workspaceFileContentPatchSchema = z.object({
+  content: z.string().optional(),
+  mimeType: z.string().nullable().optional(),
+  page: z
+    .object({
+      bannerUrl: z.string().nullable().optional(),
+      icon: z.string().nullable().optional(),
+      properties: z.record(z.string(), z.unknown()).optional(),
+    })
+    .optional(),
+  sizeBytes: z.number().finite().min(0).optional(),
+  storageKey: z.string().optional(),
+  storageUrl: z.string().optional(),
+});
 
 export const WORKSPACE_FILE_CONTENT_ERROR = "Unable to replace file content.";
 

@@ -2,7 +2,7 @@ import { tavily } from "@tavily/core";
 import { Defuddle as parseDefuddle } from "defuddle/node";
 import { parseHTML } from "linkedom";
 import { config } from "../config";
-import { assertSafeUrl } from "../utils/safety";
+import { assertSafeUrl, safeRemoteFetch } from "../utils/safety";
 import { semanticChunkText } from "./chunking";
 import { extractFromSupportedProvider } from "./provider-extractors";
 import type { CanonicalResource } from "./types";
@@ -74,12 +74,13 @@ const extractViaTavily = async (
 };
 
 const fetchHtml = async (url: string): Promise<string> => {
-  const response = await fetch(url, {
+  const response = await safeRemoteFetch(url, {
     headers: {
       accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
       "user-agent":
         "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36",
     },
+    timeoutMs: config.remoteFetchTimeoutMs,
   });
 
   if (!response.ok) {

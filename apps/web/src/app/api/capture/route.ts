@@ -7,8 +7,7 @@ import { upsertMisconception } from "@/lib/learning-data";
 import { ensureNotesFolder } from "@/lib/quick-capture";
 import { invalidateTaskListCache } from "@/lib/tasks-cache";
 import { getWorkspaceContextForUser } from "@/lib/workspace";
-
-type CaptureKind = "task" | "note" | "misconception";
+import { capturePayloadSchema } from "./capture-route-model";
 
 function normalizeText(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
@@ -20,34 +19,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const body = (await request.json().catch(() => ({}))) as {
-    assigneeUserId?: unknown;
-    confidence?: unknown;
-    content?: unknown;
-    description?: unknown;
-    dueAt?: unknown;
-    resources?: Array<{
-      href: string;
-      resourceId: string;
-      resourceType: "file" | "folder" | "chat";
-      subtitle: string | null;
-      title: string;
-    }>;
-    kind?: unknown;
-    concept?: unknown;
-    reason?: unknown;
-    subject?: unknown;
-    title?: unknown;
-    topic?: unknown;
-  };
-
-  const kind = normalizeText(body.kind) as CaptureKind;
-  if (!(kind && ["task", "note", "misconception"].includes(kind))) {
-    return NextResponse.json(
-      { error: "Invalid capture kind" },
-      { status: 400 }
-    );
+  const payload = await request.json().catch(() => ({}));
+  const parsedPayload = capturePayloadSchema.safeParse(payload);
+  if (!parsedPayload.success) {
+    return NextResponse.json({ error: "Invalid request" }, { status: 400 });
   }
+  const body = parsedPayload.data;
+  const kind = body.kind;
 
   if (kind === "task") {
     const title = normalizeText(body.title);

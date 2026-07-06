@@ -3,11 +3,9 @@ import { getSessionUser } from "@/lib/workspace";
 import {
   resolveWorkspaceFileContentRouteError,
   WORKSPACE_FILE_CONTENT_ERROR,
+  workspaceFileContentPatchSchema,
 } from "./workspace-file-content-route-model";
-import {
-  handleWorkspaceFileContentPatch,
-  type WorkspaceFileContentRouteBody,
-} from "./workspace-file-content-route-patch";
+import { handleWorkspaceFileContentPatch } from "./workspace-file-content-route-patch";
 
 export async function PATCH(
   request: Request,
@@ -20,12 +18,19 @@ export async function PATCH(
     }
 
     const { workspaceUuid, fileUuid } = await context.params;
-    const body = (await request
-      .json()
-      .catch(() => ({}))) as WorkspaceFileContentRouteBody;
+    let json: unknown;
+    try {
+      json = await request.json();
+    } catch {
+      return NextResponse.json({ error: "Invalid request" }, { status: 400 });
+    }
+    const parsed = workspaceFileContentPatchSchema.safeParse(json);
+    if (!parsed.success) {
+      return NextResponse.json({ error: "Invalid request" }, { status: 400 });
+    }
 
     return await handleWorkspaceFileContentPatch({
-      body,
+      body: parsed.data,
       fileUuid,
       userId: user.id,
       workspaceUuid,

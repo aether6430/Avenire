@@ -1,6 +1,6 @@
 import { config } from "../config";
 import { PostgresVectorStore } from "../retrieval/postgres-vector-store";
-import { assertSafeUrl } from "../utils/safety";
+import { assertSafeUrl, safeRemoteFetch } from "../utils/safety";
 import { ingestAudio } from "./audio";
 import { ingestImage } from "./image";
 import { ingestLink } from "./link";
@@ -354,7 +354,7 @@ const resolveIngestionStorageUrl = (
 };
 
 async function readTextResponseWithLimit(
-  response: Response,
+  response: Awaited<ReturnType<typeof safeRemoteFetch>>,
   maxChars: number
 ): Promise<string> {
   const stream = response.body;
@@ -400,7 +400,7 @@ async function fetchRemoteText(url: string) {
     const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
     try {
-      const response = await fetch(url, {
+      const response = await safeRemoteFetch(url, {
         signal: controller.signal,
       });
       if (!response.ok) {

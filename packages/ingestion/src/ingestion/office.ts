@@ -1,9 +1,10 @@
 import {
-  OfficeParser,
   type ChunkingConfig,
   type OfficeChunk,
+  OfficeParser,
   type OfficeParserAST,
 } from "officeparser";
+import { safeRemoteFetch } from "../utils/safety";
 import { semanticChunkText } from "./chunking";
 import type { CanonicalChunk, CanonicalResource } from "./types";
 
@@ -45,7 +46,7 @@ const chunkingConfigForType = (
 };
 
 async function fetchOfficeFile(url: string, signal: AbortSignal) {
-  const response = await fetch(url, { signal });
+  const response = await safeRemoteFetch(url, { signal });
   if (!response.ok) {
     throw new Error(`Failed to fetch office file (${response.status}).`);
   }

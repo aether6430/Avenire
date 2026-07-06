@@ -523,26 +523,6 @@ export async function warmWorkspaceWithAdapters(
   input: WorkspaceRetrievalWarmupInput,
   adapters: WorkspaceRetrievalAdapters
 ): Promise<WorkspaceRetrievalWarmupResult> {
-  if (!(await adapters.store.acquireWarmupLease(input.workspaceId))) {
-    logInfo({
-      eventName: "retrieval.warmup.skipped",
-      payload: {
-        reason: "lease",
-        workspaceId: input.workspaceId,
-      },
-    });
-
-    return {
-      attempted: 0,
-      cacheHits: 0,
-      cacheMisses: 0,
-      candidateCount: 0,
-      skipped: true,
-      warmupReason: "lease",
-      warmed: 0,
-    };
-  }
-
   const minChunks = Number.parseInt(
     process.env.RETRIEVAL_WARMUP_MIN_CHUNKS ?? "8",
     10
@@ -566,6 +546,26 @@ export async function warmWorkspaceWithAdapters(
       candidateCount: 0,
       skipped: true,
       warmupReason: "delta_too_small",
+      warmed: 0,
+    };
+  }
+
+  if (!(await adapters.store.acquireWarmupLease(input.workspaceId))) {
+    logInfo({
+      eventName: "retrieval.warmup.skipped",
+      payload: {
+        reason: "lease",
+        workspaceId: input.workspaceId,
+      },
+    });
+
+    return {
+      attempted: 0,
+      cacheHits: 0,
+      cacheMisses: 0,
+      candidateCount: 0,
+      skipped: true,
+      warmupReason: "lease",
       warmed: 0,
     };
   }

@@ -106,6 +106,10 @@ export const config = {
     process.env.INGESTION_REMOTE_FETCH_MAX_ATTEMPTS ?? "3",
     10
   ),
+  remoteVideoMaxBytes: Number.parseInt(
+    process.env.INGESTION_REMOTE_VIDEO_MAX_BYTES ?? "104857600",
+    10
+  ),
   imageEnrichmentEnabled:
     (process.env.IMAGE_ENRICHMENT_ENABLED ?? "true").toLowerCase() !== "false",
   imageDescriptionMaxChars: Number.parseInt(
