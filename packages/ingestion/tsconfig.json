@@ -1,7 +1,6 @@
 {
   "extends": "@avenire/typescript-config/base.json",
   "compilerOptions": {
-    "baseUrl": ".",
     "lib": ["dom", "ES2022"],
     "types": ["node", "@avenire/env-types"]
   },
