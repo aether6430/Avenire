@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "bun --bun next dev --port 3000",
-    "build": "bun run check-types && next build",
+    "build": "([ \"$NODE_ENV\" = \"production\" ] || [ \"$VERCEL_ENV\" = \"production\" ]) && bun run check-types; next build",
     "start": "next start -p ${PORT:-3000}",
     "start:durable-streams": "node ../../bin/start-durable-streams.mjs",
     "test": "vitest run",
@@ -116,7 +116,6 @@
     "@avenire/typescript-config": "workspace:*",
     "@tailwindcss/postcss": "^4",
     "@types/node": "25.3.5",
-    "typescript": "7.0.2",
     "@types/react": "latest",
     "@types/react-dom": "latest",
     "@vitest/coverage-v8": "4.1.7",
