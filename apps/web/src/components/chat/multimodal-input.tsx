@@ -330,7 +330,10 @@ function PureMultimodalInput({
   );
   const [preferredWorkspaceId] = useLocalStorage<string | null>(
     "preferredWorkspaceId",
-    null
+    null,
+    {
+      deserializer: (value) => value,
+    }
   );
   const effectiveWorkspaceUuid =
     preferredWorkspaceId?.trim() ||
