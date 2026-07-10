@@ -34,6 +34,12 @@ const nextConfig: NextConfig = {
     "@avenire/ingestion",
   ],
   productionBrowserSourceMaps: true,
+  // Next.js 16.x looks for typescript/lib/typescript.js which no longer exists
+  // in TypeScript 7. We run our own type-checking via pnpm check-types,
+  // so skip Next.js's built-in check.
+  typescript: {
+    ignoreBuildErrors: true,
+  },
 };
 
 const withMDX = createMDX({
