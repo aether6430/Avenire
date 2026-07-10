@@ -116,6 +116,7 @@
     "@avenire/typescript-config": "workspace:*",
     "@tailwindcss/postcss": "^4",
     "@types/node": "25.3.5",
+    "typescript": "7.0.2",
     "@types/react": "latest",
     "@types/react-dom": "latest",
     "@vitest/coverage-v8": "4.1.7",
