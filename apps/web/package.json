@@ -70,6 +70,7 @@
     "clsx": "^2.1.1",
     "dompurify": "^3.4.2",
     "drizzle-orm": "^0.45.2",
+    "effect-v4": "npm:effect@4.0.0-beta.97",
     "fflate": "^0.8.2",
     "framer-motion": "^12.34.3",
     "fuse.js": "^7.1.0",
@@ -122,6 +123,7 @@
     "dotenv": "17.3.1",
     "happy-dom": "^20.10.2",
     "tailwindcss": "latest",
+    "typescript": "5.9.3",
     "vitest": "4.1.7"
   }
 }
