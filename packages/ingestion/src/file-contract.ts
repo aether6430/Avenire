@@ -77,7 +77,8 @@ export function resolveFileMimeType(input: {
   name: string;
 }): SupportedFileMimeType | null {
   const inferred = inferFileMimeTypeFromName(input.name);
-  const raw = input.declaredMimeType?.trim().toLowerCase() ?? "";
+  const raw =
+    input.declaredMimeType?.split(";", 1)[0]?.trim().toLowerCase() ?? "";
   if (
     raw &&
     raw !== "application/octet-stream" &&
@@ -97,7 +98,8 @@ export function isFileMimeTypeConsistent(input: {
   declaredMimeType?: string | null;
   name: string;
 }) {
-  const raw = input.declaredMimeType?.trim() ?? "";
+  const raw =
+    input.declaredMimeType?.split(";", 1)[0]?.trim().toLowerCase() ?? "";
   if (raw && raw !== "application/octet-stream" && raw !== "unknown") {
     const declared = normalizeFileMimeType(raw);
     const inferred = inferFileMimeTypeFromName(input.name);

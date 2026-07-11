@@ -4,9 +4,7 @@ import {
   isSharedFilesVirtualFolderId,
   userCanEditFolder,
 } from "@/lib/file-data";
-import {
-  registerWorkspaceMarkdownNote,
-} from "@/lib/upload-registration";
+import { registerWorkspaceMarkdownNote } from "@/lib/upload-registration";
 import { scheduleAsyncVideoDeliveryOptimization } from "@/lib/video-delivery-optimization-runtime";
 import {
   buildWorkspaceFileRegisterBulkSummary,
@@ -39,12 +37,11 @@ export async function postWorkspaceFileRegisterBulk(input: {
     const canEditByFolderId = new Map<string, boolean>();
     const folderIds = [
       ...new Set(
-        input.body.files
-          .map((file) => file.folderId)
-          .filter(
-            (folderId) =>
-              !isSharedFilesVirtualFolderId(folderId, input.workspaceUuid)
-          )
+        input.body.files.flatMap((file) =>
+          isSharedFilesVirtualFolderId(file.folderId, input.workspaceUuid)
+            ? []
+            : [file.folderId]
+        )
       ),
     ];
 
@@ -128,7 +125,9 @@ export async function postWorkspaceFileRegisterBulk(input: {
         results.push(
           buildWorkspaceFileRegisterBulkFailedResult({
             clientUploadId: fileInput.clientUploadId,
-            error: isStorageLimit ? "Storage limit reached" : "Registration failed",
+            error: isStorageLimit
+              ? "Storage limit reached"
+              : "Registration failed",
           })
         );
       }

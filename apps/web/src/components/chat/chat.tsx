@@ -967,43 +967,45 @@ export function Chat({
       })
     );
 
-    const localFileParts: FileUIPart[] = files
-      .filter((attachment) => attachment.source === "local")
-      .flatMap((attachment) => {
-        if (!attachment.url || attachment.url.trim().length === 0) {
-          return [];
-        }
+    const localFileParts: FileUIPart[] = files.flatMap((attachment) => {
+      if (attachment.source !== "local") {
+        return [];
+      }
+      if (!attachment.url || attachment.url.trim().length === 0) {
+        return [];
+      }
 
-        const url = attachment.url.trim();
-        if (!(url.startsWith("http://") || url.startsWith("https://"))) {
-          return [];
-        }
+      const url = attachment.url.trim();
+      if (!(url.startsWith("http://") || url.startsWith("https://"))) {
+        return [];
+      }
 
-        return [
-          {
-            type: "file",
-            mediaType: normalizeMediaType(attachment.contentType),
-            filename: attachment.name,
-            url,
-          } satisfies FileUIPart,
-        ];
-      });
+      return [
+        {
+          type: "file",
+          mediaType: normalizeMediaType(attachment.contentType),
+          filename: attachment.name,
+          url,
+        } satisfies FileUIPart,
+      ];
+    });
 
-    const workspaceFileParts: FileUIPart[] = files
-      .filter((attachment) => attachment.source === "workspace")
-      .flatMap((attachment) => {
-        if (!attachment.url || attachment.url.trim().length === 0) {
-          return [];
-        }
-        return [
-          {
-            type: "file",
-            mediaType: normalizeMediaType(attachment.contentType),
-            filename: attachment.name,
-            url: attachment.url,
-          } satisfies FileUIPart,
-        ];
-      });
+    const workspaceFileParts: FileUIPart[] = files.flatMap((attachment) => {
+      if (attachment.source !== "workspace") {
+        return [];
+      }
+      if (!attachment.url || attachment.url.trim().length === 0) {
+        return [];
+      }
+      return [
+        {
+          type: "file",
+          mediaType: normalizeMediaType(attachment.contentType),
+          filename: attachment.name,
+          url: attachment.url,
+        } satisfies FileUIPart,
+      ];
+    });
 
     try {
       if (localFileParts.length > 0 || workspaceFileParts.length > 0) {

@@ -115,7 +115,7 @@ export function RetrievalSimulator() {
         {METHODS.map((m) => {
           const isOn = selected.includes(m.id);
           return (
-            <button
+            <button type="button"
               key={m.id}
               onClick={() => toggle(m.id)}
               aria-pressed={isOn}
@@ -227,25 +227,25 @@ export function RetrievalSimulator() {
           Quick compare
         </p>
         <div className="flex flex-wrap gap-2">
-          <button
+          <button type="button"
             onClick={() => setSelected(["rereading", "selftest"])}
             className="rounded-lg border border-divide px-3 py-1.5 text-xs font-mono text-white/50 transition-all hover:border-white/30 hover:text-white/80"
           >
             Passive vs Active
           </button>
-          <button
+          <button type="button"
             onClick={() => setSelected(["rereading", "watching", "flashcards", "explain"])}
             className="rounded-lg border border-divide px-3 py-1.5 text-xs font-mono text-white/50 transition-all hover:border-white/30 hover:text-white/80"
           >
             Full spectrum
           </button>
-          <button
+          <button type="button"
             onClick={() => setSelected(["notes", "flashcards", "selftest", "explain"])}
             className="rounded-lg border border-divide px-3 py-1.5 text-xs font-mono text-white/50 transition-all hover:border-white/30 hover:text-white/80"
           >
             Best methods
           </button>
-          <button
+          <button type="button"
             onClick={() => setSelected([])}
             className="rounded-lg border border-divide px-3 py-1.5 text-xs font-mono text-white/30 transition-all hover:text-white/60"
           >

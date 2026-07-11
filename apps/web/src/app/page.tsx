@@ -59,7 +59,9 @@ export function LandingPage() {
   return (
     <>
       <script
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteSchema) }}
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(websiteSchema).replace(/</g, "\u003c"),
+        }}
         type="application/ld+json"
       />
       <LandingPageClient />

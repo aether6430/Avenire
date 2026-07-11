@@ -181,9 +181,13 @@ function extractMessageText(
 
 function extractUserTranscript(messages: UIMessage[]) {
   return messages
-    .filter((message) => message.role === "user")
-    .map((message) => extractMessageText(message))
-    .filter(Boolean)
+    .flatMap((message) => {
+      if (message.role !== "user") {
+        return [];
+      }
+      const text = extractMessageText(message);
+      return text ? [text] : [];
+    })
     .join("\n")
     .trim();
 }
@@ -437,11 +441,13 @@ function buildTranscript(messages: UIMessage[]) {
     .map((message, index) => {
       const role = message.role.toUpperCase();
       const text = extractMessageText(message, { forSummary: true });
-      const toolLines = message.parts
-        .filter(isCompletedToolPart)
-        .map(summarizeToolPart)
-        .filter(Boolean)
-        .map((line) => `TOOL: ${line}`);
+      const toolLines = message.parts.flatMap((part) => {
+        if (!isCompletedToolPart(part)) {
+          return [];
+        }
+        const line = summarizeToolPart(part);
+        return line ? [`TOOL: ${line}`] : [];
+      });
       const content = [text, ...toolLines].filter(Boolean).join("\n");
       return content ? `Message ${index + 1} [${role}]\n${content}` : "";
     })
@@ -450,14 +456,20 @@ function buildTranscript(messages: UIMessage[]) {
 }
 
 function isTrivialSession(messages: UIMessage[]) {
-  const userTexts = messages
-    .filter((message) => message.role === "user")
-    .map((message) => extractMessageText(message))
-    .filter(Boolean);
-  const assistantTexts = messages
-    .filter((message) => message.role === "assistant")
-    .map((message) => extractMessageText(message, { forSummary: true }))
-    .filter(Boolean);
+  const userTexts = messages.flatMap((message) => {
+    if (message.role !== "user") {
+      return [];
+    }
+    const text = extractMessageText(message);
+    return text ? [text] : [];
+  });
+  const assistantTexts = messages.flatMap((message) => {
+    if (message.role !== "assistant") {
+      return [];
+    }
+    const text = extractMessageText(message, { forSummary: true });
+    return text ? [text] : [];
+  });
   const toolCount = messages.flatMap((message) =>
     message.parts.filter(isCompletedToolPart)
   ).length;

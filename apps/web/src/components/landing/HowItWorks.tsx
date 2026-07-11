@@ -265,7 +265,6 @@ function DriveVisual() {
                 opacity: shouldHide ? 0 : 1,
                 x: 0,
                 height: shouldHide ? 0 : "auto",
-                marginBottom: shouldHide ? 0 : undefined,
               }}
               className="overflow-hidden"
               initial={{ opacity: 0, x: -20 }}

@@ -20,6 +20,12 @@ import {
   WarningDiamond,
 } from "@phosphor-icons/react";
 
+const CONNECTED_BAR_SCALES = [
+  { initial: 0.24, animate: 0.76 },
+  { initial: 0.31, animate: 0.89 },
+  { initial: 0.37, animate: 0.97 },
+] as const;
+
 const StudyToken = ({
   label,
   className,
@@ -171,10 +177,10 @@ export const ConnectYourTooklsSkeleton = () => {
             <motion.div
               key={`width-bar-right-${index}`}
               initial={{
-                width: "0%",
+                scaleX: 0,
               }}
               animate={{
-                width: `${randomWidth}%`,
+                scaleX: randomWidth / 100,
               }}
               transition={{
                 duration: 4,
@@ -184,6 +190,7 @@ export const ConnectYourTooklsSkeleton = () => {
                 repeatType: "reverse",
               }}
               className="mt-2 h-4 w-full rounded-full bg-gray-200 dark:bg-neutral-800"
+              style={{ transformOrigin: "left" }}
             />
           ))}
         </div>
@@ -244,14 +251,14 @@ export const ConnectYourTooklsSkeleton = () => {
           </div>
         </div>
         <div className="mt-2 flex flex-col">
-          {[...Array(3)].map((_, index) => (
+          {CONNECTED_BAR_SCALES.map((scale, index) => (
             <motion.div
-              key={`width-bar-right-${index}`}
+              key={`width-bar-right-${scale.initial}`}
               initial={{
-                width: `${20 + Math.random() * 20}%`,
+                scaleX: scale.initial,
               }}
               animate={{
-                width: `${70 + Math.random() * 30}%`,
+                scaleX: scale.animate,
               }}
               transition={{
                 duration: 4,
@@ -261,6 +268,7 @@ export const ConnectYourTooklsSkeleton = () => {
                 repeatType: "reverse",
               }}
               className="mt-2 h-4 w-full rounded-full bg-gray-200 dark:bg-neutral-800"
+              style={{ transformOrigin: "left" }}
             />
           ))}
         </div>

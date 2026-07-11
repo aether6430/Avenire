@@ -264,13 +264,13 @@ export async function POST(request: Request) {
         ].join("\n");
       });
 
-    const attachmentCandidateIds = Array.from(groupedMatches.entries())
-      .filter(
-        ([fileId, group]) =>
-          accessibleFileIds.has(fileId) &&
-          !DOCUMENT_SOURCE_TYPES.has(group.sourceType ?? "")
-      )
-      .map(([fileId]) => fileId);
+    const attachmentCandidateIds = Array.from(groupedMatches.entries()).flatMap(
+      ([fileId, group]) =>
+        accessibleFileIds.has(fileId) &&
+        !DOCUMENT_SOURCE_TYPES.has(group.sourceType ?? "")
+          ? [fileId]
+          : []
+    );
     if (attachmentCandidateIds.length === 0) {
       attachmentCandidateIds.push(...allowedFileIds);
     }

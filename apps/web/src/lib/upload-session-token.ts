@@ -1,4 +1,4 @@
-import { createHmac, randomUUID } from "node:crypto";
+import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 
 interface UploadSessionTokenPayload {
   exp: number;
@@ -85,7 +85,10 @@ export function verifyUploadSessionPartToken(
   }
 
   const expectedSignature = signPayload(payloadSegment, secret);
-  if (signature !== expectedSignature) {
+  if (
+    signature.length !== expectedSignature.length ||
+    !timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSignature))
+  ) {
     return { ok: false as const, reason: "signature" };
   }
 

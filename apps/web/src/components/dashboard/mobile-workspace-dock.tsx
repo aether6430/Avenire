@@ -557,25 +557,26 @@ export function MobileWorkspaceDock({
         workspaceFileList
       ) : (
         <div className="space-y-1.5">
-          {items
-            .filter((item) => !item.isActive)
-            .map((item) => {
-              const Icon = item.icon;
-              return (
-                <button
-                  className="flex h-10 w-full items-center gap-2 rounded-lg px-2.5 text-left text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-                  key={item.label}
-                  onClick={() => {
-                    setSheetOpen(false);
-                    router.push(item.href());
-                  }}
-                  type="button"
-                >
-                  <Icon className="size-3.5 shrink-0" />
-                  <span className="truncate text-sm">{item.label}</span>
-                </button>
-              );
-            })}
+          {items.flatMap((item) => {
+            if (item.isActive) {
+              return [];
+            }
+            const Icon = item.icon;
+            return [
+              <button
+                className="flex h-10 w-full items-center gap-2 rounded-lg px-2.5 text-left text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                key={item.label}
+                onClick={() => {
+                  setSheetOpen(false);
+                  router.push(item.href());
+                }}
+                type="button"
+              >
+                <Icon className="size-3.5 shrink-0" />
+                <span className="truncate text-sm">{item.label}</span>
+              </button>,
+            ];
+          })}
         </div>
       )}
     </div>

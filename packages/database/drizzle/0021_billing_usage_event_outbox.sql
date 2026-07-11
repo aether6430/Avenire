@@ -16,6 +16,6 @@ CREATE TABLE "billing_usage_event" (
 --> statement-breakpoint
 ALTER TABLE "billing_usage_event" ADD CONSTRAINT "billing_usage_event_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;
 --> statement-breakpoint
-CREATE INDEX "billing_usage_event_delivery_idx" ON "billing_usage_event" USING btree ("delivered_at","next_attempt_at");
+CREATE INDEX "billing_usage_event_delivery_idx" ON "billing_usage_event" USING btree ("next_attempt_at") WHERE "delivered_at" IS NULL;
 --> statement-breakpoint
 CREATE INDEX "billing_usage_event_user_meter_idx" ON "billing_usage_event" USING btree ("user_id","meter");

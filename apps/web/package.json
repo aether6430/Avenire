@@ -15,7 +15,6 @@
     "format": "biome format --write ."
   },
   "dependencies": {
-    "@ai-sdk/mistral": "^4.0.0",
     "@ai-sdk/otel": "^1.0.2",
     "@ai-sdk/react": "^4.0.2",
     "@anaralabs/lector": "^3.8.0",

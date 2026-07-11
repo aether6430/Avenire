@@ -36,6 +36,7 @@ function getCircuit(key: string): CircuitState {
 }
 
 function recordFailure(state: CircuitState, nowMs: number) {
+  const wasOpen = state.openUntilMs > 0;
   if (
     state.firstFailureAtMs === 0 ||
     nowMs - state.firstFailureAtMs > FAILURE_WINDOW_MS
@@ -46,7 +47,7 @@ function recordFailure(state: CircuitState, nowMs: number) {
     state.consecutiveFailures += 1;
   }
 
-  if (state.consecutiveFailures >= FAILURE_THRESHOLD) {
+  if (state.consecutiveFailures >= FAILURE_THRESHOLD || wasOpen) {
     state.openUntilMs = nowMs + RECOVERY_COOLDOWN_MS;
   }
 }

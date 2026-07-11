@@ -340,7 +340,7 @@ export const TextToWorkflowBuilderSkeleton = () => {
         />
         <div className="mr-4 flex items-center gap-2">
           <AttachmentIcon />
-          <button onClick={handleSendMessage} className="cursor-pointer">
+          <button type="button" onClick={handleSendMessage} className="cursor-pointer">
             <SendIcon />
           </button>
         </div>

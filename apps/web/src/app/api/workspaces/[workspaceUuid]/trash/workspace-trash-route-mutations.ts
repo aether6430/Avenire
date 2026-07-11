@@ -56,17 +56,19 @@ export async function handleWorkspaceTrashRouteRestore(input: {
   }
 
   if (results.some((entry) => entry.ok)) {
-    const specificInvalidations = results
-      .filter((entry) => entry.ok)
-      .map((entry) =>
-        publishFilesInvalidationEvent({
-          workspaceUuid: input.workspaceUuid,
-          reason: entry.kind === "file" ? "file.created" : "folder.created",
-          ...(entry.kind === "file"
-            ? { fileId: entry.id }
-            : { folderId: entry.id }),
-        })
-      );
+    const specificInvalidations = results.flatMap((entry) =>
+      entry.ok
+        ? [
+            publishFilesInvalidationEvent({
+              workspaceUuid: input.workspaceUuid,
+              reason: entry.kind === "file" ? "file.created" : "folder.created",
+              ...(entry.kind === "file"
+                ? { fileId: entry.id }
+                : { folderId: entry.id }),
+            }),
+          ]
+        : []
+    );
 
     await Promise.all([
       invalidateWorkspaceReadCaches(input.workspaceUuid),
@@ -116,17 +118,19 @@ export async function handleWorkspaceTrashRouteDelete(input: {
   await deleteWorkspaceTrashStorageObjects(Array.from(new Set(storageKeys)));
 
   if (results.some((entry) => entry.ok)) {
-    const specificInvalidations = results
-      .filter((entry) => entry.ok)
-      .map((entry) =>
-        publishFilesInvalidationEvent({
-          workspaceUuid: input.workspaceUuid,
-          reason: entry.kind === "file" ? "file.deleted" : "folder.deleted",
-          ...(entry.kind === "file"
-            ? { fileId: entry.id }
-            : { folderId: entry.id }),
-        })
-      );
+    const specificInvalidations = results.flatMap((entry) =>
+      entry.ok
+        ? [
+            publishFilesInvalidationEvent({
+              workspaceUuid: input.workspaceUuid,
+              reason: entry.kind === "file" ? "file.deleted" : "folder.deleted",
+              ...(entry.kind === "file"
+                ? { fileId: entry.id }
+                : { folderId: entry.id }),
+            }),
+          ]
+        : []
+    );
 
     await Promise.all([
       invalidateWorkspaceReadCaches(input.workspaceUuid),

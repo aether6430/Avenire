@@ -300,24 +300,26 @@ export async function POST(
 
     const succeeded = results.filter((entry) => entry.status === "ok").length;
     if (succeeded > 0) {
-      const specificInvalidations = results
-        .filter((entry) => entry.status === "ok")
-        .map((entry) =>
-          publishFilesInvalidationEvent({
-            workspaceUuid,
-            reason:
-              payload.operation === "delete"
-                ? entry.kind === "file"
-                  ? "file.deleted"
-                  : "folder.deleted"
-                : entry.kind === "file"
-                  ? "file.updated"
-                  : "folder.updated",
-            ...(entry.kind === "file"
-              ? { fileId: entry.id }
-              : { folderId: entry.id }),
-          })
-        );
+      const specificInvalidations = results.flatMap((entry) =>
+        entry.status === "ok"
+          ? [
+              publishFilesInvalidationEvent({
+                workspaceUuid,
+                reason:
+                  payload.operation === "delete"
+                    ? entry.kind === "file"
+                      ? "file.deleted"
+                      : "folder.deleted"
+                    : entry.kind === "file"
+                      ? "file.updated"
+                      : "folder.updated",
+                ...(entry.kind === "file"
+                  ? { fileId: entry.id }
+                  : { folderId: entry.id }),
+              }),
+            ]
+          : []
+      );
 
       await Promise.all([
         invalidateWorkspaceReadCaches(workspaceUuid),

@@ -765,12 +765,13 @@ function ReviewLoopStep({
                 key={day}
               >
                 <m.div
-                  animate={{ height: `${counts[index] * 6}px` }}
+                  style={{ height: `${Math.max(counts[index] * 6, 1)}px`, transformOrigin: "bottom" }}
+                  animate={{ scaleY: 1 }}
                   className={cn(
                     "w-full rounded-md",
                     index === 0 ? "bg-foreground/70" : "bg-foreground/20"
                   )}
-                  initial={{ height: 0 }}
+                  initial={{ scaleY: 0 }}
                   transition={{
                     delay: 0.1 + index * 0.05,
                     duration: 0.38,

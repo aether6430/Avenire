@@ -411,19 +411,22 @@ export function UploadActivityPanel() {
             jobs.some((job) => job.id === item.ingestionJobId)
           )
       ),
-      ...jobs
-        .filter((job) => Boolean(job.fileName))
-        .map((job) => {
-          const status = mapRecentJobStatus(job.status);
-          return {
+      ...jobs.flatMap((job) => {
+        if (!job.fileName) {
+          return [];
+        }
+        const status = mapRecentJobStatus(job.status);
+        return [
+          {
             id: `job:${job.id}`,
             ingestionJobId: job.id,
             fileId: job.fileId,
             name: job.fileName as string,
             sizeLabel: "—",
             status,
-          };
-        }),
+          },
+        ];
+      }),
     ]);
   }, [
     activeWorkspaceUuid,
@@ -487,7 +490,11 @@ export function UploadActivityPanel() {
           try {
             payload = JSON.parse(messageEvent.data) as IngestionJobEvent;
           } catch (err) {
-            console.warn("Skipping malformed SSE event:", err, messageEvent.data);
+            console.warn(
+              "Skipping malformed SSE event:",
+              err,
+              messageEvent.data
+            );
             return;
           }
           const cursor =

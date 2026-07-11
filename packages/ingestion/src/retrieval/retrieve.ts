@@ -1230,6 +1230,16 @@ export const retrieveRelevantChunks = async (
       eventName: "retrieval.decision",
       payload: telemetry as unknown as Record<string, unknown>,
     });
+    logInfo({
+      eventName: "retrieval.phase_timings",
+      payload: {
+        embeddingMs: embeddingLatencyMs,
+        expansionAndHydeMs: expansionLatencyMs,
+        searchMs: searchLatencyMs,
+        totalMs: latencyMs,
+        workspaceId: options?.workspaceId ?? null,
+      },
+    });
 
     return {
       context: "",
@@ -1259,7 +1269,7 @@ export const retrieveRelevantChunks = async (
     .catch(async (error) => {
       rerankFallbackUsed = true;
       const fallback = await rerankByCohereWithQueryEmbedding(
-        embeddings[0] ?? [],
+        embeddingByQuery.get(normalizedQuery) ?? [],
         rerankCandidates,
         limit
       );

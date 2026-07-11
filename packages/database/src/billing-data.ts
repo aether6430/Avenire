@@ -512,6 +512,7 @@ export async function claimPendingBillingUsageEvents(input?: {
       select id, user_id, meter, units, idempotency_key, occurred_at, attempts
       from ${billingUsageEvent}
       where ${billingUsageEvent.deliveredAt} is null
+        and ${billingUsageEvent.attempts} < 20
         and ${billingUsageEvent.nextAttemptAt} <= ${now}
       order by ${billingUsageEvent.createdAt} asc
       limit ${limit}
@@ -565,7 +566,8 @@ export async function markBillingUsageEventFailed(input: {
     .set({
       attempts,
       lastError: input.error.slice(0, 2000),
-      nextAttemptAt: new Date(now.getTime() + delayMs),
+      nextAttemptAt:
+        attempts >= 20 ? now : new Date(now.getTime() + delayMs),
       updatedAt: now,
     })
     .where(eq(billingUsageEvent.id, input.id));

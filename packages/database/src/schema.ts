@@ -9,6 +9,7 @@ import {
   real,
   text,
   timestamp,
+  unique,
   uniqueIndex,
   uuid,
   vector,
@@ -853,13 +854,10 @@ export const billingUsageEvent = pgTable(
       .notNull(),
   },
   (table) => [
-    uniqueIndex("billing_usage_event_idempotency_uidx").on(
-      table.idempotencyKey
-    ),
-    index("billing_usage_event_delivery_idx").on(
-      table.deliveredAt,
-      table.nextAttemptAt
-    ),
+    unique("billing_usage_event_idempotency_uidx").on(table.idempotencyKey),
+    index("billing_usage_event_delivery_idx")
+      .on(table.nextAttemptAt)
+      .where(sql`${table.deliveredAt} is null`),
     index("billing_usage_event_user_meter_idx").on(table.userId, table.meter),
   ]
 );

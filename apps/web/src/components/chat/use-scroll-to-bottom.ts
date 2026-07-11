@@ -67,16 +67,6 @@ export function useScrollToBottom<T extends HTMLElement>(options: {
 
   useEffect(() => {
     const container = containerRef.current;
-    if (container === observedContainerRef.current) {
-      return;
-    }
-
-    if (detachListenerRef.current) {
-      detachListenerRef.current();
-      detachListenerRef.current = null;
-    }
-
-    observedContainerRef.current = container;
     if (!container) {
       return;
     }
@@ -119,7 +109,15 @@ export function useScrollToBottom<T extends HTMLElement>(options: {
       container.removeEventListener("scroll", onManualIntent);
       container.removeEventListener("keydown", onKeyDown);
     };
-  });
+
+    return () => {
+      if (detachListenerRef.current) {
+        detachListenerRef.current();
+        detachListenerRef.current = null;
+      }
+      observedContainerRef.current = null;
+    };
+  }, []);
 
   useEffect(() => {
     return () => {

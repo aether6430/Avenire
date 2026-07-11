@@ -1205,7 +1205,7 @@ function DemoWindow({
                   Questions
                 </span>
                 <div className="flex gap-0.5">
-                  <button className="text-muted-foreground/40 hover:text-muted-foreground">
+                  <button type="button" className="text-muted-foreground/40 hover:text-muted-foreground">
                     <svg
                       fill="none"
                       height="10"
@@ -1217,7 +1217,7 @@ function DemoWindow({
                       <polyline points="15 18 9 12 15 6" />
                     </svg>
                   </button>
-                  <button className="text-muted-foreground/40 hover:text-muted-foreground">
+                  <button type="button" className="text-muted-foreground/40 hover:text-muted-foreground">
                     <svg
                       fill="none"
                       height="10"
@@ -1265,7 +1265,7 @@ function DemoWindow({
               transition={{ delay: 0.2 }}
             >
               {followUps.map((fu) => (
-                <button
+                <button type="button"
                   className="block w-full rounded-md border border-border px-3 py-2 text-left text-[11px] text-muted-foreground transition-all hover:border-primary/20 hover:bg-primary/5 hover:text-foreground"
                   key={fu.label}
                   onClick={() => handleFollowUpClick(fu)}
@@ -1570,7 +1570,7 @@ export function Hero() {
                     </span>
                   </div>
                   {inProgress.map((s) => (
-                    <button
+                    <button type="button"
                       className={`w-full border-l-2 px-4 py-3 text-left transition-all ${
                         s.id === activeId
                           ? "border-l-primary bg-primary/5"
@@ -1608,7 +1608,7 @@ export function Hero() {
                     </span>
                   </div>
                   {readyForReview.map((s) => (
-                    <button
+                    <button type="button"
                       className={`w-full border-l-2 px-4 py-3 text-left transition-all ${
                         s.id === activeId
                           ? "border-l-primary bg-primary/5"

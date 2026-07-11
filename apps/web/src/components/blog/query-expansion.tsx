@@ -66,7 +66,7 @@ export function QueryExpansionDemo() {
       {/* Scenario tabs */}
       <div className="mb-4 flex gap-2">
         {SCENARIOS.map((sc, i) => (
-          <button
+          <button type="button"
             key={i}
             onClick={() => { setScenario(i); setShowExpanded(false); }}
             className={`rounded-lg border px-3 py-1.5 text-sm font-mono transition-all duration-150 ${
@@ -91,7 +91,7 @@ export function QueryExpansionDemo() {
       </div>
 
       {/* Expand button */}
-      <button
+      <button type="button"
         onClick={() => setShowExpanded(!showExpanded)}
         className="mb-4 flex items-center gap-2 rounded-lg border border-divide bg-neutral-950/40 px-4 py-2 text-xs font-mono text-white/50 transition-all hover:border-white/30 hover:text-white/80"
       >

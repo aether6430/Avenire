@@ -29,6 +29,18 @@ describe("file contract", () => {
         name: "payload.pdf",
       })
     ).toBe("application/pdf");
+    expect(
+      resolveFileMimeType({
+        declaredMimeType: "application/octet-stream; charset=binary",
+        name: "payload.pdf",
+      })
+    ).toBe("application/pdf");
+    expect(
+      isFileMimeTypeConsistent({
+        declaredMimeType: "Application/Octet-Stream",
+        name: "payload.pdf",
+      })
+    ).toBe(true);
   });
 
   it("rejects double-extension and unsupported payloads by final extension", () => {

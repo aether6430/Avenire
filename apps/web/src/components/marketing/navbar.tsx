@@ -57,7 +57,7 @@ const MobileNav = ({ items }: { items: { title: string; href: string }[] }) => {
         <Sheet onOpenChange={setIsOpen} open={isOpen}>
           <SheetTrigger
             render={
-              <button
+              <button type="button"
                 aria-label="Open menu"
                 className="flex size-9 flex-col items-center justify-center rounded-xl border border-white/10 bg-white/5 shadow-aceternity"
               />
@@ -81,7 +81,7 @@ const MobileNav = ({ items }: { items: { title: string; href: string }[] }) => {
                 </div>
                 <SheetClose
                   render={
-                    <button
+                    <button type="button"
                       aria-label="Close menu"
                       className="flex size-9 items-center justify-center rounded-xl border border-white/10 bg-white/5 shadow-aceternity"
                     />

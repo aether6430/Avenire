@@ -12,12 +12,12 @@ import {
 } from "@/lib/upload-multipart-paths";
 
 export class MultipartUploadLimitError extends Error {
-  readonly code: "UPLOAD_PART_TOO_LARGE" | "UPLOAD_TOTAL_TOO_LARGE" | "UPLOAD_TOO_MANY_PARTS";
+  readonly code:
+    | "UPLOAD_PART_TOO_LARGE"
+    | "UPLOAD_TOTAL_TOO_LARGE"
+    | "UPLOAD_TOO_MANY_PARTS";
 
-  constructor(
-    code: MultipartUploadLimitError["code"],
-    message: string
-  ) {
+  constructor(code: MultipartUploadLimitError["code"], message: string) {
     super(message);
     this.name = "MultipartUploadLimitError";
     this.code = code;
@@ -26,7 +26,10 @@ export class MultipartUploadLimitError extends Error {
 
 const sessionWrites = new Map<string, Promise<void>>();
 
-async function withSessionWriteLock<A>(sessionId: string, run: () => Promise<A>) {
+async function withSessionWriteLock<A>(
+  sessionId: string,
+  run: () => Promise<A>
+) {
   const previous = sessionWrites.get(sessionId) ?? Promise.resolve();
   let release = () => {};
   const current = new Promise<void>((resolve) => {
@@ -50,16 +53,21 @@ async function getExistingMultipartUsage(input: {
   partPath: string;
 }) {
   const names = await readdir(input.dir).catch(() => [] as string[]);
-  const partPaths = names
-    .filter((name) => /^\d+\.part$/.test(name))
-    .map((name) => join(input.dir, name));
-  const sizes = await Promise.all(
-    partPaths.map(async (path) => (await stat(path).catch(() => null))?.size ?? 0)
+  const partPaths = names.flatMap((name) =>
+    /^\d+\.part$/.test(name) ? [join(input.dir, name)] : []
   );
-  const existingPart = await stat(input.partPath).catch(() => null);
+  const [sizes, existingPart] = await Promise.all([
+    Promise.all(
+      partPaths.map(
+        async (path) => (await stat(path).catch(() => null))?.size ?? 0
+      )
+    ),
+    stat(input.partPath).catch(() => null),
+  ]);
   return {
     bytesWithoutCurrentPart:
-      sizes.reduce((total, size) => total + size, 0) - (existingPart?.size ?? 0),
+      sizes.reduce((total, size) => total + size, 0) -
+      (existingPart?.size ?? 0),
     partCountWithoutCurrentPart:
       partPaths.length - (existingPart?.isFile() ? 1 : 0),
   };

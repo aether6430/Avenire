@@ -2052,16 +2052,12 @@ export function FilePreviewPanel({
               openedCached={shouldUsePreferredVideoSource}
               playbackSource={activeVideoPlaybackSource}
               posterUrl={activePlaybackDescriptor?.posterUrl}
-              retrievalRanges={activeFileRetrievalResults
-                .filter(
-                  (item) =>
-                    typeof item.startMs === "number" &&
-                    Number.isFinite(item.startMs)
-                )
-                .map((item) => ({
-                  startMs: item.startMs as number,
-                  endMs: item.endMs,
-                }))}
+              retrievalRanges={activeFileRetrievalResults.flatMap((item) =>
+                typeof item.startMs === "number" &&
+                Number.isFinite(item.startMs)
+                  ? [{ startMs: item.startMs, endMs: item.endMs }]
+                  : []
+              )}
               seekToMs={activeRetrievalResult?.startMs ?? null}
             />
           </div>

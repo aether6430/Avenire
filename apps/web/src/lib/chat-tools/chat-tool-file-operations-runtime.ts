@@ -57,15 +57,17 @@ export async function executeListFiles(
   let files = await listWorkspaceFiles(ctx.workspaceId, ctx.userId);
 
   if (input.folderPath) {
-    const folderId = resolveFolderIdByPathHint(maps, ctx.rootFolderId, input.folderPath);
+    const folderId = resolveFolderIdByPathHint(
+      maps,
+      ctx.rootFolderId,
+      input.folderPath
+    );
     if (folderId) {
       files = files.filter((file) => file.folderId === folderId);
     }
   }
 
-  files.sort(
-    (a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt)
-  );
+  files.sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt));
   const totalCount = files.length;
   files = files.slice(0, maxResults);
 
@@ -118,8 +120,10 @@ export async function executeMoveFile(
   ctx: FileOperationContext,
   input: MoveFileInput
 ) {
-  const maps = await buildWorkspacePathMaps(ctx.workspaceId, ctx.userId);
-  const file = await getFileAssetById(ctx.workspaceId, input.fileId);
+  const [maps, file] = await Promise.all([
+    buildWorkspacePathMaps(ctx.workspaceId, ctx.userId),
+    getFileAssetById(ctx.workspaceId, input.fileId),
+  ]);
 
   if (!file) {
     throw new Error(`File not found: ${input.fileId}`);
@@ -131,7 +135,9 @@ export async function executeMoveFile(
     (folder) => folder.id === input.destinationFolderId
   );
   if (!targetFolderExists) {
-    throw new Error(`Destination folder not found: ${input.destinationFolderId}`);
+    throw new Error(
+      `Destination folder not found: ${input.destinationFolderId}`
+    );
   }
 
   await userCanEditFolder({
@@ -171,8 +177,10 @@ export async function executeDeleteFile(
   ctx: FileOperationContext,
   input: DeleteFileInput
 ) {
-  const maps = await buildWorkspacePathMaps(ctx.workspaceId, ctx.userId);
-  const file = await getFileAssetById(ctx.workspaceId, input.fileId);
+  const [maps, file] = await Promise.all([
+    buildWorkspacePathMaps(ctx.workspaceId, ctx.userId),
+    getFileAssetById(ctx.workspaceId, input.fileId),
+  ]);
 
   if (!file) {
     throw new Error(`File not found: ${input.fileId}`);
@@ -202,7 +210,9 @@ export async function executeCreateFolder(
 
   if (input.parentFolderId) {
     const folders = await listWorkspaceFolders(ctx.workspaceId, ctx.userId);
-    const parentExists = folders.some((folder) => folder.id === input.parentFolderId);
+    const parentExists = folders.some(
+      (folder) => folder.id === input.parentFolderId
+    );
     if (!parentExists) {
       throw new Error(`Parent folder not found: ${input.parentFolderId}`);
     }

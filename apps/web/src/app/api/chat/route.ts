@@ -314,17 +314,19 @@ async function signToolApprovalRequest(input: {
   toolName: string;
   toolInput: unknown;
 }) {
-  const key = await crypto.subtle.importKey(
-    "raw",
-    toolApprovalSignatureEncoder.encode(input.secret),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"]
-  );
-  const inputDigest = await crypto.subtle.digest(
-    "SHA-256",
-    toolApprovalSignatureEncoder.encode(stableJson(input.toolInput))
-  );
+  const [key, inputDigest] = await Promise.all([
+    crypto.subtle.importKey(
+      "raw",
+      toolApprovalSignatureEncoder.encode(input.secret),
+      { name: "HMAC", hash: "SHA-256" },
+      false,
+      ["sign"]
+    ),
+    crypto.subtle.digest(
+      "SHA-256",
+      toolApprovalSignatureEncoder.encode(stableJson(input.toolInput))
+    ),
+  ]);
   const payload = toolApprovalSignatureEncoder.encode(
     `${input.approvalId}\n${input.toolCallId}\n${input.toolName}\n${toBase64Url(new Uint8Array(inputDigest))}`
   );

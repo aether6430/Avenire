@@ -231,7 +231,7 @@ export function Navbar() {
           </div>
 
           <div className="mobile-only">
-            <button
+            <button type="button"
               aria-label="Open menu"
               className="flex size-8 items-center justify-center rounded-full text-foreground transition-colors hover:bg-muted/50"
               onClick={() => setMobileOpen(true)}
@@ -260,7 +260,7 @@ export function Navbar() {
             <AvenireMark className="h-4 w-auto shrink-0" />
             <span>Avenire</span>
           </Link>
-          <button
+          <button type="button"
             aria-label="Close menu"
             className="flex size-8 items-center justify-center rounded-full text-foreground transition-colors hover:bg-muted/50"
             onClick={() => setMobileOpen(false)}

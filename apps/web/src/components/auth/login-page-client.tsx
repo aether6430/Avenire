@@ -9,6 +9,13 @@ function getSingleValue(value: string | null) {
   return value ?? undefined;
 }
 
+function safeCallbackURL(url: string | null | undefined): string {
+  if (!url) return "/workspace";
+  // Only allow same-origin relative paths to prevent open redirects
+  if (url.startsWith("/") && !url.startsWith("//")) return url;
+  return "/workspace";
+}
+
 export function LoginPageClient() {
   const searchParams = useSearchParams();
   const initialError =
@@ -16,8 +23,7 @@ export function LoginPageClient() {
     getSingleValue(searchParams.get("error_description")) ??
     null;
   const initialEmail = getSingleValue(searchParams.get("email")) ?? "";
-  const callbackURL =
-    getSingleValue(searchParams.get("callbackURL")) ?? "/workspace";
+  const callbackURL = safeCallbackURL(searchParams.get("callbackURL"));
 
   return (
     <AuthShell>

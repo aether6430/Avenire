@@ -2,6 +2,7 @@
 
 import { useTheme } from "next-themes";
 import { useCallback, useEffect, useMemo, useRef } from "react";
+import DOMPurify from "dompurify";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -659,7 +660,7 @@ export function WidgetRenderer({
     (nextHtml: string, shouldRunScripts: boolean) => {
       postToIframe({
         type: "avenire:setContent",
-        html: nextHtml,
+        html: DOMPurify.sanitize(nextHtml),
         runScripts: shouldRunScripts,
       });
     },

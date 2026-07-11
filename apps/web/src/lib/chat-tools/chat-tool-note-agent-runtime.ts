@@ -45,8 +45,10 @@ export async function executeNoteAgent(
   const maxNotes = input.maxNotes ?? 3;
   const task = input.task.toLowerCase();
 
-  const maps = await buildWorkspacePathMaps(ctx.workspaceId, ctx.userId);
-  const allFiles = await listWorkspaceFiles(ctx.workspaceId, ctx.userId);
+  const [maps, allFiles] = await Promise.all([
+    buildWorkspacePathMaps(ctx.workspaceId, ctx.userId),
+    listWorkspaceFiles(ctx.workspaceId, ctx.userId),
+  ]);
   const noteFiles = allFiles.filter(isMarkdownFile);
 
   let operation: "created" | "read" | "updated" | "listed" = "listed";

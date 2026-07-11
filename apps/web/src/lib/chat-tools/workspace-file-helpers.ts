@@ -385,16 +385,18 @@ export async function resolveWorkspaceSearchMatches(params: {
     typeof retrieveWorkspaceChunksShared
   >[0]["sourceType"];
 }) {
-  const result = await retrieveWorkspaceChunksShared({
-    query: params.query,
-    limit: params.limit,
-    mode: params.mode,
-    origin: "chat",
-    sourceType: params.sourceType,
-    userId: params.userId,
-    workspaceId: params.workspaceId,
-  });
-  const maps = await buildWorkspacePathMaps(params.workspaceId, params.userId);
+  const [result, maps] = await Promise.all([
+    retrieveWorkspaceChunksShared({
+      query: params.query,
+      limit: params.limit,
+      mode: params.mode,
+      origin: "chat",
+      sourceType: params.sourceType,
+      userId: params.userId,
+      workspaceId: params.workspaceId,
+    }),
+    buildWorkspacePathMaps(params.workspaceId, params.userId),
+  ]);
   const matches = mapSearchResultsToCitations({
     maps,
     results: result.results,

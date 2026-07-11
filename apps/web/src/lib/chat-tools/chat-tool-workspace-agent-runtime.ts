@@ -347,15 +347,17 @@ export async function executeFileManagerAgent(
 
     selectedFileIds = Array.from(
       new Set(
-        selection.output.indices
-          .filter(
-            (index) =>
-              Number.isFinite(index) &&
-              index >= 0 &&
-              index < candidateFiles.length
-          )
-          .map((index) => candidateFiles[index]?.fileId)
-          .filter((fileId): fileId is string => Boolean(fileId))
+        selection.output.indices.flatMap((index) => {
+            if (
+              !Number.isFinite(index) ||
+              index < 0 ||
+              index >= candidateFiles.length
+            ) {
+              return [];
+            }
+            const fileId = candidateFiles[index]?.fileId;
+            return fileId ? [fileId] : [];
+          })
       )
     ).slice(0, maxFiles);
   }

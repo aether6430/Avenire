@@ -28,17 +28,21 @@ async function hydrateWorkspaceFolderNoteContent(input: {
   const noteContentByFileId = new Map<string, string | null>();
 
   await Promise.all(
-    input.markdownFiles
-      .filter((file) => !noteRows.has(file.id))
-      .map(async (file) => {
-        const response = await fetch(file.storageUrl, {
-          cache: "no-store",
-        }).catch(() => null);
-        noteContentByFileId.set(
-          file.id,
-          response?.ok ? await response.text() : null
-        );
-      })
+    input.markdownFiles.flatMap((file) =>
+      noteRows.has(file.id)
+        ? []
+        : [
+            (async () => {
+              const response = await fetch(file.storageUrl, {
+                cache: "no-store",
+              }).catch(() => null);
+              noteContentByFileId.set(
+                file.id,
+                response?.ok ? await response.text() : null
+              );
+            })(),
+          ]
+    )
   );
 
   for (const [fileId, note] of noteRows) {

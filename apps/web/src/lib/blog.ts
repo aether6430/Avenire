@@ -38,11 +38,11 @@ export type CategorySlug = (typeof CATEGORIES)[number]["slug"];
 
 export const TAG_CATEGORY_MAP: Record<string, string> = {
   "AI Learning": "ai-learning",
-  "Apollo": "ai-learning",
-  "RAG": "research",
-  "Search": "research",
-  "Retrieval": "research",
-  "Architecture": "research",
+  Apollo: "ai-learning",
+  RAG: "research",
+  Search: "research",
+  Retrieval: "research",
+  Architecture: "research",
   "Spaced Repetition": "study-systems",
   "Active Recall": "active-recall",
   "Study Techniques": "study-systems",
@@ -50,10 +50,10 @@ export const TAG_CATEGORY_MAP: Record<string, string> = {
   "Learning Systems": "study-systems",
   "Cognitive Science": "research",
   "Cognitive Load": "research",
-  "Metacognition": "research",
+  Metacognition: "research",
   "Note-Taking": "study-systems",
   "Active Learning": "active-recall",
-  "Productivity": "productivity",
+  Productivity: "productivity",
   "Product Updates": "product-updates",
 };
 
@@ -62,7 +62,8 @@ export function getCategoryLabel(slug: string): string {
 }
 
 function normalizeTags(tags: unknown): string[] {
-  if (Array.isArray(tags)) return tags.filter((t): t is string => typeof t === "string");
+  if (Array.isArray(tags))
+    return tags.filter((t): t is string => typeof t === "string");
   if (typeof tags === "string") return [tags];
   return [];
 }
@@ -149,8 +150,9 @@ export function getAllSlugs(): string[] {
   ensureBlogDir();
   return fs
     .readdirSync(BLOG_DIR)
-    .filter((f) => f.endsWith(".mdx"))
-    .map((f) => f.replace(/\.mdx$/, ""));
+    .flatMap((fileName) =>
+      fileName.endsWith(".mdx") ? [fileName.replace(/\.mdx$/, "")] : []
+    );
 }
 
 function tagMatch(postTags: string[], queryTags: string[]): number {
@@ -161,14 +163,15 @@ export function getRelatedPosts(
   currentSlug: string,
   tags: string[],
   category: string,
-  count: number = 3,
+  count: number = 3
 ): PostMeta[] {
   const all = getAllPostMetas().filter((p) => p.slug !== currentSlug);
 
   // Score by shared tags first, then same category
   const scored = all.map((post) => ({
     post,
-    score: tagMatch(post.tags, tags) * 10 + (post.category === category ? 5 : 0),
+    score:
+      tagMatch(post.tags, tags) * 10 + (post.category === category ? 5 : 0),
   }));
 
   return scored

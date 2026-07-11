@@ -171,7 +171,9 @@ export default async function BlogPostPage({
     <main className="avenire-marketing-scope dark min-h-screen bg-neutral-950 text-neutral-100">
       {articleSchema ? (
         <script
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(articleSchema) }}
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(articleSchema).replace(/</g, "\u003c"),
+          }}
           type="application/ld+json"
         />
       ) : null}

@@ -104,7 +104,7 @@ async function runWorkspaceVectorSearchApi(
   }
 
   const filesById = new Map(
-    items.filter((item) => item.type === "file").map((item) => [item.id, item])
+    items.flatMap((item) => (item.type === "file" ? [[item.id, item]] : []))
   );
 
   const mapped: WorkspaceSearchResult[] = [];

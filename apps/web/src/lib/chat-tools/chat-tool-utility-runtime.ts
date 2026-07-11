@@ -87,13 +87,12 @@ export async function runWebSearch(input: WebSearchInput) {
 export async function executeLoadSkill(input: LoadSkillInput) {
   const skills = Array.from(
     new Set(
-      input.skills
-        .map((skillName) => skillName.trim())
-        .filter((skillName) =>
-          AVAILABLE_STUDY_SKILLS.includes(
-            skillName as (typeof AVAILABLE_STUDY_SKILLS)[number]
-          )
-        )
+      input.skills.flatMap((skillName) => {
+        const normalizedName = skillName.trim();
+        return AVAILABLE_STUDY_SKILLS.some((skill) => skill === normalizedName)
+          ? [normalizedName]
+          : [];
+      })
     )
   );
   if (skills.length === 0) {
@@ -108,13 +107,12 @@ export async function executeLoadSkill(input: LoadSkillInput) {
 export async function executeVisualizeReadMe(input: VisualizeReadMeInput) {
   const modules = Array.from(
     new Set(
-      input.modules
-        .map((moduleName) => moduleName.trim())
-        .filter((moduleName) =>
-          AVAILABLE_VISUAL_SKILLS.includes(
-            moduleName as (typeof AVAILABLE_VISUAL_SKILLS)[number]
-          )
-        )
+      input.modules.flatMap((moduleName) => {
+        const normalizedName = moduleName.trim();
+        return AVAILABLE_VISUAL_SKILLS.some((skill) => skill === normalizedName)
+          ? [normalizedName]
+          : [];
+      })
     )
   );
   if (modules.length === 0) {

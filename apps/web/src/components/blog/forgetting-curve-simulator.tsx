@@ -265,13 +265,13 @@ export function ForgettingCurveSimulator() {
       </div>
 
       <div className="mt-4 flex flex-wrap items-center gap-3">
-        <button
+        <button type="button"
           onClick={handleAddReview}
           className="rounded-lg border border-brand/30 bg-brand/10 px-4 py-2 text-xs uppercase tracking-widest text-brand transition-all hover:bg-brand/20 font-mono"
         >
           + Add Review
         </button>
-        <button
+        <button type="button"
           onClick={handleReset}
           className="rounded-lg border border-divide bg-neutral-900 px-4 py-2 text-xs uppercase tracking-widest text-white/50 transition-all hover:border-white/30 hover:text-white/80 font-mono"
         >

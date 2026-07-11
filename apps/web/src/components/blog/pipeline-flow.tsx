@@ -39,7 +39,7 @@ export function PipelineFlow() {
           return (
             <div key={step.id} className="flex items-center gap-2">
               {/* Step node */}
-              <button
+              <button type="button"
                 onClick={() => setActive(active === step.id ? null : step.id)}
                 className={`rounded-lg border px-3 py-1.5 text-xs transition-all duration-150 ${
                   active === step.id
@@ -57,7 +57,7 @@ export function PipelineFlow() {
 
               {/* Gap badge */}
               {gapHere && (
-                <button
+                <button type="button"
                   onClick={() =>
                     setActive(active === gapHere.label ? null : gapHere.label)
                   }

@@ -51,7 +51,7 @@ export function TradeoffMatrix() {
 
       <div className="mb-5 flex flex-wrap gap-2">
         {WEEK_SCENARIOS.map((w, i) => (
-          <button
+          <button type="button"
             key={i}
             onClick={() => setSelected(i)}
             className={`rounded-lg border px-3 py-1.5 text-sm font-mono transition-all duration-150 ${
@@ -88,8 +88,8 @@ export function TradeoffMatrix() {
               <div className="h-3 w-full overflow-hidden rounded-full bg-white/10">
                 <motion.div
                   className="h-full rounded-full"
-                  style={{ backgroundColor: BAR_COLORS[key], opacity: 0.8 }}
-                  animate={{ width: `${val}%` }}
+                  style={{ backgroundColor: BAR_COLORS[key], opacity: 0.8, transformOrigin: "left" }}
+                  animate={{ scaleX: val / 100 }}
                   transition={{ duration: 0.35, ease: "easeOut" }}
                 />
               </div>

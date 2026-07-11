@@ -371,9 +371,11 @@ function mergePropertyDefinitions(
   }
 
   const merged = new Map<string, WorkspacePropertyDefinition>(
-    definitions
-      .filter((definition) => liveProperties.has(definition.key))
-      .map((definition) => [definition.key, definition])
+    definitions.flatMap((definition) =>
+      liveProperties.has(definition.key)
+        ? [[definition.key, definition] as const]
+        : []
+    )
   );
 
   for (const [key, property] of liveProperties) {
@@ -952,9 +954,9 @@ function getMutationHistoryItemKey(item: FileMutationHistoryItem) {
 
 function getSuccessfulBulkMutationKeys(response: BulkMutationResponse | null) {
   return new Set(
-    (response?.results ?? [])
-      .filter((result) => result.status === "ok")
-      .map((result) => getMutationHistoryItemKey(result))
+    (response?.results ?? []).flatMap((result) =>
+      result.status === "ok" ? [getMutationHistoryItemKey(result)] : []
+    )
   );
 }
 
@@ -962,9 +964,9 @@ function getSuccessfulTrashMutationKeys(
   response: TrashMutationResponse | null
 ) {
   return new Set(
-    (response?.results ?? [])
-      .filter((result) => result.ok)
-      .map((result) => getMutationHistoryItemKey(result))
+    (response?.results ?? []).flatMap((result) =>
+      result.ok ? [getMutationHistoryItemKey(result)] : []
+    )
   );
 }
 
@@ -1001,9 +1003,10 @@ function subtractMutationHistoryKeys(
   keysToRemove: Set<string>
 ) {
   const remainingKeys = new Set(
-    entry.items
-      .map((item) => getMutationHistoryItemKey(item))
-      .filter((key) => !keysToRemove.has(key))
+    entry.items.flatMap((item) => {
+      const key = getMutationHistoryItemKey(item);
+      return keysToRemove.has(key) ? [] : [key];
+    })
   );
   return filterMutationHistoryEntry(entry, remainingKeys);
 }
@@ -2098,9 +2101,13 @@ export function FileExplorer({
       const parsed = raw ? (JSON.parse(raw) as unknown) : null;
       if (Array.isArray(parsed)) {
         const next = parsed
-          .filter((entry): entry is string => typeof entry === "string")
-          .map((entry) => entry.trim())
-          .filter((entry) => entry.length > 0 && validKeys.has(entry))
+          .flatMap((entry) => {
+            if (typeof entry !== "string") {
+              return [];
+            }
+            const key = entry.trim();
+            return key.length > 0 && validKeys.has(key) ? [key] : [];
+          })
           .slice(0, MAX_VISIBLE_CARD_PROPERTIES);
         if (next.length > 0) {
           setCardPropertyKeys(next);
@@ -4010,7 +4017,9 @@ export function FileExplorer({
                 uploaded,
               });
               const completedFile =
-                typeof completed === "object" && completed !== null && "file" in completed
+                typeof completed === "object" &&
+                completed !== null &&
+                "file" in completed
                   ? completed.file
                   : null;
               const ingestionJob =
@@ -4050,13 +4059,15 @@ export function FileExplorer({
               );
             }
 
-            setUploadQueue((previous) =>
-              previous.map((item) =>
-                item.id === entry.queueItemId
-                  ? { ...item, status: "uploaded", error: undefined }
-                  : item
-              )
-            );
+            if (isMarkdownUploadCandidate(entry.candidate.file)) {
+              setUploadQueue((previous) =>
+                previous.map((item) =>
+                  item.id === entry.queueItemId
+                    ? { ...item, status: "uploaded", error: undefined }
+                    : item
+                )
+              );
+            }
           } catch (error) {
             const message = getUploadErrorMessage(error);
             setUploadQueue((previous) =>
@@ -4265,10 +4276,13 @@ export function FileExplorer({
         return;
       }
 
-      const filesToReingest = items
-        .filter((item) => item.kind === "file")
-        .map((item) => allFiles.find((entry) => entry.id === item.id))
-        .filter((file): file is FileRecord => Boolean(file && !file.readOnly));
+      const filesToReingest = items.flatMap((item) => {
+        if (item.kind !== "file") {
+          return [];
+        }
+        const file = allFiles.find((entry) => entry.id === item.id);
+        return file && !file.readOnly ? [file] : [];
+      });
 
       if (filesToReingest.length === 0) {
         return;
@@ -4945,36 +4959,29 @@ export function FileExplorer({
         return;
       }
 
-      const items = itemIds
-        .filter((itemId) => itemId !== targetFolderId)
-        .map((itemId) => {
-          const kind = resolveItemKind(itemId);
-          if (!kind) {
-            return null;
-          }
+      const items = itemIds.flatMap((itemId) => {
+        if (itemId === targetFolderId) {
+          return [];
+        }
+        const kind = resolveItemKind(itemId);
+        if (!kind) {
+          return [];
+        }
 
-          if (kind === "folder") {
-            const folder = allFolders.find((entry) => entry.id === itemId);
-            if (folder?.readOnly) {
-              return null;
-            }
-          } else {
-            const file = allFiles.find((entry) => entry.id === itemId);
-            if (file?.readOnly) {
-              return null;
-            }
+        if (kind === "folder") {
+          const folder = allFolders.find((entry) => entry.id === itemId);
+          if (folder?.readOnly) {
+            return [];
           }
+        } else {
+          const file = allFiles.find((entry) => entry.id === itemId);
+          if (file?.readOnly) {
+            return [];
+          }
+        }
 
-          return { id: itemId, kind };
-        })
-        .filter(
-          (
-            item
-          ): item is {
-            id: string;
-            kind: BulkItemKind;
-          } => Boolean(item)
-        );
+        return [{ id: itemId, kind }];
+      });
 
       if (items.length === 0) {
         return;

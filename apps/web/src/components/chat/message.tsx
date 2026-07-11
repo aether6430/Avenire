@@ -87,8 +87,7 @@ export function getToolApprovalPartSignature(
     approval && typeof approval === "object" && "id" in approval
       ? String(approval.id ?? "")
       : "";
-  const toolCallId =
-    "toolCallId" in part ? String(part.toolCallId ?? "") : "";
+  const toolCallId = "toolCallId" in part ? String(part.toolCallId ?? "") : "";
   const inputSignature =
     "input" in part ? stableSignatureValue(part.input) : "";
 
@@ -285,7 +284,13 @@ function getPartIdentity(part: MessagePart) {
 
 function preferTransientParts(parts: MessagePart[]) {
   const transientKeys = new Set(
-    parts.filter(isTransientPart).map(getPartIdentity).filter(Boolean)
+    parts.flatMap((part) => {
+      if (!isTransientPart(part)) {
+        return [];
+      }
+      const identity = getPartIdentity(part);
+      return identity ? [identity] : [];
+    })
   );
 
   return parts.filter((part) => {
@@ -446,63 +451,67 @@ function GeneratedArtifacts({
 }) {
   const generatedFlashcards = useMemo(
     () =>
-      parts
-        .filter(
-          (part): part is CompletedToolPart =>
-            part.type === "tool-generate_flashcards" &&
-            part.state === "output-available"
-        )
-        .map((part) => {
-          const output = part.output as FlashcardToolOutput;
-          return {
-            cardCount: Array.isArray(output.cards) ? output.cards.length : 0,
-            setId: output.setId,
-            title: output.title,
-          };
-        })
-        .filter((item) => item.cardCount > 0),
+      parts.flatMap((part) => {
+        if (
+          part.type !== "tool-generate_flashcards" ||
+          part.state !== "output-available"
+        ) {
+          return [];
+        }
+        const output = part.output as FlashcardToolOutput;
+        const item = {
+          cardCount: Array.isArray(output.cards) ? output.cards.length : 0,
+          setId: output.setId,
+          title: output.title,
+        };
+        return item.cardCount > 0 ? [item] : [];
+      }),
     [parts]
   );
 
   const generatedNotes = useMemo(
     () =>
-      parts
-        .filter(
-          (part): part is CompletedToolPart =>
-            (part.type === "tool-note_agent" ||
-              part.type === "tool-create_note" ||
-              part.type === "tool-read_note" ||
-              part.type === "tool-update_note") &&
-            part.state === "output-available"
-        )
-        .flatMap((part) => {
-          if (part.type === "tool-note_agent") {
-            const output = part.output as NoteToolOutput;
-            return Array.isArray(output.notes)
-              ? output.notes
-                  .map((note) => ({
-                    fileId: note.fileId,
-                    title: note.title,
-                    workspacePath: note.workspacePath,
-                  }))
-                  .filter((note) => typeof note.fileId === "string")
-              : [];
-          }
-          const output = part.output as {
-            fileId?: string;
-            title?: string;
-            workspacePath?: string;
-          };
-          return output.fileId
-            ? [
-                {
-                  fileId: output.fileId,
-                  title: output.title ?? "",
-                  workspacePath: output.workspacePath ?? "",
-                },
-              ]
+      parts.flatMap((part) => {
+        if (
+          (part.type !== "tool-note_agent" &&
+            part.type !== "tool-create_note" &&
+            part.type !== "tool-read_note" &&
+            part.type !== "tool-update_note") ||
+          part.state !== "output-available"
+        ) {
+          return [];
+        }
+        if (part.type === "tool-note_agent") {
+          const output = part.output as NoteToolOutput;
+          return Array.isArray(output.notes)
+            ? output.notes.flatMap((note) =>
+                typeof note.fileId === "string"
+                  ? [
+                      {
+                        fileId: note.fileId,
+                        title: note.title,
+                        workspacePath: note.workspacePath,
+                      },
+                    ]
+                  : []
+              )
             : [];
-        }),
+        }
+        const output = part.output as {
+          fileId?: string;
+          title?: string;
+          workspacePath?: string;
+        };
+        return output.fileId
+          ? [
+              {
+                fileId: output.fileId,
+                title: output.title ?? "",
+                workspacePath: output.workspacePath ?? "",
+              },
+            ]
+          : [];
+      }),
     [parts]
   );
 

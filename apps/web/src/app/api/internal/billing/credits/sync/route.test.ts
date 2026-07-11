@@ -48,4 +48,21 @@ describe("billing credit sync route", () => {
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({ delivered: 2, failed: 0 });
   });
+
+  it("returns 503 when delivery fails", async () => {
+    deliverPendingPolarUsageEventsMock.mockRejectedValue(
+      new Error("Polar API unavailable")
+    );
+    const response = await POST(
+      new Request("http://localhost/api/internal/billing/credits/sync", {
+        headers: { authorization: "Bearer sync-secret" },
+        method: "POST",
+      })
+    );
+
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toEqual({
+      error: "Billing credit synchronization unavailable",
+    });
+  });
 });

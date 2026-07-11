@@ -1818,12 +1818,12 @@ function NoteMutationBlock({
   }, [fileId, workspaceUuid]);
 
   return (
-    <div
+    <li
       className={cn(
         "mb-1 overflow-hidden rounded-md border border-border/80 bg-card shadow-sm",
         MUTATION_ROW_ENTER_CLASS
       )}
-      role="listitem"
+
     >
       <NoteMutationHeader
         action={action}
@@ -1838,7 +1838,7 @@ function NoteMutationBlock({
         </span>
       ) : null}
       <NoteMutationPreview preview={action.preview} />
-    </div>
+    </li>
   );
 }
 
@@ -1851,12 +1851,12 @@ function MutationBlock({
 }) {
   if (action.kind === "error") {
     return (
-      <div
+      <li
         className={cn(
           "mb-1 flex items-baseline gap-2 text-sm",
           MUTATION_ROW_ENTER_CLASS
         )}
-        role="listitem"
+
       >
         <span className="font-semibold text-destructive">Error</span>
         <span className="font-mono text-[12px] text-destructive/80">
@@ -1868,18 +1868,18 @@ function MutationBlock({
             <ThinkingDots />
           </span>
         ) : null}
-      </div>
+      </li>
     );
   }
 
   if (action.kind === "flashcards") {
     return (
-      <div
+      <li
         className={cn(
           "mb-1 flex items-baseline gap-2 text-sm",
           MUTATION_ROW_ENTER_CLASS
         )}
-        role="listitem"
+
       >
         <span className="font-semibold text-foreground/72">Mindset</span>
         <span className="font-mono text-[12px] text-foreground/62">
@@ -1891,7 +1891,7 @@ function MutationBlock({
             <ThinkingDots />
           </span>
         ) : null}
-      </div>
+      </li>
     );
   }
 
@@ -1903,12 +1903,12 @@ function MutationBlock({
 
   if (action.kind === "quiz") {
     return (
-      <div
+      <li
         className={cn(
           "mb-1 flex items-baseline gap-2 text-sm",
           MUTATION_ROW_ENTER_CLASS
         )}
-        role="listitem"
+
       >
         <span className="font-semibold text-foreground/72">Quiz</span>
         <span className="font-mono text-[12px] text-foreground/62">
@@ -1920,7 +1920,7 @@ function MutationBlock({
             <ThinkingDots />
           </span>
         ) : null}
-      </div>
+      </li>
     );
   }
 
@@ -1931,12 +1931,12 @@ function MutationBlock({
         : null;
 
     return (
-      <div
+      <li
         className={cn(
           "mb-1 flex items-baseline gap-2 text-sm",
           MUTATION_ROW_ENTER_CLASS
         )}
-        role="listitem"
+
       >
         <span className="font-semibold text-foreground/72">Misconception</span>
         <span className="min-w-0 truncate font-mono text-[12px] text-foreground/62">
@@ -1953,7 +1953,7 @@ function MutationBlock({
             <ThinkingDots />
           </span>
         ) : null}
-      </div>
+      </li>
     );
   }
 
@@ -1972,12 +1972,12 @@ function MutationBlock({
           : "Edit";
 
   return (
-    <div
+    <li
       className={cn(
         "mb-1 flex items-baseline gap-2 text-sm",
         MUTATION_ROW_ENTER_CLASS
       )}
-      role="listitem"
+
     >
       <span className="font-semibold text-foreground/72">{label}</span>
       <span className="font-mono text-[12px] text-foreground/62">
@@ -1998,7 +1998,7 @@ function MutationBlock({
           <ThinkingDots />
         </span>
       ) : null}
-    </div>
+    </li>
   );
 }
 
@@ -2023,9 +2023,9 @@ export function InlineToolMutationActivity({
   }
 
   return (
-    <div aria-label="Tool activity" className="mb-2 font-mono" role="list">
+    <ul aria-label="Tool activity" className="mb-2 font-mono">
       <MutationBlock action={action} workspaceUuid={workspaceUuid} />
-    </div>
+    </ul>
   );
 }
 
@@ -2057,7 +2057,7 @@ export function RollingAgentActivity({
   };
 
   return (
-    <div aria-label="Agent activity" className="mb-0.5 font-mono" role="list">
+    <ul aria-label="Agent activity" className="mb-0.5 font-mono">
       {groups.map((group, index) => {
         if (group.type === "explore") {
           return (
@@ -2076,7 +2076,7 @@ export function RollingAgentActivity({
           />
         );
       })}
-    </div>
+    </ul>
   );
 }
 
@@ -2114,7 +2114,7 @@ export function RollingToolActivity({
   };
 
   return (
-    <div aria-label="Agent activity" className="mb-0.5 font-mono" role="list">
+    <ul aria-label="Agent activity" className="mb-0.5 font-mono">
       {groups.map((group, index) => {
         if (group.type === "explore") {
           return (
@@ -2134,6 +2134,6 @@ export function RollingToolActivity({
           />
         );
       })}
-    </div>
+    </ul>
   );
 }

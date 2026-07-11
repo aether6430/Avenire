@@ -65,7 +65,7 @@ export function HybridSearchDemo() {
       {/* Scenario tabs */}
       <div className="mb-4 flex gap-2">
         {SCENARIOS.map((sc, i) => (
-          <button
+          <button type="button"
             key={i}
             onClick={() => { setScenario(i); setTab("vector"); }}
             className={`rounded-lg border px-3 py-1.5 text-sm font-mono transition-all duration-150 ${
@@ -87,7 +87,7 @@ export function HybridSearchDemo() {
       {/* Method tabs */}
       <div className="mb-4 flex gap-1">
         {(["vector", "bm25", "hybrid"] as const).map((t) => (
-          <button
+          <button type="button"
             key={t}
             onClick={() => setTab(t)}
             className={`rounded-lg border px-3 py-1 text-xs font-mono transition-all duration-150 ${

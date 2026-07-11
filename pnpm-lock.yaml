@@ -143,9 +143,6 @@ importers:
 
   apps/web:
     dependencies:
-      '@ai-sdk/mistral':
-        specifier: ^4.0.0
-        version: 4.0.0(zod@4.3.6)
       '@ai-sdk/otel':
         specifier: ^1.0.2
         version: 1.0.2(zod@4.3.6)

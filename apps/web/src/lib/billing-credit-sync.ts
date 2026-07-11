@@ -45,10 +45,6 @@ export async function deliverPendingPolarUsageEvents(limit = 50) {
         units: event.units,
       })),
     });
-    await Promise.all(
-      events.map((event) => markBillingUsageEventDelivered(event.id))
-    );
-    return { delivered: events.length, failed: 0 };
   } catch (error) {
     const message = toErrorMessage(error);
     await Promise.all(
@@ -62,6 +58,14 @@ export async function deliverPendingPolarUsageEvents(limit = 50) {
     );
     return { delivered: 0, failed: events.length };
   }
+
+  const deliveryMarks = await Promise.allSettled(
+    events.map((event) => markBillingUsageEventDelivered(event.id))
+  );
+  const failed = deliveryMarks.filter(
+    (result) => result.status === "rejected"
+  ).length;
+  return { delivered: events.length - failed, failed };
 }
 
 export interface CreditReconciliation {

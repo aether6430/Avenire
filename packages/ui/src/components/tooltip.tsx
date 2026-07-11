@@ -42,7 +42,7 @@ function Tooltip({
     React.isValidElement(children) && children.type !== React.Fragment ? (
       children
     ) : (
-      <span className="inline-flex" tabIndex={0}>
+      <span className="inline-flex">
         {children}
       </span>
     )

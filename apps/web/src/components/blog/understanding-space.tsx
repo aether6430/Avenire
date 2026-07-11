@@ -35,7 +35,7 @@ export function UnderstandingSpaceDemo() {
 
       <div className="mb-4 flex gap-2">
         {(["dense", "sparse"] as const).map((m) => (
-          <button
+          <button type="button"
             key={m}
             onClick={() => setMode(m)}
             className={`rounded-lg border px-3 py-1.5 text-sm font-mono transition-all duration-150 ${
