@@ -5,6 +5,7 @@ import { Command, CommandInput } from "@avenire/ui/components/command";
 import { Spinner } from "@avenire/ui/components/spinner";
 import { X } from "@phosphor-icons/react";
 import { memo, useEffect, useRef, useState } from "react";
+import { retrievalQueryResponseSchema } from "@/lib/retrieval-http-contract";
 
 export interface WorkspaceSearchItem {
   description: string;
@@ -95,26 +96,19 @@ async function runWorkspaceVectorSearchApi(
     return [];
   }
 
-  const payload = (await response.json()) as {
-    results?: Array<{
-      chunkId?: string;
-      content: string;
-      endMs?: number | null;
-      fileId?: string | null;
-      page?: number | null;
-      rerankScore?: number;
-      score?: number;
-      sourceType?: "pdf" | "image" | "video" | "audio" | "document" | "markdown" | "link";
-      startMs?: number | null;
-    }>;
-  };
+  const payload = retrievalQueryResponseSchema.safeParse(
+    await response.json().catch(() => null)
+  );
+  if (!payload.success) {
+    return [];
+  }
 
   const filesById = new Map(
     items.filter((item) => item.type === "file").map((item) => [item.id, item])
   );
 
   const mapped: WorkspaceSearchResult[] = [];
-  for (const result of payload.results ?? []) {
+  for (const result of payload.data.results) {
     const fileId = result.fileId ?? null;
     if (!fileId) {
       continue;

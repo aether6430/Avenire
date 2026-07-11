@@ -1,7 +1,61 @@
 import { createClient } from "redis";
 
-const DEFAULT_CONNECT_TIMEOUT_MS = 10_000;
+const DEFAULT_CONNECT_TIMEOUT_MS = 2000;
 const DEFAULT_RECONNECT_DELAY_MS = 1000;
+const FAILURE_WINDOW_MS = 60_000;
+const FAILURE_THRESHOLD = 3;
+const RECOVERY_COOLDOWN_MS = 30_000;
+
+interface CircuitState {
+  consecutiveFailures: number;
+  firstFailureAtMs: number;
+  openUntilMs: number;
+  probeInFlight: boolean;
+}
+
+const circuits = new Map<string, CircuitState>();
+
+function circuitKey(url: string, label: string) {
+  return `${label}:${normalizeRedisUrl(url)}`;
+}
+
+function getCircuit(key: string): CircuitState {
+  const existing = circuits.get(key);
+  if (existing) {
+    return existing;
+  }
+
+  const state: CircuitState = {
+    consecutiveFailures: 0,
+    firstFailureAtMs: 0,
+    openUntilMs: 0,
+    probeInFlight: false,
+  };
+  circuits.set(key, state);
+  return state;
+}
+
+function recordFailure(state: CircuitState, nowMs: number) {
+  if (
+    state.firstFailureAtMs === 0 ||
+    nowMs - state.firstFailureAtMs > FAILURE_WINDOW_MS
+  ) {
+    state.consecutiveFailures = 1;
+    state.firstFailureAtMs = nowMs;
+  } else {
+    state.consecutiveFailures += 1;
+  }
+
+  if (state.consecutiveFailures >= FAILURE_THRESHOLD) {
+    state.openUntilMs = nowMs + RECOVERY_COOLDOWN_MS;
+  }
+}
+
+function recordSuccess(state: CircuitState) {
+  state.consecutiveFailures = 0;
+  state.firstFailureAtMs = 0;
+  state.openUntilMs = 0;
+}
 
 export type ManagedRedisClient = ReturnType<typeof createClient>;
 
@@ -59,14 +113,29 @@ export async function ensureManagedRedisClient(
     return nextClient;
   }
 
+  const state = getCircuit(circuitKey(url, label));
+  const nowMs = Date.now();
+  if (state.openUntilMs > nowMs || state.probeInFlight) {
+    return null;
+  }
+
+  state.probeInFlight = true;
   try {
     await nextClient.connect();
+    recordSuccess(state);
     return nextClient;
   } catch (error) {
+    recordFailure(state, Date.now());
     if (!isExpectedRedisConnectionError(error)) {
       console.error(`Redis connect error in ${label}`, error);
     }
 
     return null;
+  } finally {
+    state.probeInFlight = false;
   }
+}
+
+export function resetRedisCircuitBreakersForTests() {
+  circuits.clear();
 }

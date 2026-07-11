@@ -69,7 +69,14 @@ interface RetrievalPathResult {
   results: Array<{
     resourceId: string;
     fileId: string | null;
-    sourceType: "pdf" | "image" | "video" | "audio" | "document" | "markdown" | "link";
+    sourceType:
+      | "pdf"
+      | "image"
+      | "video"
+      | "audio"
+      | "document"
+      | "markdown"
+      | "link";
     source: string;
     provider: string | null;
     title: string | null;
@@ -291,7 +298,9 @@ export const getPreferredSourceTypes = (intent: {
   visual: boolean;
   audio: boolean;
   document: boolean;
-}): Set<"pdf" | "image" | "video" | "audio" | "document" | "markdown" | "link"> | null => {
+}): Set<
+  "pdf" | "image" | "video" | "audio" | "document" | "markdown" | "link"
+> | null => {
   const { visual, audio, document } = intent;
 
   if (visual && !audio && !document) {
@@ -538,7 +547,14 @@ function buildRetrievalDecisionTelemetry(input: {
   normalizedQuery: string;
   options?: {
     provider?: string;
-    sourceType?: "pdf" | "image" | "video" | "audio" | "document" | "markdown" | "link";
+    sourceType?:
+      | "pdf"
+      | "image"
+      | "video"
+      | "audio"
+      | "document"
+      | "markdown"
+      | "link";
     userId?: string;
     workspaceId?: string;
   };
@@ -681,7 +697,14 @@ export const applyModalityScoreAdjustments = (
     preferredSourceTypes: Set<
       "pdf" | "image" | "video" | "audio" | "document" | "markdown" | "link"
     > | null;
-    sourceType?: "pdf" | "image" | "video" | "audio" | "document" | "markdown" | "link";
+    sourceType?:
+      | "pdf"
+      | "image"
+      | "video"
+      | "audio"
+      | "document"
+      | "markdown"
+      | "link";
     visualIntent: boolean;
   }
 ): number => {
@@ -797,7 +820,14 @@ const scoreRetrievedCandidate = (
     preferredSourceTypes: Set<
       "pdf" | "image" | "video" | "audio" | "document" | "markdown" | "link"
     > | null;
-    sourceType?: "pdf" | "image" | "video" | "audio" | "document" | "markdown" | "link";
+    sourceType?:
+      | "pdf"
+      | "image"
+      | "video"
+      | "audio"
+      | "document"
+      | "markdown"
+      | "link";
     visualIntent: boolean;
   }
 ): FusionCandidate => {
@@ -821,7 +851,14 @@ const searchForQuery = async (params: {
   includeLexical?: boolean;
   metadata?: Record<string, unknown>;
   options?: {
-    sourceType?: "pdf" | "image" | "video" | "audio" | "document" | "markdown" | "link";
+    sourceType?:
+      | "pdf"
+      | "image"
+      | "video"
+      | "audio"
+      | "document"
+      | "markdown"
+      | "link";
     provider?: string;
   };
   query: string;
@@ -910,9 +947,20 @@ export const retrieveRelevantChunks = async (
     limit?: number;
     userId?: string;
     workspaceId?: string;
-    sourceType?: "pdf" | "image" | "video" | "audio" | "document" | "markdown" | "link";
+    sourceType?:
+      | "pdf"
+      | "image"
+      | "video"
+      | "audio"
+      | "document"
+      | "markdown"
+      | "link";
     provider?: string;
     corpus?: Awaited<ReturnType<VectorStore["corpusStats"]>>;
+    initialQueryEmbedding?: number[];
+    initialQueryCandidates?: Array<
+      VectorSearchResult & { fusionScore: number }
+    >;
   }
 ): Promise<{
   context: string;
@@ -922,7 +970,14 @@ export const retrieveRelevantChunks = async (
   results: Array<{
     resourceId: string;
     fileId: string | null;
-    sourceType: "pdf" | "image" | "video" | "audio" | "document" | "markdown" | "link";
+    sourceType:
+      | "pdf"
+      | "image"
+      | "video"
+      | "audio"
+      | "document"
+      | "markdown"
+      | "link";
     source: string;
     provider: string | null;
     title: string | null;
@@ -957,19 +1012,20 @@ export const retrieveRelevantChunks = async (
     limit * config.retrievalCandidateMultiplier
   );
 
-  const expandedQuery = await expandQuery(normalizedQuery).catch((error) => {
-    logWarn({
-      eventName: "retrieval.query_expansion_fallback",
-      payload: {
-        error: safeError(error),
-        query: normalizedQuery,
-      },
-    });
-    return null;
-  });
   let hydeFallbackUsed = false;
-  const hydeDocument = await generateHydeDocument(normalizedQuery).catch(
-    (error) => {
+  const expansionStartedAt = performance.now();
+  const [expandedQuery, hydeDocument] = await Promise.all([
+    expandQuery(normalizedQuery).catch((error) => {
+      logWarn({
+        eventName: "retrieval.query_expansion_fallback",
+        payload: {
+          error: safeError(error),
+          query: normalizedQuery,
+        },
+      });
+      return null;
+    }),
+    generateHydeDocument(normalizedQuery).catch((error) => {
       hydeFallbackUsed = true;
       logWarn({
         eventName: "retrieval.hyde_fallback",
@@ -979,12 +1035,12 @@ export const retrieveRelevantChunks = async (
         },
       });
       return null;
-    }
-  );
-  const decomposedQueries = dedupeQueries(decomposeQuery(normalizedQuery)).slice(
-    0,
-    4
-  );
+    }),
+  ]);
+  const expansionLatencyMs = Math.round(performance.now() - expansionStartedAt);
+  const decomposedQueries = dedupeQueries(
+    decomposeQuery(normalizedQuery)
+  ).slice(0, 4);
   const decomposedQueryCount = decomposedQueries.length;
   const searchQueries = dedupeQueries([
     normalizedQuery,
@@ -996,18 +1052,39 @@ export const retrieveRelevantChunks = async (
     hydeDocument ?? "",
   ]);
 
-  const { embeddings } = await embedMultimodal(
-    embeddingQueries.map((value) => textToMultimodalInput(value)),
-    {
-      inputType: "search_query",
+  const queriesNeedingEmbeddings = options?.initialQueryEmbedding
+    ? embeddingQueries.filter((value) => value !== normalizedQuery)
+    : embeddingQueries;
+  const embeddingStartedAt = performance.now();
+  const embeddings =
+    queriesNeedingEmbeddings.length > 0
+      ? (
+          await embedMultimodal(
+            queriesNeedingEmbeddings.map((value) =>
+              textToMultimodalInput(value)
+            ),
+            { inputType: "search_query" }
+          )
+        ).embeddings
+      : [];
+  const embeddingLatencyMs = Math.round(performance.now() - embeddingStartedAt);
+  const embeddingByQuery = new Map<string, number[]>();
+  if (options?.initialQueryEmbedding) {
+    embeddingByQuery.set(normalizedQuery, options.initialQueryEmbedding);
+  }
+  queriesNeedingEmbeddings.forEach((value, index) => {
+    const embedding = embeddings[index];
+    if (embedding) {
+      embeddingByQuery.set(value, embedding);
     }
-  );
-  const embeddingByQuery = new Map(
-    embeddingQueries.map((value, index) => [value, embeddings[index]])
-  );
+  });
 
+  const searchStartedAt = performance.now();
   const querySearchResults = await Promise.all(
     searchQueries.map((searchQuery) => {
+      if (searchQuery === normalizedQuery && options?.initialQueryCandidates) {
+        return options.initialQueryCandidates;
+      }
       const queryEmbedding = embeddingByQuery.get(searchQuery);
       if (!queryEmbedding) {
         throw new Error("Failed to compute query embedding.");
@@ -1050,6 +1127,7 @@ export const retrieveRelevantChunks = async (
         })
       : [];
   const hydeCandidateCount = hydeSearchResults.length;
+  const searchLatencyMs = Math.round(performance.now() - searchStartedAt);
   const allSearchResults = [...querySearchResults, hydeSearchResults];
 
   const mergedCandidates = diversifyByResource(
@@ -1263,6 +1341,16 @@ export const retrieveRelevantChunks = async (
     eventName: "retrieval.decision",
     payload: telemetry as unknown as Record<string, unknown>,
   });
+  logInfo({
+    eventName: "retrieval.phase_timings",
+    payload: {
+      embeddingMs: embeddingLatencyMs,
+      expansionAndHydeMs: expansionLatencyMs,
+      searchMs: searchLatencyMs,
+      totalMs: latencyMs,
+      workspaceId: options?.workspaceId ?? null,
+    },
+  });
 
   return {
     context: assembled.context,
@@ -1280,7 +1368,14 @@ function buildQueryResultPreview(params: {
   normalizedQuery: string;
   options?: {
     provider?: string;
-    sourceType?: "pdf" | "image" | "video" | "audio" | "document" | "markdown" | "link";
+    sourceType?:
+      | "pdf"
+      | "image"
+      | "video"
+      | "audio"
+      | "document"
+      | "markdown"
+      | "link";
     userId?: string;
     workspaceId?: string;
   };
@@ -1445,7 +1540,14 @@ async function logCalibrationShadow(input: {
   normalizedQuery: string;
   options?: {
     provider?: string;
-    sourceType?: "pdf" | "image" | "video" | "audio" | "document" | "markdown" | "link";
+    sourceType?:
+      | "pdf"
+      | "image"
+      | "video"
+      | "audio"
+      | "document"
+      | "markdown"
+      | "link";
     userId?: string;
     workspaceId?: string;
   };
@@ -1515,7 +1617,14 @@ export const retrieveRelevantChunksAdaptive = async (
     limit?: number;
     mode?: "auto" | "fast" | "full";
     provider?: string;
-    sourceType?: "pdf" | "image" | "video" | "audio" | "document" | "markdown" | "link";
+    sourceType?:
+      | "pdf"
+      | "image"
+      | "video"
+      | "audio"
+      | "document"
+      | "markdown"
+      | "link";
     userId?: string;
     workspaceId?: string;
   }
@@ -1528,10 +1637,9 @@ export const retrieveRelevantChunksAdaptive = async (
   const visualIntent = hasVisualIntent(normalizedQuery);
   const audioIntent = hasAudioIntent(normalizedQuery);
   const documentIntent = hasDocumentIntent(normalizedQuery);
-  const decomposedQueries = dedupeQueries(decomposeQuery(normalizedQuery)).slice(
-    0,
-    4
-  );
+  const decomposedQueries = dedupeQueries(
+    decomposeQuery(normalizedQuery)
+  ).slice(0, 4);
   const decomposedQueryCount = decomposedQueries.length;
   const limit = options?.limit ?? config.retrievalDefaultLimit;
   const candidateLimit = Math.max(
@@ -1590,6 +1698,8 @@ export const retrieveRelevantChunksAdaptive = async (
               sourceType: options?.sourceType,
               userId: options?.userId,
               workspaceId: options?.workspaceId,
+              initialQueryCandidates: fastQueryCandidates,
+              initialQueryEmbedding: fastEmbedding,
             }
           );
           await logCalibrationShadow({
@@ -1638,6 +1748,8 @@ export const retrieveRelevantChunksAdaptive = async (
       sourceType: options?.sourceType,
       userId: options?.userId,
       workspaceId: options?.workspaceId,
+      initialQueryCandidates: fastQueryCandidates,
+      initialQueryEmbedding: fastEmbedding,
     }
   );
   const slowLatencyMs = Math.round(performance.now() - start);

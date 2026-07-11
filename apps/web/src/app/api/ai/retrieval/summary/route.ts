@@ -6,7 +6,7 @@ import {
   validateWorkspaceFileCitations,
 } from "@avenire/ai";
 import { NextResponse } from "next/server";
-import { z } from "zod";
+import { parseJsonRequest } from "@/lib/api-request";
 import {
   getFileAssetById,
   getNoteContent,
@@ -14,30 +14,8 @@ import {
 } from "@/lib/file-data";
 import { normalizeMediaType } from "@/lib/media-type";
 import { createApiLogger } from "@/lib/observability";
+import { retrievalSummaryRequestSchema } from "@/lib/retrieval-http-contract";
 import { ensureWorkspaceAccessForUser, getSessionUser } from "@/lib/workspace";
-
-const summarySchema = z.object({
-  matches: z
-    .array(
-      z.object({
-        fileId: z.uuid({ version: "v4" }),
-        sourceType: z
-          .enum(["pdf", "image", "video", "audio", "document", "markdown", "link"])
-          .optional(),
-        snippet: z.string().min(1).optional(),
-        title: z.string().min(1).optional(),
-      })
-    )
-    .max(24)
-    .optional(),
-  fileIds: z
-    .array(z.uuid({ version: "v4" }))
-    .max(10)
-    .optional(),
-  workspaceUuid: z.uuid({ version: "v4" }),
-  query: z.string().min(1),
-  stream: z.boolean().optional(),
-});
 
 const FALLBACK_SUMMARY =
   "I could not find a reliable answer in the matched files. Try narrowing your question or selecting a more specific file.";
@@ -151,11 +129,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const parsed = summarySchema.safeParse(
-    await request.json().catch(() => ({}))
-  );
+  const parsed = await parseJsonRequest(request, retrievalSummaryRequestSchema);
   if (!parsed.success) {
-    void apiLogger.requestFailed(400, "Invalid payload");
+    void apiLogger.requestFailed(400, "Invalid payload", {
+      reason: parsed.reason,
+    });
     return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
   }
 

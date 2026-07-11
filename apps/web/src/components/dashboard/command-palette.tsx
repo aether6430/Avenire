@@ -42,8 +42,8 @@ import { useQuery } from "@tanstack/react-query";
 import Fuse from "fuse.js";
 import type { Route } from "next";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useWorkspaceSurfaceNavigation } from "@/lib/workspace-panes";
 import { useTheme } from "next-themes";
+import type { ElementType, ReactNode } from "react";
 import {
   useCallback,
   useEffect,
@@ -52,7 +52,7 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
-import type { ElementType, ReactNode } from "react";
+import { Markdown } from "@/components/chat/markdown";
 import type { WorkspaceSearchResult } from "@/components/files/stylized-search-bar";
 import type { ChatSummary } from "@/lib/chat-data";
 import {
@@ -62,6 +62,7 @@ import {
 import { warmWorkspaceSurface } from "@/lib/dashboard-warmup";
 import type { FlashcardSetSummary } from "@/lib/flashcards";
 import type { MisconceptionRecord } from "@/lib/learning-data";
+import { retrievalQueryResponseSchema } from "@/lib/retrieval-http-contract";
 import {
   getTaskStoreSnapshot,
   primeWorkspaceTaskStore,
@@ -69,6 +70,8 @@ import {
   subscribeToTaskStore,
 } from "@/lib/task-client-store";
 import { formatTaskDueDate } from "@/lib/tasks";
+import { cn } from "@/lib/utils";
+import { useWorkspaceSurfaceNavigation } from "@/lib/workspace-panes";
 import {
   readWorkspaceTreeCache,
   writeWorkspaceTreeCache,
@@ -78,10 +81,8 @@ import {
   useCommandPaletteStore,
 } from "@/stores/commandPaletteStore";
 import { useDashboardOverlayStore } from "@/stores/dashboardOverlayStore";
-import { Markdown } from "@/components/chat/markdown";
 import { filesUiActions } from "@/stores/filesUiStore";
 import { quickCaptureActions } from "@/stores/quickCaptureStore";
-import { cn } from "@/lib/utils";
 
 type PaletteItemType = "file" | "folder";
 type PaletteSearchType = "chat" | "flashcard" | "misconception";
@@ -281,32 +282,17 @@ async function queryWorkspaceRetrieval(input: {
     return [];
   }
 
-  const payload = (await response.json()) as {
-    results?: Array<{
-      chunkId?: string;
-      content: string;
-      endMs?: number | null;
-      fileId?: string | null;
-      page?: number | null;
-      rerankScore?: number;
-      score?: number;
-      sourceType?:
-        | "audio"
-        | "document"
-        | "image"
-        | "link"
-        | "markdown"
-        | "pdf"
-        | "video";
-      startMs?: number | null;
-      title?: string | null;
-    }>;
-  };
+  const payload = retrievalQueryResponseSchema.safeParse(
+    await response.json().catch(() => null)
+  );
+  if (!payload.success) {
+    return [];
+  }
 
   const fileById = new Map(input.files.map((file) => [file.id, file]));
   const mapped: WorkspaceSearchResult[] = [];
 
-  for (const result of payload.results ?? []) {
+  for (const result of payload.data.results) {
     const fileId = result.fileId ?? null;
     if (!fileId) {
       continue;

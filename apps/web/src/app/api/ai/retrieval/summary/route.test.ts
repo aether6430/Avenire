@@ -145,6 +145,15 @@ function postSummary(body: Partial<SummaryRequestBody>) {
   );
 }
 
+function postSummaryRaw(body: string) {
+  return POST(
+    new Request("http://localhost:3003/api/ai/retrieval/summary", {
+      body,
+      method: "POST",
+    })
+  );
+}
+
 function getModelPrompt(mock: typeof generateTextMock | typeof streamTextMock) {
   const request = mock.mock.calls.at(-1)?.[0] as ModelRequest | undefined;
   const textPart = request?.messages[0]?.content.find(
@@ -196,6 +205,26 @@ describe("/api/ai/retrieval/summary route", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
     vi.unstubAllEnvs();
+  });
+
+  it("rejects malformed JSON before checking workspace access", async () => {
+    const response = await postSummaryRaw("{");
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: "Invalid payload",
+    });
+    expect(ensureWorkspaceAccessForUserMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects whitespace-only summary queries", async () => {
+    const response = await postSummary({
+      query: "   ",
+      workspaceUuid: WORKSPACE_ID,
+    });
+
+    expect(response.status).toBe(400);
+    expect(ensureWorkspaceAccessForUserMock).not.toHaveBeenCalled();
   });
 
   it("stops reading a streamed attachment once it exceeds the byte limit", async () => {
