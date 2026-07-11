@@ -1014,8 +1014,8 @@ export const retrieveRelevantChunks = async (
 
   let hydeFallbackUsed = false;
   const expansionStartedAt = performance.now();
-  const [expandedQuery, hydeDocument] = await Promise.all([
-    expandQuery(normalizedQuery).catch((error) => {
+  const expansionTask = expandQuery(normalizedQuery)
+    .catch((error) => {
       logWarn({
         eventName: "retrieval.query_expansion_fallback",
         payload: {
@@ -1024,8 +1024,14 @@ export const retrieveRelevantChunks = async (
         },
       });
       return null;
-    }),
-    generateHydeDocument(normalizedQuery).catch((error) => {
+    })
+    .then((value) => ({
+      latencyMs: Math.round(performance.now() - expansionStartedAt),
+      value,
+    }));
+  const hydeStartedAt = performance.now();
+  const hydeTask = generateHydeDocument(normalizedQuery)
+    .catch((error) => {
       hydeFallbackUsed = true;
       logWarn({
         eventName: "retrieval.hyde_fallback",
@@ -1035,9 +1041,17 @@ export const retrieveRelevantChunks = async (
         },
       });
       return null;
-    }),
+    })
+    .then((value) => ({
+      latencyMs: Math.round(performance.now() - hydeStartedAt),
+      value,
+    }));
+  const [expansionResult, hydeResult] = await Promise.all([
+    expansionTask,
+    hydeTask,
   ]);
-  const expansionLatencyMs = Math.round(performance.now() - expansionStartedAt);
+  const expandedQuery = expansionResult.value;
+  const hydeDocument = hydeResult.value;
   const decomposedQueries = dedupeQueries(
     decomposeQuery(normalizedQuery)
   ).slice(0, 4);
@@ -1130,12 +1144,15 @@ export const retrieveRelevantChunks = async (
   const searchLatencyMs = Math.round(performance.now() - searchStartedAt);
   const allSearchResults = [...querySearchResults, hydeSearchResults];
 
+  const fusionStartedAt = performance.now();
   const mergedCandidates = diversifyByResource(
     fuseCandidatesByRrf(allSearchResults).sort(
       (a, b) => b.fusionScore - a.fusionScore
     ),
     MAX_RESOURCE_DIVERSITY
   );
+  const fusionLatencyMs = Math.round(performance.now() - fusionStartedAt);
+  const learnerSignalsStartedAt = performance.now();
   const learnerSignalBoosts =
     options?.userId && options.workspaceId
       ? await getLearnerSignalBoosts({
@@ -1144,6 +1161,9 @@ export const retrieveRelevantChunks = async (
           workspaceId: options.workspaceId,
         })
       : new Map<string, { boost: number }>();
+  const learnerSignalsLatencyMs = Math.round(
+    performance.now() - learnerSignalsStartedAt
+  );
 
   const sortedCandidates: FusionCandidate[] = mergedCandidates
     .filter(
@@ -1234,7 +1254,21 @@ export const retrieveRelevantChunks = async (
       eventName: "retrieval.phase_timings",
       payload: {
         embeddingMs: embeddingLatencyMs,
-        expansionAndHydeMs: expansionLatencyMs,
+        expansionMs: expansionResult.latencyMs,
+        fusionMs: fusionLatencyMs,
+        hydeMs: hydeResult.latencyMs,
+        learnerSignalsMs: learnerSignalsLatencyMs,
+        rerankMs: 0,
+        responseShapingMs: Math.max(
+          0,
+          latencyMs -
+            embeddingLatencyMs -
+            expansionResult.latencyMs -
+            hydeResult.latencyMs -
+            searchLatencyMs -
+            fusionLatencyMs -
+            learnerSignalsLatencyMs
+        ),
         searchMs: searchLatencyMs,
         totalMs: latencyMs,
         workspaceId: options?.workspaceId ?? null,
@@ -1250,6 +1284,7 @@ export const retrieveRelevantChunks = async (
     };
   }
 
+  const rerankStartedAt = performance.now();
   const reranked = await rerank({
     model: apollo.rerankingModel("apollo-reranking"),
     documents: rerankCandidates.map((candidate) => candidate.content),
@@ -1295,7 +1330,9 @@ export const retrieveRelevantChunks = async (
         rerankScore: candidate.score,
       }));
     });
+  const rerankLatencyMs = Math.round(performance.now() - rerankStartedAt);
 
+  const responseShapingStartedAt = performance.now();
   const adjacentByChunkId = new Map<string, VectorSearchResult[]>(
     await Promise.all(
       reranked
@@ -1320,6 +1357,9 @@ export const retrieveRelevantChunks = async (
     RETRIEVAL_CONTEXT_TOKEN_BUDGET
   );
   const corpus = options?.corpus ?? (await vectorStore.corpusStats());
+  const responseShapingLatencyMs = Math.round(
+    performance.now() - responseShapingStartedAt
+  );
 
   const latencyMs = Math.round(performance.now() - start);
   const telemetry = buildRetrievalDecisionTelemetry({
@@ -1355,7 +1395,12 @@ export const retrieveRelevantChunks = async (
     eventName: "retrieval.phase_timings",
     payload: {
       embeddingMs: embeddingLatencyMs,
-      expansionAndHydeMs: expansionLatencyMs,
+      expansionMs: expansionResult.latencyMs,
+      fusionMs: fusionLatencyMs,
+      hydeMs: hydeResult.latencyMs,
+      learnerSignalsMs: learnerSignalsLatencyMs,
+      rerankMs: rerankLatencyMs,
+      responseShapingMs: responseShapingLatencyMs,
       searchMs: searchLatencyMs,
       totalMs: latencyMs,
       workspaceId: options?.workspaceId ?? null,
