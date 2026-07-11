@@ -24,7 +24,10 @@ import { StudentCalendar } from "@/components/student-calendar";
 import type { FlashcardSetSummary } from "@/lib/flashcards";
 import type { MisconceptionRecord } from "@/lib/learning-data";
 import { getUploadErrorMessage } from "@/lib/upload";
-import { requestUploadPreflight } from "@/lib/upload-preflight";
+import {
+  completeUploadSession,
+  requestUploadPreflight,
+} from "@/lib/upload-preflight";
 import { useUploadThing } from "@/lib/uploadthing";
 
 interface WeakPointGroup {
@@ -1025,6 +1028,7 @@ export function OnboardingModal({
 
   const registerUpload = async (
     file: File,
+    sessionId: string,
     uploaded: {
       key?: string;
       name?: string;
@@ -1037,29 +1041,12 @@ export function OnboardingModal({
       throw new Error("Upload metadata is incomplete.");
     }
 
-    const response = await fetch(
-      `/api/workspaces/${workspaceUuid}/files/register`,
-      {
-        body: JSON.stringify({
-          folderId: rootFolderId,
-          metadata: { source: "onboarding" },
-          mimeType: uploaded.contentType ?? file.type ?? null,
-          name: uploaded.name ?? file.name,
-          sizeBytes: uploaded.size ?? file.size,
-          storageKey: uploaded.key,
-          storageUrl: uploaded.ufsUrl,
-        }),
-        headers: { "Content-Type": "application/json" },
-        method: "POST",
-      }
-    );
-
-    if (!response.ok) {
-      const payload = (await response.json().catch(() => ({}))) as {
-        error?: string;
-      };
-      throw new Error(payload.error ?? "Unable to register uploaded file.");
-    }
+    await completeUploadSession({
+      file,
+      metadata: { source: "onboarding" },
+      sessionId,
+      uploaded,
+    });
   };
 
   const handleUploadSelection = async (
@@ -1077,12 +1064,14 @@ export function OnboardingModal({
     setUploadPhase("uploading");
 
     try {
+      let sessionId: string | null = null;
       if (workspaceUuid && rootFolderId) {
-        await requestUploadPreflight({
+        const preflight = await requestUploadPreflight({
           file,
           folderId: rootFolderId,
           workspaceUuid,
         });
+        sessionId = preflight.session.id;
       }
       const uploadedResults = (await startUpload([file])) ?? [];
       const uploaded = uploadedResults[0];
@@ -1090,7 +1079,10 @@ export function OnboardingModal({
         throw new Error("Upload returned no storage payload.");
       }
       setUploadMessage("Registering the file in your workspace.");
-      await registerUpload(file, uploaded);
+      if (!sessionId) {
+        throw new Error("Upload session was not created.");
+      }
+      await registerUpload(file, sessionId, uploaded);
       setUploadPhase("done");
       setUploadMessage("Uploaded and queued for ingestion.");
       setMemory((current) => ({

@@ -12,7 +12,6 @@ import {
   type WorkspaceFileRegisterBody,
 } from "./workspace-file-register-model";
 import { registerWorkspaceNoteFromContent } from "./workspace-file-register-note";
-import { registerWorkspaceStoredUpload } from "./workspace-file-register-upload";
 
 export async function POST(
   request: Request,
@@ -77,12 +76,13 @@ export async function POST(
       });
     }
 
-    return await registerWorkspaceStoredUpload({
-      apiLogger,
-      body,
-      userId: user.id,
+    void apiLogger.requestFailed(410, "Upload session required", {
       workspaceUuid,
     });
+    return NextResponse.json(
+      { error: "Binary uploads require an upload session" },
+      { status: 410 }
+    );
   } catch (error) {
     void apiLogger.requestFailed(500, error);
     return NextResponse.json(

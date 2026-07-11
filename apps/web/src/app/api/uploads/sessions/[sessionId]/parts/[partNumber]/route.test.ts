@@ -273,6 +273,8 @@ describe("/api/uploads/sessions/[sessionId]/parts/[partNumber] route", () => {
       sessionId: "session-1",
       partNumber: 4,
       maxBytes: 16 * 1024 * 1024,
+      maxPartCount: 60,
+      maxTotalBytes: 1_000_000_000,
       stream: expect.any(ReadableStream),
     });
   });

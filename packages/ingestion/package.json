@@ -5,6 +5,7 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./file-contract": "./src/file-contract.ts",
     "./link": "./src/ingestion/link.ts",
     "./queue": "./src/queue.ts",
     "./runtime/redis-client": "./src/runtime/redis-client.ts",

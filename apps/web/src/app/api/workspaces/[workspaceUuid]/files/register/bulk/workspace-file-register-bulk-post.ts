@@ -6,7 +6,6 @@ import {
 } from "@/lib/file-data";
 import {
   registerWorkspaceMarkdownNote,
-  registerWorkspaceUploadedFile,
 } from "@/lib/upload-registration";
 import { scheduleAsyncVideoDeliveryOptimization } from "@/lib/video-delivery-optimization-runtime";
 import {
@@ -85,32 +84,25 @@ export async function postWorkspaceFileRegisterBulk(input: {
           continue;
         }
 
-        const registrationResult = isWorkspaceFileRegisterBulkNotePayload(
-          fileInput
-        )
-          ? await registerWorkspaceMarkdownNote({
-              content: fileInput.content,
-              dedupeMode,
-              folderId: fileInput.folderId,
-              metadata: fileInput.metadata,
-              name: fileInput.name,
-              userId: input.userId,
-              workspaceUuid: input.workspaceUuid,
+        if (!isWorkspaceFileRegisterBulkNotePayload(fileInput)) {
+          results.push(
+            buildWorkspaceFileRegisterBulkFailedResult({
+              clientUploadId: fileInput.clientUploadId,
+              error: "Binary uploads require an upload session",
             })
-          : await registerWorkspaceUploadedFile({
-              workspaceUuid: input.workspaceUuid,
-              userId: input.userId,
-              folderId: fileInput.folderId,
-              storageKey: fileInput.storageKey,
-              storageUrl: fileInput.storageUrl,
-              name: fileInput.name,
-              mimeType: fileInput.mimeType,
-              sizeBytes: fileInput.sizeBytes,
-              metadata: fileInput.metadata,
-              contentHashSha256: fileInput.contentHashSha256,
-              hashComputedBy: fileInput.hashComputedBy,
-              dedupeMode,
-            });
+          );
+          continue;
+        }
+
+        const registrationResult = await registerWorkspaceMarkdownNote({
+          content: fileInput.content,
+          dedupeMode,
+          folderId: fileInput.folderId,
+          metadata: fileInput.metadata,
+          name: fileInput.name,
+          userId: input.userId,
+          workspaceUuid: input.workspaceUuid,
+        });
 
         results.push({
           clientUploadId: fileInput.clientUploadId,

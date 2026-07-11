@@ -1,4 +1,8 @@
 import { decodeBase64ToBytes } from "./safety";
+import {
+  normalizeFileMimeType,
+  type SupportedFileMimeType,
+} from "../file-contract";
 
 const SUPPORTED_IMAGE_MIME_TYPES = [
   "image/gif",
@@ -17,17 +21,14 @@ const SUPPORTED_IMAGE_MIME_TYPE_SET = new Set<string>(
 export const normalizeImageMimeType = (
   value: string | null | undefined
 ): SupportedImageMimeType | null => {
-  const normalized = value?.split(";", 1)[0]?.trim().toLowerCase() ?? "";
-  if (!normalized) {
-    return null;
-  }
-
-  if (normalized === "image/jpg") {
-    return "image/jpeg";
-  }
-
-  return SUPPORTED_IMAGE_MIME_TYPE_SET.has(normalized)
-    ? (normalized as SupportedImageMimeType)
+  const normalized: SupportedFileMimeType | null = normalizeFileMimeType(value);
+  return normalized && SUPPORTED_IMAGE_MIME_TYPE_SET.has(normalized)
+    ? normalized === "image/gif" ||
+      normalized === "image/jpeg" ||
+      normalized === "image/png" ||
+      normalized === "image/webp"
+      ? normalized
+      : null
     : null;
 };
 

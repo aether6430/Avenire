@@ -140,7 +140,10 @@ import {
   buildVideoPlaybackDescriptor,
 } from "@/lib/media-playback";
 import { getUploadErrorMessage } from "@/lib/upload";
-import { requestUploadPreflight } from "@/lib/upload-preflight";
+import {
+  completeUploadSession,
+  requestUploadPreflight,
+} from "@/lib/upload-preflight";
 import { useUploadThing } from "@/lib/uploadthing";
 import { cn } from "@/lib/utils";
 import {
@@ -3989,9 +3992,9 @@ export function FileExplorer({
                 targetFolderId,
               });
             } else {
-              await requestUploadPreflight({
+              const preflight = await requestUploadPreflight({
                 file: entry.candidate.file,
-                folderId: currentFolderId,
+                folderId: targetFolderId,
                 workspaceUuid,
               });
               const uploaded = ((await startUpload([entry.candidate.file])) ??
@@ -4000,14 +4003,51 @@ export function FileExplorer({
                 throw new Error("Upload returned no file metadata");
               }
 
-              preparedForRegister.push({
-                candidate: entry.candidate,
-                contentHashSha256: hashByQueueId.get(entry.queueItemId),
+              const completed = await completeUploadSession({
+                checksumSha256: hashByQueueId.get(entry.queueItemId),
                 file: entry.candidate.file,
-                queueItemId: entry.queueItemId,
-                targetFolderId,
+                sessionId: preflight.session.id,
                 uploaded,
               });
+              const completedFile =
+                typeof completed === "object" && completed !== null && "file" in completed
+                  ? completed.file
+                  : null;
+              const ingestionJob =
+                typeof completed === "object" &&
+                completed !== null &&
+                "ingestionJob" in completed
+                  ? completed.ingestionJob
+                  : null;
+              const fileId =
+                typeof completedFile === "object" &&
+                completedFile !== null &&
+                "id" in completedFile &&
+                typeof completedFile.id === "string"
+                  ? completedFile.id
+                  : undefined;
+              const ingestionJobId =
+                typeof ingestionJob === "object" &&
+                ingestionJob !== null &&
+                "id" in ingestionJob &&
+                typeof ingestionJob.id === "string"
+                  ? ingestionJob.id
+                  : undefined;
+              successCount += 1;
+              setUploadQueue((previous) =>
+                previous.map((item) =>
+                  item.id === entry.queueItemId
+                    ? {
+                        ...item,
+                        fileId,
+                        ingestionJobId,
+                        status: ingestionJobId ? "ingesting" : "uploaded",
+                        failureCount: 0,
+                        error: undefined,
+                      }
+                    : item
+                )
+              );
             }
 
             setUploadQueue((previous) =>
@@ -5136,13 +5176,13 @@ export function FileExplorer({
     });
   };
 
-  const openRenameFolderDialog = (folder: FolderRecord) => {
+  const openRenameFolderDialog = useCallback((folder: FolderRecord) => {
     setEditDialog({
       mode: "rename-folder",
       id: folder.id,
       value: folder.name,
     });
-  };
+  }, []);
 
   const openRenameFileDialog = (file: FileRecord) => {
     setEditDialog({
