@@ -14,7 +14,7 @@ export type JsonRequestResult<T> = JsonRequestFailure | JsonRequestSuccess<T>;
 
 export async function parseJsonRequest<T>(
   request: Request,
-  schema: Schema.Schema<T>
+  schema: Schema.Codec<T, unknown, never, never>
 ): Promise<JsonRequestResult<T>> {
   const bodyExit = await Effect.runPromiseExit(
     Effect.tryPromise(() => request.json()),
