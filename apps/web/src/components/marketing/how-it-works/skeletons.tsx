@@ -3,6 +3,7 @@ import { cn } from "@/lib/utils";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { DivideX } from "../divide";
 import { motion, useMotionValue, useTransform } from "motion/react";
+import type { MotionValue } from "motion/react";
 import { Card } from "../tech-card";
 import { Scale } from "../scale";
 import { LogoSVG } from "../logo";
@@ -268,6 +269,72 @@ export const ConnectYourTooklsSkeleton = () => {
   );
 };
 
+interface ScrollingDeployCardProps {
+  branch: string;
+  index: number;
+  itemHeight: number;
+  offset: number;
+  subtitle: string;
+  title: string;
+  variant?: "default" | "danger" | "success" | "warning";
+  y: MotionValue<number>;
+}
+
+function ScrollingDeployCard({
+  branch,
+  index,
+  itemHeight,
+  offset,
+  subtitle,
+  title,
+  variant,
+  y,
+}: ScrollingDeployCardProps) {
+  const scale = useTransform(
+    y,
+    [
+      offset + (index - 2) * -itemHeight,
+      offset + (index - 1) * -itemHeight,
+      offset + index * -itemHeight,
+      offset + (index + 1) * -itemHeight,
+      offset + (index + 2) * -itemHeight,
+    ],
+    [0.85, 0.95, 1.1, 0.95, 0.85],
+  );
+  const background = useTransform(
+    y,
+    [
+      offset + (index - 1) * -itemHeight,
+      offset + index * -itemHeight,
+      offset + (index + 1) * -itemHeight,
+    ],
+    ["#101114", "#abc4ff", "#101114"],
+  );
+  const borderColor = useTransform(
+    y,
+    [
+      offset + (index - 1) * -itemHeight,
+      offset + index * -itemHeight,
+      offset + (index + 1) * -itemHeight,
+    ],
+    ["#101114", "#abc4ff", "#101114"],
+  );
+
+  return (
+    <motion.div
+      className="mx-auto mt-4 w-full max-w-sm shrink-0 rounded-2xl shadow-xl"
+      style={{ background, borderColor, scale }}
+    >
+      <DeployCard
+        branch={branch}
+        subtitle={subtitle}
+        title={title}
+        variant={variant}
+      />
+    </motion.div>
+  );
+}
+
 export const DeployAndScaleSkeleton = () => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerHeight, setContainerHeight] = useState(0);
@@ -397,49 +464,17 @@ export const DeployAndScaleSkeleton = () => {
         style={{ y }}
       >
         {extendedCards.map((card, index) => (
-          <motion.div
-            key={`${index}-${card.title}`}
-            className="mx-auto mt-4 w-full max-w-sm shrink-0 rounded-2xl shadow-xl"
-            style={{
-              scale: useTransform(
-                y,
-                [
-                  offset + (index - 2) * -itemHeight,
-                  offset + (index - 1) * -itemHeight,
-                  offset + index * -itemHeight,
-                  offset + (index + 1) * -itemHeight,
-                  offset + (index + 2) * -itemHeight,
-                ],
-                [0.85, 0.95, 1.1, 0.95, 0.85],
-              ),
-
-              background: useTransform(
-                y,
-                [
-                  offset + (index - 1) * -itemHeight,
-                  offset + index * -itemHeight,
-                  offset + (index + 1) * -itemHeight,
-                ],
-                ["#101114", "#abc4ff", "#101114"],
-              ),
-              borderColor: useTransform(
-                y,
-                [
-                  offset + (index - 1) * -itemHeight,
-                  offset + index * -itemHeight,
-                  offset + (index + 1) * -itemHeight,
-                ],
-                ["#101114", "#abc4ff", "#101114"],
-              ),
-            }}
-          >
-            <DeployCard
-              variant={card.variant}
-              title={card.title}
-              subtitle={card.subtitle}
-              branch={card.branch}
-            />
-          </motion.div>
+          <ScrollingDeployCard
+            branch={card.branch}
+            index={index}
+            itemHeight={itemHeight}
+            key={`${card.title}-${Math.floor(index / deployCards.length)}`}
+            offset={offset}
+            subtitle={card.subtitle}
+            title={card.title}
+            variant={card.variant}
+            y={y}
+          />
         ))}
       </motion.div>
     </div>
