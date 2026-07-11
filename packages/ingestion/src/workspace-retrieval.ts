@@ -12,6 +12,8 @@ import {
 } from "./workspace-retrieval-cache";
 
 const WHITESPACE_SPLIT_PATTERN = /\s+/;
+const CACHE_FAST_PATH_BUDGET_MS = 25;
+const CACHE_PROBE_TIMED_OUT = Symbol("CACHE_PROBE_TIMED_OUT");
 
 export type RetrievalMode = "auto" | "fast" | "full";
 export type RetrievalSourceType =
@@ -393,13 +395,15 @@ export async function queryWorkspaceWithAdapters(
   }
 
   const vectorStore = adapters.vectorStoreFactory(input.workspaceId);
-  const latestUpdatedAt = await adapters.loadCorpusFingerprint(
+  const revisionStartedAt = performance.now();
+  const ingestionRevision = await adapters.loadCorpusFingerprint(
     input.workspaceId
   );
+  const revisionLookupMs = Math.round(performance.now() - revisionStartedAt);
   const corpusFingerprint = createHash("sha256")
     .update(
       JSON.stringify({
-        latestUpdatedAt,
+        ingestionRevision,
         workspaceId: input.workspaceId,
       })
     )
@@ -416,45 +420,69 @@ export async function queryWorkspaceWithAdapters(
     workspaceUuid: input.workspaceId,
   });
 
-  const cached =
-    await adapters.store.getCachedResult<
-      Omit<WorkspaceRetrievalResponse, "cache" | "latencyMs">
-    >(cacheKey);
+  const cacheStartedAt = performance.now();
+  const cacheLookup = adapters.store
+    .getCachedResult<Omit<WorkspaceRetrievalResponse, "cache" | "latencyMs">>(
+      cacheKey
+    )
+    .catch(() => null);
+  const cached = await Promise.race([
+    cacheLookup,
+    new Promise<typeof CACHE_PROBE_TIMED_OUT>((resolve) => {
+      setTimeout(
+        () => resolve(CACHE_PROBE_TIMED_OUT),
+        CACHE_FAST_PATH_BUDGET_MS
+      );
+    }),
+  ]);
+  const cacheLookupMs = Math.round(performance.now() - cacheStartedAt);
+  const cacheTimedOut = cached === CACHE_PROBE_TIMED_OUT;
   if (cached) {
-    const latencyMs = Math.round(performance.now() - start);
-    const response = {
-      ...cached,
-      cache: "hit" as const,
-      latencyMs,
-    };
+    if (cacheTimedOut) {
+      logInfo({
+        eventName: "retrieval.cache.slow_probe_bypassed",
+        payload: {
+          cacheLookupMs,
+          workspaceId: input.workspaceId,
+        },
+      });
+    } else {
+      const latencyMs = Math.round(performance.now() - start);
+      const response = {
+        ...cached,
+        cache: "hit" as const,
+        latencyMs,
+      };
 
-    logInfo({
-      eventName: "retrieval.cache.hit",
-      payload: buildCacheLogPayload({
+      logInfo({
+        eventName: "retrieval.cache.hit",
+        payload: buildCacheLogPayload({
+          cache: "hit",
+          corpusFingerprint,
+          queryShape,
+          request: input,
+          response,
+        }),
+      });
+
+      await adapters.store.recordRecentQuery({
         cache: "hit",
-        corpusFingerprint,
-        queryShape,
-        request: input,
-        response,
-      }),
-    });
+        confidence: response.confidence,
+        createdAt: adapters.now().toISOString(),
+        origin: input.origin ?? "unknown",
+        path: response.path,
+        provider: input.provider ?? null,
+        query: response.normalizedQuery,
+        sourceType: input.sourceType ?? null,
+        userId: input.userId ?? null,
+        workspaceUuid: input.workspaceId,
+      });
 
-    await adapters.store.recordRecentQuery({
-      cache: "hit",
-      confidence: response.confidence,
-      createdAt: adapters.now().toISOString(),
-      origin: input.origin ?? "unknown",
-      path: response.path,
-      provider: input.provider ?? null,
-      query: response.normalizedQuery,
-      sourceType: input.sourceType ?? null,
-      userId: input.userId ?? null,
-      workspaceUuid: input.workspaceId,
-    });
-
-    return response;
+      return response;
+    }
   }
 
+  const retrievalStartedAt = performance.now();
   const retrieval = await retrieveRelevantChunksAdaptive(
     vectorStore,
     normalizedQuery,
@@ -467,6 +495,7 @@ export async function queryWorkspaceWithAdapters(
       workspaceId: input.workspaceId,
     }
   );
+  const retrievalMs = Math.round(performance.now() - retrievalStartedAt);
   const latencyMs = Math.round(performance.now() - start);
   const response: Omit<WorkspaceRetrievalResponse, "cache"> = {
     ambiguityReasons: retrieval.ambiguityReasons,
@@ -498,6 +527,24 @@ export async function queryWorkspaceWithAdapters(
         results: response.results,
       },
     }),
+  });
+  logInfo({
+    eventName: "retrieval.request_phase_timings",
+    payload: {
+      cacheLookupMs,
+      cacheTimedOut,
+      responseShapingMs: Math.max(
+        0,
+        Math.round(performance.now() - start) -
+          revisionLookupMs -
+          cacheLookupMs -
+          retrievalMs
+      ),
+      retrievalMs,
+      revisionLookupMs,
+      totalMs: Math.round(performance.now() - start),
+      workspaceId: input.workspaceId,
+    },
   });
 
   await adapters.store.recordRecentQuery({

@@ -284,6 +284,27 @@ describe("workspace retrieval", () => {
     );
   });
 
+  it("starts retrieval when a cache probe exceeds the fast-path budget", async () => {
+    const { adapters } = createAdapters();
+    adapters.store.getCachedResult = vi.fn(
+      () => new Promise<null>((resolve) => setTimeout(() => resolve(null), 250))
+    );
+
+    const startedAt = performance.now();
+    const result = await queryWorkspaceWithAdapters(
+      {
+        origin: "api",
+        query: "osmosis basics",
+        workspaceId: "ws_1",
+      },
+      adapters
+    );
+
+    expect(result.cache).toBe("miss");
+    expect(mockRetrieveRelevantChunksAdaptive).toHaveBeenCalledTimes(1);
+    expect(performance.now() - startedAt).toBeLessThan(200);
+  });
+
   it("warms retrieval candidates gathered from history, summaries, and files", async () => {
     const { adapters } = createAdapters({
       files: [
