@@ -18,6 +18,7 @@ declare namespace NodeJS {
     BETTER_AUTH_SECRET?: string;
     BETTER_AUTH_TRUSTED_ORIGINS?: string;
     BETTER_AUTH_URL?: string;
+    BILLING_SYNC_SECRET?: string;
     CHAT_CONTEXT_MAX_CHARS?: string;
     CHAT_PROFILE_LOGS?: string;
     CHAT_TITLE_MODEL?: string;
@@ -38,6 +39,7 @@ declare namespace NodeJS {
     COHERE_TEST_TPM_TARGET_RATIO?: string;
     COHERE_TOKEN_ESTIMATE_SAFETY_FACTOR?: string;
     COHERE_TPM_LIMIT?: string;
+    CRON_SECRET?: string;
     DATABASE_URL?: string;
     DURABLE_STREAMS_BIN_DIR?: string;
     DURABLE_STREAMS_CADDYFILE?: string;
@@ -110,6 +112,9 @@ declare namespace NodeJS {
     OPENROUTER_API_KEY?: string;
     PG_POOL_MAX?: string;
     POLAR_ACCESS_TOKEN?: string;
+    POLAR_CREDITS_EVENT_NAME?: string;
+    POLAR_CREDITS_METER_ID?: string;
+    POLAR_CREDITS_SHADOW_MODE?: string;
     POLAR_ORGANIZATION_ID?: string;
     POLAR_PRODUCT_ID_CORE_MONTHLY?: string;
     POLAR_PRODUCT_ID_CORE_YEARLY?: string;
