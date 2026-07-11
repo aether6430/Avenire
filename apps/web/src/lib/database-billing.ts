@@ -5,13 +5,17 @@ export type {
 } from "@avenire/database";
 export {
   canStoreBytesForUser,
+  claimPendingBillingUsageEvents,
   consumeUsageUnits,
   findUserIdByPolarCustomerId,
   getBillingCustomerByUserId,
   getBillingSubscriptionByUserId,
+  getLocalDeliveredUsageTotal,
   getPlanEntitlements,
   getStorageUsageForUser,
   getUsageOverview,
+  markBillingUsageEventDelivered,
+  markBillingUsageEventFailed,
   restoreUsageUnits,
   upsertBillingCustomer,
   upsertBillingSubscription,
