@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { Exit, Schema } from "effect-v4";
 import {
   buildSharedResourceDuplicateFileRoute,
   buildSharedResourceDuplicateFolderRoute,
@@ -10,9 +11,9 @@ import {
 describe("shared resource duplicate model", () => {
   it("validates the target workspace payload and builds destination routes", () => {
     expect(
-      sharedResourceDuplicateSchema.safeParse({
-        workspaceId: "workspace-1",
-      }).success
+      Exit.isSuccess(
+        Schema.decodeUnknownExit(sharedResourceDuplicateSchema)({ workspaceId: "workspace-1" })
+      )
     ).toBe(true);
 
     expect(

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createApiLogger } from "@/lib/observability";
+import { parseJsonRequest } from "@/lib/api-request";
 import {
   getUploadSession,
   saveUploadSession,
@@ -44,9 +45,7 @@ export async function handleUploadSessionPartsPost(input: {
       return NextResponse.json({ error: "Session expired" }, { status: 410 });
     }
 
-    const parsed = uploadSessionPartsSchema.safeParse(
-      await input.request.json().catch(() => ({}))
-    );
+    const parsed = await parseJsonRequest(input.request, uploadSessionPartsSchema);
     if (!parsed.success) {
       void apiLogger.requestFailed(400, "Invalid payload");
       return NextResponse.json({ error: "Invalid payload" }, { status: 400 });

@@ -7,6 +7,7 @@ import { upsertMisconception } from "@/lib/learning-data";
 import { ensureNotesFolder } from "@/lib/quick-capture";
 import { invalidateTaskListCache } from "@/lib/tasks-cache";
 import { getWorkspaceContextForUser } from "@/lib/workspace";
+import { parseJsonRequest } from "@/lib/api-request";
 import { capturePayloadSchema } from "./capture-route-model";
 
 function normalizeText(value: unknown) {
@@ -19,13 +20,20 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const payload = await request.json().catch(() => ({}));
-  const parsedPayload = capturePayloadSchema.safeParse(payload);
+  const parsedPayload = await parseJsonRequest(request, capturePayloadSchema);
   if (!parsedPayload.success) {
     return NextResponse.json({ error: "Invalid request" }, { status: 400 });
   }
   const body = parsedPayload.data;
   const kind = body.kind;
+
+  if (
+    kind === "task" &&
+    body.dueAt !== undefined &&
+    !Number.isFinite(new Date(body.dueAt).getTime())
+  ) {
+    return NextResponse.json({ error: "Invalid request" }, { status: 400 });
+  }
 
   if (kind === "task") {
     const title = normalizeText(body.title);

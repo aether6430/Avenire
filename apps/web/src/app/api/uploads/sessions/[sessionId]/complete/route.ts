@@ -5,11 +5,13 @@ import { createApiLogger } from "@/lib/observability";
 import { normalizeSha256 } from "@/lib/upload-registration";
 import { getUploadSession } from "@/lib/upload-session-store";
 import { getSessionUser } from "@/lib/workspace";
+import { parseJsonRequest } from "@/lib/api-request";
 import { finalizeUploadSessionCompletion } from "./upload-session-complete-finalize";
 import {
   asNullableString,
   buildUploadCompletionReplayResponse,
   completeSchema,
+  readUploadCompletionErrorCode,
 } from "./upload-session-complete-model";
 import { completeMultipartUploadSession } from "./upload-session-complete-storage";
 
@@ -74,9 +76,7 @@ export async function POST(
       return buildUploadCompletionReplayResponse({ session });
     }
 
-    const parsed = completeSchema.safeParse(
-      await request.json().catch(() => ({}))
-    );
+    const parsed = await parseJsonRequest(request, completeSchema);
     if (!parsed.success) {
       void apiLogger.requestFailed(400, "Invalid payload");
       return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
@@ -102,12 +102,9 @@ export async function POST(
         checksumSha256 = checksumSha256 ?? multipartUpload.checksumSha256;
         multipartPartCount = multipartUpload.partCount;
       } catch (error) {
-        const isUnavailable =
-          (error as { code?: string } | null | undefined)?.code ===
-          "UPLOADTHING_UNAVAILABLE";
-        const isPartMismatch =
-          (error as { code?: string } | null | undefined)?.code ===
-          "MULTIPART_PART_MISMATCH";
+        const errorCode = readUploadCompletionErrorCode(error);
+        const isUnavailable = errorCode === "UPLOADTHING_UNAVAILABLE";
+        const isPartMismatch = errorCode === "MULTIPART_PART_MISMATCH";
         void apiLogger.requestFailed(isUnavailable ? 503 : 500, error, {
           workspaceUuid: session.workspaceUuid,
           sessionId: session.id,

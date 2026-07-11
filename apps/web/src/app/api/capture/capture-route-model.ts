@@ -1,35 +1,41 @@
-import { z } from "zod";
-import { taskDueAtSchema, taskResourceSchema } from "../tasks/task-route-model";
+import { Schema } from "effect-v4";
 
-export const captureKindSchema = z.object({
-  kind: z.enum(["task", "note", "misconception"]),
+const nonEmptyString = Schema.String.check(Schema.isMinLength(1));
+const taskResourceSchema = Schema.Struct({
+  href: nonEmptyString,
+  resourceId: nonEmptyString,
+  resourceType: Schema.Literals(["file", "folder", "chat"]),
+  subtitle: Schema.NullOr(Schema.String),
+  title: nonEmptyString,
 });
 
-export const taskCaptureSchema = z.object({
-  assigneeUserId: z.string().trim().min(1).optional(),
-  description: z.string().optional(),
-  dueAt: taskDueAtSchema.optional(),
-  kind: z.literal("task"),
-  resources: z.array(taskResourceSchema).optional(),
-  title: z.string().optional(),
+const taskCaptureSchema = Schema.Struct({
+  assigneeUserId: Schema.optional(Schema.Trim.check(Schema.isMinLength(1))),
+  description: Schema.optional(Schema.String),
+  dueAt: Schema.optional(nonEmptyString),
+  kind: Schema.Literal("task"),
+  resources: Schema.optional(Schema.Array(taskResourceSchema)),
+  title: Schema.optional(Schema.String),
 });
 
-export const noteCaptureSchema = z.object({
-  content: z.string().optional(),
-  kind: z.literal("note"),
-  title: z.string().optional(),
+const noteCaptureSchema = Schema.Struct({
+  content: Schema.optional(Schema.String),
+  kind: Schema.Literal("note"),
+  title: Schema.optional(Schema.String),
 });
 
-export const misconceptionCaptureSchema = z.object({
-  concept: z.string().optional(),
-  confidence: z.coerce.number().finite().min(0).max(1).optional(),
-  kind: z.literal("misconception"),
-  reason: z.string().optional(),
-  subject: z.string().optional(),
-  topic: z.string().optional(),
+const misconceptionCaptureSchema = Schema.Struct({
+  concept: Schema.optional(Schema.String),
+  confidence: Schema.optional(
+    Schema.Number.check(Schema.isFinite(), Schema.isBetween(0, 1))
+  ),
+  kind: Schema.Literal("misconception"),
+  reason: Schema.optional(Schema.String),
+  subject: Schema.optional(Schema.String),
+  topic: Schema.optional(Schema.String),
 });
 
-export const capturePayloadSchema = z.discriminatedUnion("kind", [
+export const capturePayloadSchema = Schema.Union([
   taskCaptureSchema,
   noteCaptureSchema,
   misconceptionCaptureSchema,

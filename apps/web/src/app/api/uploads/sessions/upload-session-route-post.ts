@@ -9,6 +9,7 @@ import { createApiLogger } from "@/lib/observability";
 import { normalizeSha256 } from "@/lib/upload-registration";
 import { createUploadSession } from "@/lib/upload-session-store";
 import { ensureWorkspaceAccessForUser } from "@/lib/workspace";
+import { parseJsonRequest } from "@/lib/api-request";
 import {
   createUploadSessionSchema,
   resolveUploadSessionMaxPartBytes,
@@ -28,9 +29,7 @@ export async function handleUploadSessionsPost(input: {
   });
   apiLogger.requestStarted();
 
-  const parsed = createUploadSessionSchema.safeParse(
-    await input.request.json().catch(() => ({}))
-  );
+  const parsed = await parseJsonRequest(input.request, createUploadSessionSchema);
   if (!parsed.success) {
     apiLogger.requestFailed(400, "Invalid payload");
     return NextResponse.json({ error: "Invalid payload" }, { status: 400 });

@@ -5,6 +5,7 @@ import {
   resolveResourceShareLink,
 } from "@/lib/file-data";
 import { getSessionUser } from "@/lib/workspace";
+import { parseJsonRequest } from "@/lib/api-request";
 import { duplicateSharedFileIntoWorkspace } from "./shared-resource-duplicate-file";
 import { duplicateSharedFolderIntoWorkspace } from "./shared-resource-duplicate-folder";
 import {
@@ -46,9 +47,7 @@ export async function POST(
       );
     }
 
-    const parsed = sharedResourceDuplicateSchema.safeParse(
-      await request.json().catch(() => ({}))
-    );
+    const parsed = await parseJsonRequest(request, sharedResourceDuplicateSchema);
     if (!parsed.success) {
       return NextResponse.json(
         { error: "Workspace is required." },

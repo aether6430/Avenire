@@ -4,19 +4,14 @@ import {
   updateExtensionDestinationPreset,
 } from "@avenire/database";
 import { NextResponse } from "next/server";
-import { z } from "zod";
+import { parseJsonRequest } from "@/lib/api-request";
 import {
   listWorkspaceFolders,
   listWorkspacesForUser,
   userCanEditFolder,
 } from "@/lib/file-data";
 import { getSessionUser } from "@/lib/workspace";
-
-const updatePresetSchema = z.object({
-  folderId: z.string().uuid(),
-  label: z.string().trim().max(80).optional(),
-  workspaceId: z.string().uuid(),
-});
+import { extensionDestinationRequestSchema } from "../../extension-route-contracts";
 
 export async function PATCH(
   request: Request,
@@ -39,9 +34,7 @@ export async function PATCH(
     );
   }
 
-  const parsed = updatePresetSchema.safeParse(
-    await request.json().catch(() => ({}))
-  );
+  const parsed = await parseJsonRequest(request, extensionDestinationRequestSchema);
   if (!parsed.success) {
     return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
   }
