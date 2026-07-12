@@ -709,7 +709,7 @@ function WorkbookPreview({
               {controller.tabs.map((tab, index) => (
                 <TabsTrigger
                   className="h-7 max-w-44 truncate px-3 text-xs"
-                  key={`${tab.kind}-${index}-${tab.name}`}
+                  key={`${tab.kind}-${tab.name}`}
                   value={String(index)}
                 >
                   {tab.name}

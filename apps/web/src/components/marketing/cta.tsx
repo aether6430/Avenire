@@ -116,7 +116,7 @@ export const CTAOrbit: React.FC<CTAOrbitProps> = ({
             const translate = radius;
             return (
               <div
-                key={`ring-${ringIndex}-logo-${idx}`}
+                key={`ring-${ringIndex}-logo-${label}`}
                 className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
                 style={{
                   transform: `rotate(${angleDeg}deg) translateX(${translate}px)`,

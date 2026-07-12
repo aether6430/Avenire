@@ -246,7 +246,7 @@ export function ReviewSimulator() {
           <div className="flex flex-col gap-1 max-h-[180px] overflow-y-auto">
             {history.map((h, i) => (
               <div
-                key={i}
+                key={`${h.stabilityBefore}-${h.interval}`}
                 className={`flex items-center justify-between rounded-lg p-2 text-[10px] ${
                   i === 0 ? "bg-white/5" : ""
                 }`}

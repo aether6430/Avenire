@@ -156,7 +156,7 @@ export function IntervalCalculator() {
           </thead>
           <tbody>
             {rows.map((row, i) => (
-              <tr key={i} className={i % 2 === 0 ? "" : "bg-white/[0.02]"}>
+              <tr key={row.review} className={i % 2 === 0 ? "" : "bg-white/[0.02]"}>
                 <td className="p-2 border-b border-white/5">
                   <span
                     className="font-semibold"

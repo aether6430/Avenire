@@ -67,7 +67,7 @@ export function QueryExpansionDemo() {
       <div className="mb-4 flex gap-2">
         {SCENARIOS.map((sc, i) => (
           <button type="button"
-            key={i}
+            key={sc.original}
             onClick={() => { setScenario(i); setShowExpanded(false); }}
             className={`rounded-lg border px-3 py-1.5 text-sm font-mono transition-all duration-150 ${
               scenario === i
@@ -114,7 +114,7 @@ export function QueryExpansionDemo() {
             <div className="space-y-1.5">
               {s.expansions.map((exp, i) => (
                 <div
-                  key={i}
+                  key={exp}
                   className="rounded-lg border border-brand/10 bg-brand/[0.03] px-4 py-2 font-mono text-xs text-white/60"
                 >
                   &ldquo;{exp}&rdquo;
@@ -133,7 +133,7 @@ export function QueryExpansionDemo() {
         <AnimatePresence mode="wait">
           {s.results.map((r, i) => (
             <motion.div
-              key={`${scenario}-${i}`}
+              key={`${scenario}-${r.source}-${r.chunk.slice(0, 20)}`}
               initial={{ opacity: 0, y: 4 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.15, delay: i * 0.08 }}

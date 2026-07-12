@@ -1205,7 +1205,7 @@ function DemoWindow({
                   Questions
                 </span>
                 <div className="flex gap-0.5">
-                  <button type="button" className="text-muted-foreground/40 hover:text-muted-foreground">
+                  <button type="button" aria-label="Previous question" className="text-muted-foreground/40 hover:text-muted-foreground">
                     <svg
                       fill="none"
                       height="10"
@@ -1217,7 +1217,7 @@ function DemoWindow({
                       <polyline points="15 18 9 12 15 6" />
                     </svg>
                   </button>
-                  <button type="button" className="text-muted-foreground/40 hover:text-muted-foreground">
+                  <button type="button" aria-label="Next question" className="text-muted-foreground/40 hover:text-muted-foreground">
                     <svg
                       fill="none"
                       height="10"

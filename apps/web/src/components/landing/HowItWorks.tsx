@@ -309,9 +309,9 @@ function DriveVisual() {
                     />
                   ) : (
                     <m.div
-                      animate={{ scale: 1 }}
+                      animate={{ scale: 1, opacity: 1 }}
                       className="flex h-3.5 w-3.5 items-center justify-center rounded-full bg-success/20"
-                      initial={{ scale: 0 }}
+                      initial={{ scale: 0.95, opacity: 0 }}
                       key="done"
                     >
                       <svg

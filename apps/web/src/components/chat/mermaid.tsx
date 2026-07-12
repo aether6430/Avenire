@@ -328,12 +328,18 @@ export function MermaidDiagram({
       ) : null}
       <CardContent className="p-0">
         <div
+          role="application"
+          aria-label="Mermaid diagram. Use mouse or keyboard to pan and zoom."
+          tabIndex={0}
           className="relative select-none overflow-hidden bg-background"
           onMouseDown={handleMouseDown}
           onMouseLeave={handleMouseUp}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
           onWheel={handleWheel}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") handleMouseUp();
+          }}
           ref={containerRef}
           style={{
             height: containerHeight,

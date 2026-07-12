@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 
 const DECAY = -0.5;
 const FACTOR = 19 / 81;
@@ -28,8 +28,8 @@ export function ForgettingCurveSimulator() {
   const innerW = WIDTH - PAD.left - PAD.right;
   const innerH = HEIGHT - PAD.top - PAD.bottom;
 
-  const toX = (t: number) => PAD.left + (t / maxDays) * innerW;
-  const toY = (r: number) => PAD.top + (1 - r) * innerH;
+  const toX = useCallback((t: number) => PAD.left + (t / maxDays) * innerW, [maxDays, innerW]);
+  const toY = useCallback((r: number) => PAD.top + (1 - r) * innerH, [innerH]);
 
   const curve = useMemo(() => {
     const allReviews = [...reviews].sort((a, b) => a - b);
@@ -58,7 +58,7 @@ export function ForgettingCurveSimulator() {
     }
 
     return allPoints.join(" ");
-  }, [stability, reviews, maxDays]);
+  }, [stability, reviews, maxDays, toX, toY]);
 
   const retentionLine = toY(targetRetention);
   const handleAddReview = () => {

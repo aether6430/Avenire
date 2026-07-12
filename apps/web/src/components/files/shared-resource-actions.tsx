@@ -70,6 +70,7 @@ export function SharedResourceActions({
       </p>
       <div className="mt-3 flex flex-col gap-2 sm:flex-row">
         <select
+          aria-label="Target workspace"
           className="h-10 min-w-0 flex-1 rounded-md border bg-background px-3 text-sm"
           onChange={(event) => setTargetWorkspaceId(event.target.value)}
           value={targetWorkspaceId}

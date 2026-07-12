@@ -52,7 +52,7 @@ export function TradeoffMatrix() {
       <div className="mb-5 flex flex-wrap gap-2">
         {WEEK_SCENARIOS.map((w, i) => (
           <button type="button"
-            key={i}
+            key={w.label}
             onClick={() => setSelected(i)}
             className={`rounded-lg border px-3 py-1.5 text-sm font-mono transition-all duration-150 ${
               selected === i

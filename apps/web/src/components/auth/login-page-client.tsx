@@ -3,6 +3,7 @@
 import { LoginForm } from "@avenire/auth/components/login";
 import { useSearchParams } from "next/navigation";
 import { ParticleFormFrame } from "@/components/auth/particle-form-frame";
+import Link from "next/link";
 import { AuthShell } from "@/components/auth-shell";
 
 function getSingleValue(value: string | null) {
@@ -32,8 +33,8 @@ export function LoginPageClient() {
           footer={
             <>
               By clicking continue, you agree to our{" "}
-              <a href="/terms">Terms of Service</a> and{" "}
-              <a href="/privacy">Privacy Policy</a>.
+              <Link href="/terms">Terms of Service</Link> and{" "}
+              <Link href="/privacy">Privacy Policy</Link>.
             </>
           }
         >

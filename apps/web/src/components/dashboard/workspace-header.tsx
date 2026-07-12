@@ -181,10 +181,10 @@ export function WorkspaceHeader({
         }
       >
         <div
-          className="absolute inset-0 border-border/20 border-b bg-background/45 backdrop-blur-2xl"
+          className="absolute inset-0 border-border/20 border-b bg-background/45 backdrop-blur-xl"
           style={{
-            WebkitBackdropFilter: "blur(22px) saturate(180%)",
-            backdropFilter: "blur(22px) saturate(180%)",
+            WebkitBackdropFilter: "blur(12px) saturate(180%)",
+            backdropFilter: "blur(12px) saturate(180%)",
           }}
         />
 

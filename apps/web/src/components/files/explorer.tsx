@@ -5952,6 +5952,7 @@ export function FileExplorer({
       </div>
 
       <input
+        aria-label="Upload files"
         className="sr-only"
         multiple
         onChange={(event) => {
@@ -5963,6 +5964,7 @@ export function FileExplorer({
         type="file"
       />
       <input
+        aria-label="Upload folders"
         className="sr-only"
         {...({ directory: "", webkitdirectory: "" } as Record<string, string>)}
         multiple
@@ -5984,6 +5986,7 @@ export function FileExplorer({
       />
       <input
         accept="image/*"
+        aria-label="Upload workspace banner"
         className="sr-only"
         onChange={handleBannerInputChange}
         ref={bannerInputRef}
@@ -6588,6 +6591,7 @@ export function FileExplorer({
                                   }}
                                 >
                                   <div
+                                    role="presentation"
                                     className="absolute top-2 left-2 z-20 rounded-md bg-background/90 p-1 shadow-sm backdrop-blur-sm"
                                     data-selection-control="true"
                                     onClickCapture={stopItemSelectionEvent}
@@ -6921,6 +6925,7 @@ export function FileExplorer({
                                   tabIndex={0}
                                 >
                                   <div
+                                    role="presentation"
                                     className="absolute top-2 left-2 z-20 rounded-md bg-background/90 p-1 shadow-sm backdrop-blur-sm"
                                     data-selection-control="true"
                                     onClickCapture={stopItemSelectionEvent}
@@ -7164,6 +7169,13 @@ export function FileExplorer({
                                   >
                                     {entry.kind === "folder" ? (
                                       <div
+                                        role="button"
+                                        tabIndex={0}
+                                        onKeyDown={(e) => {
+                                          if (e.key === "Enter" || e.key === " ") {
+                                            e.currentTarget.click();
+                                          }
+                                        }}
                                         className={cn(
                                           "flex cursor-pointer items-center gap-3 border-border/40 px-3 py-2.5 transition-colors hover:bg-muted/30",
                                           virtualItem.index <
@@ -7347,6 +7359,7 @@ export function FileExplorer({
                                         ) : (
                                           <>
                                             <div
+                                              role="presentation"
                                               className="relative z-10 flex shrink-0"
                                               data-selection-control="true"
                                               onClickCapture={
@@ -7415,6 +7428,13 @@ export function FileExplorer({
                                           getFileProperties(entry.file);
                                         return (
                                           <div
+                                            role="button"
+                                            tabIndex={0}
+                                            onKeyDown={(e) => {
+                                              if (e.key === "Enter" || e.key === " ") {
+                                                e.currentTarget.click();
+                                              }
+                                            }}
                                             className={cn(
                                               "flex cursor-pointer items-center gap-3 border-border/40 px-3 py-2.5 transition-colors hover:bg-muted/30",
                                               virtualItem.index <
@@ -7606,6 +7626,7 @@ export function FileExplorer({
                                             ) : (
                                               <>
                                                 <div
+                                                  role="presentation"
                                                   className="relative z-10 flex shrink-0"
                                                   data-selection-control="true"
                                                   onClickCapture={

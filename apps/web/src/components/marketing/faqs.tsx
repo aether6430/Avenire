@@ -131,6 +131,7 @@ const AccordionItem = ({
         transition={{ height: { duration: 0.35 }, opacity: { duration: 0.2 } }}
         className="overflow-hidden px-8"
         onClick={onToggle}
+        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onToggle(); } }}
       >
         <div className="pr-2 pb-5 pl-2 sm:pr-0 sm:pl-0">
           <AnimatePresence mode="popLayout">

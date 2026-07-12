@@ -144,8 +144,8 @@ interface ExploreItem {
 }
 
 type ActionGroup =
-  | { items: ExploreItem[]; type: "explore" }
-  | { action: MutationAction; type: "mutation" };
+  | { items: ExploreItem[]; type: "explore"; groupUid: number }
+  | { action: MutationAction; type: "mutation"; groupUid: number };
 
 const ROLLING_TOOL_TYPES = new Set([
   "tool-avenire_agent",
@@ -670,6 +670,7 @@ function labelFor(action: ExploreAction): string {
 
 function groupActions(actions: ActivityAction[]): ActionGroup[] {
   const groups: ActionGroup[] = [];
+  let groupUid = 0;
 
   for (const action of actions) {
     if (isExploreAction(action)) {
@@ -682,12 +683,12 @@ function groupActions(actions: ActivityAction[]): ActionGroup[] {
       if (lastGroup?.type === "explore") {
         lastGroup.items.push(item);
       } else {
-        groups.push({ items: [item], type: "explore" });
+        groups.push({ items: [item], type: "explore", groupUid: ++groupUid });
       }
       continue;
     }
 
-    groups.push({ action, type: "mutation" });
+    groups.push({ action, type: "mutation", groupUid: ++groupUid });
   }
 
   return groups;
@@ -1331,7 +1332,7 @@ function RollingWindow({ items }: { items: ExploreItem[] }) {
       </div>
       <ul className="sr-only">
         {items.map((item, index) => (
-          <li key={`${item.label}-${item.value}-${index}`}>
+          <li key={`${item.label}-${item.value}`}>
             {item.label}: {item.value}
           </li>
         ))}
@@ -1529,7 +1530,7 @@ function AccordionPanel({
             <AccordionFileRow
               index={index}
               item={item}
-              key={`${item.label}-${item.value}-${index}`}
+              key={`${item.label}-${item.value}`}
               parentOpen={open}
             />
           ))}
@@ -2073,7 +2074,7 @@ export function RollingAgentActivity({
             <ExploreBlock
               done={isGroupDone(index)}
               items={group.items}
-              key={`agent-explore-${index}`}
+              key={`agent-${group.groupUid}`}
             />
           );
         }
@@ -2081,9 +2082,8 @@ export function RollingAgentActivity({
         return (
           <MutationBlock
             action={group.action}
-            key={`agent-mutation-${index}`}
+            key={`agent-${group.groupUid}`}
           />
-        );
       })}
     </ul>
   );

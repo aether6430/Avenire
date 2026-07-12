@@ -381,6 +381,7 @@ export function WorkspacePaneInteractionBoundary({
 
   return (
     <div
+      role="presentation"
       className="contents"
       onClickCapture={handleClickCapture}
       onDragStartCapture={handleDragStartCapture}

@@ -353,7 +353,7 @@ function QuizToolOutput({
           return (
             <div
               className="rounded-lg border border-border/40 p-3"
-              key={`${setId}-${index}`}
+              key={`${setId}-${question.frontMarkdown.slice(0, 40)}`}
             >
               <p className="mb-2 font-medium text-sm">
                 {index + 1}. {question.frontMarkdown}
@@ -375,7 +375,7 @@ function QuizToolOutput({
                         !answered && "border-border/40 hover:bg-muted/50"
                       )}
                       disabled={answered}
-                      key={`${setId}-${index}-${optionIndex}`}
+                      key={`${setId}-${question.frontMarkdown.slice(0, 40)}-${option}`}
                       onClick={() =>
                         setAnswers((current) => ({
                           ...current,

@@ -2093,6 +2093,7 @@ function HighlightedTextarea({
         {highlightLatex(value)}
       </pre>
       <textarea
+        aria-label="Editor content"
         className={cn(
           "absolute inset-0 resize-none overflow-auto bg-transparent px-3 py-2 font-mono text-[13px] text-transparent leading-6 caret-foreground outline-none selection:bg-accent/80 selection:text-transparent",
           compact ? "min-h-10 whitespace-nowrap" : "min-h-32"

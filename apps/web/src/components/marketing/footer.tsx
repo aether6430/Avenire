@@ -1,4 +1,4 @@
-import { ChatCircle, Envelope, GithubLogo } from "@phosphor-icons/react/ssr";
+import { ChatCircle, Envelope } from "@phosphor-icons/react/ssr";
 import Link from "next/link";
 import { AvenireMark } from "@/components/branding/AvenireMark";
 import { Container } from "./container";
@@ -25,11 +25,6 @@ const companyLinks = [
 ] as const;
 
 const communityLinks = [
-  {
-    label: "github",
-    href: "https://github.com/thedamod/Avenire",
-    icon: GithubLogo,
-  },
   {
     label: "discord",
     href: "https://discord.gg/avenire",

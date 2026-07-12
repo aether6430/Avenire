@@ -70,9 +70,10 @@ export function DiffVisualizer() {
 
       {/* Step indicator */}
       <div className="mb-4 flex gap-2">
-        {STEPS.map((_s, i) => (
+        {STEPS.map((s, i) => (
           <button type="button"
-            key={i}
+            key={s.title}
+            aria-label={`Go to step ${i + 1}: ${s.title}`}
             onClick={() => setStep(i)}
             className={`h-1.5 flex-1 rounded-full transition-all duration-200 ${
               i === step ? "bg-brand" : "bg-white/10 hover:bg-white/20"

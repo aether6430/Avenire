@@ -712,6 +712,8 @@ const InputMessage = forwardRef<HTMLDivElement, InputMessageProps>(
 
     return (
       <div
+        role="region"
+        aria-label="Message input area"
         ref={ref}
         onMouseDown={handleContainerMouseDown}
         onDragOver={handleDragOver}

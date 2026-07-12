@@ -463,6 +463,7 @@ export function ShareDialog({
                 />
               </div>
               <select
+                aria-label="File share permission"
                 className="h-9 rounded-md border border-border/60 bg-background px-3 text-sm"
                 id="file-share-permission"
                 onChange={(event) =>
@@ -587,6 +588,7 @@ export function ShareDialog({
           <div className="space-y-2">
             <Label htmlFor="folder-share-permission">Permission</Label>
             <select
+              aria-label="Folder share permission"
               className="h-9 w-full rounded-md border border-border/60 bg-background px-3 text-sm"
               id="folder-share-permission"
               onChange={(event) =>
@@ -649,6 +651,7 @@ export function ShareDialog({
               />
               {isAtWorkspaceRoot ? (
                 <select
+                  aria-label="Workspace invite role"
                   className="h-9 rounded-md border border-border/60 bg-background px-3 text-sm"
                   onChange={(event) =>
                     setWorkspaceInviteRole(

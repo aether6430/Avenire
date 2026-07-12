@@ -52,9 +52,9 @@ export function WordLineage() {
         {/* Step-through lineage */}
         <div>
           <div className="mb-4 flex gap-1.5">
-            {LINEAGE.map((_, i) => (
+            {LINEAGE.map((item, i) => (
               <button type="button"
-                key={i}
+                key={item.word}
                 onClick={() => setStep(i)}
                 aria-current={i === step ? "step" : undefined}
                 aria-label={`Go to step ${i + 1}`}

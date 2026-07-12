@@ -209,7 +209,7 @@ function PathHelloEffect({
               opacity: { duration: 0.25 * scale, delay },
             }}
             onAnimationComplete={isLast ? onAnimationComplete : undefined}
-            key={`${label}-${index}`}
+            key={label}
           />
         )
       })}

@@ -152,7 +152,7 @@ export const ConnectYourTooklsSkeleton = () => {
             <span className="text-charcoal-700 text-[10px] leading-loose font-normal md:text-xs dark:text-neutral-200">
               {text.split(/(\s+)/).map((word, index) => (
                 <motion.span
-                  key={index}
+                  key={`w-${word}`}
                   initial={{
                     opacity: 0,
                   }}
