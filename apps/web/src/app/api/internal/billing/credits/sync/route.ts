@@ -1,10 +1,14 @@
 import { Effect, Schema } from "effect-v4";
-import { deliverPendingPolarUsageEvents } from "@/lib/billing-credit-sync";
 import {
   ApiUnauthorized,
   ApiUnavailable,
   runApiHandler,
 } from "@/lib/effect-handler";
+import {
+  authorizeInternalBillingRequest,
+  BillingServicesLive,
+  synchronizePendingBillingUsage,
+} from "@/lib/effect-services/billing";
 
 class BillingCreditSyncResponse extends Schema.Class<BillingCreditSyncResponse>(
   "BillingCreditSyncResponse"
@@ -13,29 +17,20 @@ class BillingCreditSyncResponse extends Schema.Class<BillingCreditSyncResponse>(
   failed: Schema.Number,
 }) {}
 
-function isAuthorized(request: Request) {
-  const secret = (
-    process.env.BILLING_SYNC_SECRET ??
-    process.env.CRON_SECRET ??
-    ""
-  ).trim();
-  return Boolean(secret) && request.headers.get("authorization") === `Bearer ${secret}`;
-}
-
 export async function POST(request: Request) {
   const program = Effect.gen(function* () {
-    if (!isAuthorized(request)) {
-      return yield* ApiUnauthorized.make({ message: "Unauthorized" });
-    }
+    yield* authorizeInternalBillingRequest(request).pipe(
+      Effect.mapError(() => ApiUnauthorized.make({ message: "Unauthorized" }))
+    );
 
-    return yield* Effect.tryPromise({
-      try: () => deliverPendingPolarUsageEvents(),
-      catch: () =>
+    return yield* synchronizePendingBillingUsage().pipe(
+      Effect.mapError(() =>
         ApiUnavailable.make({
           message: "Billing credit synchronization unavailable",
-        }),
-    });
-  });
+        })
+      )
+    );
+  }).pipe(Effect.provide(BillingServicesLive));
 
   return runApiHandler(request, program, {
     feature: "billing",

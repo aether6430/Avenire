@@ -1,11 +1,15 @@
 import { Effect, Schema } from "effect-v4";
-import { reconcilePolarCreditConsumption } from "@/lib/billing-credit-sync";
 import {
   ApiInvalidRequest,
   ApiUnauthorized,
   ApiUnavailable,
   runApiHandler,
 } from "@/lib/effect-handler";
+import {
+  authorizeInternalBillingRequest,
+  BillingServicesLive,
+  reconcileBillingConsumption,
+} from "@/lib/effect-services/billing";
 
 const reconciliationQuery = Schema.Struct({
   userId: Schema.Trim.check(Schema.isMinLength(1)),
@@ -20,20 +24,11 @@ class BillingCreditReconciliationResponse extends Schema.Class<BillingCreditReco
   polarConsumedUnits: Schema.Number,
 }) {}
 
-function isAuthorized(request: Request) {
-  const secret = (
-    process.env.BILLING_SYNC_SECRET ??
-    process.env.CRON_SECRET ??
-    ""
-  ).trim();
-  return Boolean(secret) && request.headers.get("authorization") === `Bearer ${secret}`;
-}
-
 export async function POST(request: Request) {
   const program = Effect.gen(function* () {
-    if (!isAuthorized(request)) {
-      return yield* ApiUnauthorized.make({ message: "Unauthorized" });
-    }
+    yield* authorizeInternalBillingRequest(request).pipe(
+      Effect.mapError(() => ApiUnauthorized.make({ message: "Unauthorized" }))
+    );
 
     const userId = new URL(request.url).searchParams.get("userId") ?? "";
     const parsed = yield* Schema.decodeUnknownEffect(reconciliationQuery)({
@@ -44,14 +39,14 @@ export async function POST(request: Request) {
       )
     );
 
-    return yield* Effect.tryPromise({
-      try: () => reconcilePolarCreditConsumption(parsed.userId),
-      catch: () =>
+    return yield* reconcileBillingConsumption(parsed.userId).pipe(
+      Effect.mapError(() =>
         ApiUnavailable.make({
           message: "Billing credit reconciliation unavailable",
-        }),
-    });
-  });
+        })
+      )
+    );
+  }).pipe(Effect.provide(BillingServicesLive));
 
   return runApiHandler(request, program, {
     feature: "billing",

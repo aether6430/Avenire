@@ -1,3 +1,4 @@
+import { Effect } from "effect-v4";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { createApiLoggerMock, deliverPendingPolarUsageEventsMock } = vi.hoisted(
@@ -25,7 +26,9 @@ describe("billing credit sync route", () => {
       requestSucceeded: vi.fn(),
     });
     deliverPendingPolarUsageEventsMock.mockReset();
-    deliverPendingPolarUsageEventsMock.mockResolvedValue({ delivered: 2, failed: 0 });
+    deliverPendingPolarUsageEventsMock.mockReturnValue(
+      Effect.succeed({ delivered: 2, failed: 0 })
+    );
   });
 
   it("rejects unauthenticated delivery attempts", async () => {
@@ -50,8 +53,8 @@ describe("billing credit sync route", () => {
   });
 
   it("returns 503 when delivery fails", async () => {
-    deliverPendingPolarUsageEventsMock.mockRejectedValue(
-      new Error("Polar API unavailable")
+    deliverPendingPolarUsageEventsMock.mockReturnValue(
+      Effect.fail(new Error("Polar API unavailable"))
     );
     const response = await POST(
       new Request("http://localhost/api/internal/billing/credits/sync", {

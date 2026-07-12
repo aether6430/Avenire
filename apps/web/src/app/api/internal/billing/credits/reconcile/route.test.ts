@@ -1,3 +1,4 @@
+import { Effect } from "effect-v4";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -27,26 +28,34 @@ describe("billing credit reconciliation route", () => {
 
   it("rejects unauthenticated reconciliation", async () => {
     const response = await POST(
-      new Request("http://localhost/api/internal/billing/credits/reconcile?userId=user-id", {
-        method: "POST",
-      })
+      new Request(
+        "http://localhost/api/internal/billing/credits/reconcile?userId=user-id",
+        {
+          method: "POST",
+        }
+      )
     );
     expect(response.status).toBe(401);
     expect(mocks.reconcile).not.toHaveBeenCalled();
   });
 
   it("returns a conflict so schedulers alert on divergence", async () => {
-    mocks.reconcile.mockResolvedValue({
-      diverged: true,
-      divergenceRatio: 0.05,
-      localConsumedUnits: 100,
-      polarConsumedUnits: 95,
-    });
-    const response = await POST(
-      new Request("http://localhost/api/internal/billing/credits/reconcile?userId=user-id", {
-        headers: { authorization: "Bearer sync-secret" },
-        method: "POST",
+    mocks.reconcile.mockReturnValue(
+      Effect.succeed({
+        diverged: true,
+        divergenceRatio: 0.05,
+        localConsumedUnits: 100,
+        polarConsumedUnits: 95,
       })
+    );
+    const response = await POST(
+      new Request(
+        "http://localhost/api/internal/billing/credits/reconcile?userId=user-id",
+        {
+          headers: { authorization: "Bearer sync-secret" },
+          method: "POST",
+        }
+      )
     );
     expect(response.status).toBe(409);
     expect(mocks.reconcile).toHaveBeenCalledWith("user-id");
