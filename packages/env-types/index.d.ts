@@ -115,6 +115,8 @@ declare namespace NodeJS {
     POLAR_CREDITS_EVENT_NAME?: string;
     POLAR_CREDITS_METER_ID?: string;
     POLAR_CREDITS_SHADOW_MODE?: string;
+    POLAR_CREDITS_MODE?: "disabled" | "shadow" | "cutover";
+    POLAR_CREDITS_DIVERGENCE_THRESHOLD_RATIO?: string;
     POLAR_ORGANIZATION_ID?: string;
     POLAR_PRODUCT_ID_CORE_MONTHLY?: string;
     POLAR_PRODUCT_ID_CORE_YEARLY?: string;

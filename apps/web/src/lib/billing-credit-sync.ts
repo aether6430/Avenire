@@ -8,27 +8,14 @@ import {
   markBillingUsageEventDelivered,
   markBillingUsageEventFailed,
 } from "@/lib/database-billing";
-
-function requireShadowConfiguration() {
-  if (process.env.POLAR_CREDITS_SHADOW_MODE !== "true") {
-    throw new Error("Polar credits shadow mode is disabled");
-  }
-  const eventName = process.env.POLAR_CREDITS_EVENT_NAME?.trim();
-  const meterId = process.env.POLAR_CREDITS_METER_ID?.trim();
-  if (!(eventName && meterId)) {
-    throw new Error(
-      "Polar credits require POLAR_CREDITS_EVENT_NAME and POLAR_CREDITS_METER_ID"
-    );
-  }
-  return { eventName, meterId };
-}
+import { requirePolarCreditConfiguration } from "@/lib/billing-credit-policy";
 
 function toErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : String(error);
 }
 
 export async function deliverPendingPolarUsageEvents(limit = 50) {
-  const { eventName } = requireShadowConfiguration();
+  const { eventName } = requirePolarCreditConfiguration();
   const events = await claimPendingBillingUsageEvents({ limit });
   if (events.length === 0) {
     return { delivered: 0, failed: 0 };
@@ -94,7 +81,8 @@ export function compareCreditConsumption(input: {
 }
 
 export async function reconcilePolarCreditConsumption(userId: string) {
-  const { meterId } = requireShadowConfiguration();
+  const { divergenceThresholdRatio, meterId, mode } =
+    requirePolarCreditConfiguration();
   const [localConsumedUnits, customerMeter] = await Promise.all([
     getLocalDeliveredUsageTotal({ userId, meter: "chat" }),
     getPolarCustomerMeter({ externalCustomerId: userId, meterId }),
@@ -102,11 +90,13 @@ export async function reconcilePolarCreditConsumption(userId: string) {
   const result = compareCreditConsumption({
     localConsumedUnits,
     polarConsumedUnits: customerMeter?.consumedUnits ?? 0,
+    thresholdRatio: divergenceThresholdRatio,
   });
   if (result.diverged) {
     console.error("[billing] Polar credit shadow balance diverged", {
       userId,
       meterId,
+      mode,
       ...result,
     });
   }
