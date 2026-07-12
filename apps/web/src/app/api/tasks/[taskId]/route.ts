@@ -62,7 +62,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       status: body.status,
       priority: body.priority,
       dueAt: dueAtValue,
-      resources: body.resources,
+      resources: body.resources?.map((resource) => ({ ...resource })),
     });
   } catch (error) {
     return NextResponse.json(

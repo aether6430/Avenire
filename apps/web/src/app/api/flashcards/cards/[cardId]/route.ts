@@ -49,7 +49,7 @@ export async function PATCH(
     frontMarkdown: body.frontMarkdown,
     notesMarkdown: body.notesMarkdown,
     source,
-    tags: body.tags,
+    tags: body.tags ? Array.from(body.tags) : undefined,
     userId: ctx.user.id,
     workspaceId: ctx.workspace.workspaceId,
   });

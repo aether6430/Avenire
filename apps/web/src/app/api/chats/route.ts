@@ -13,6 +13,21 @@ async function getSessionUser() {
   return session ?? null;
 }
 
+function getActiveOrganizationId(sessionDetails: unknown) {
+  if (
+    typeof sessionDetails !== "object" ||
+    sessionDetails === null ||
+    !("activeOrganizationId" in sessionDetails)
+  ) {
+    return null;
+  }
+
+  const { activeOrganizationId } = sessionDetails;
+  return typeof activeOrganizationId === "string"
+    ? activeOrganizationId
+    : null;
+}
+
 export async function POST(request: Request) {
   const session = await getSessionUser();
 
@@ -29,7 +44,7 @@ export async function POST(request: Request) {
   }
   const body = parsed.data;
 
-  const activeOrganizationId = session.session.activeOrganizationId ?? null;
+  const activeOrganizationId = getActiveOrganizationId(session.session);
   const workspace = await resolveWorkspaceForUser(
     session.user.id,
     activeOrganizationId

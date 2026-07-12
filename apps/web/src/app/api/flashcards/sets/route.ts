@@ -67,7 +67,7 @@ export async function POST(request: Request) {
 
   const set = await createFlashcardSetForUser({
     description: body.description,
-    tags: body.tags,
+    tags: body.tags ? Array.from(body.tags) : undefined,
     title: body.title,
     userId: ctx.user.id,
     workspaceId: ctx.workspace.workspaceId,

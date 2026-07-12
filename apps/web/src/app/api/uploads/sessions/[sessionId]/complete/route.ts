@@ -1,16 +1,17 @@
 import { NextResponse } from "next/server";
 import { resolveApiErrorMessage } from "@/lib/api-error-message";
+import { parseJsonRequest } from "@/lib/api-request";
 import { userCanEditFolder } from "@/lib/file-data";
 import { createApiLogger } from "@/lib/observability";
 import { normalizeSha256 } from "@/lib/upload-registration";
 import { getUploadSession } from "@/lib/upload-session-store";
 import { getSessionUser } from "@/lib/workspace";
-import { parseJsonRequest } from "@/lib/api-request";
 import { finalizeUploadSessionCompletion } from "./upload-session-complete-finalize";
 import {
   asNullableString,
   buildUploadCompletionReplayResponse,
   completeSchema,
+  readExpectedMultipartPartNumbers,
   readUploadCompletionErrorCode,
 } from "./upload-session-complete-model";
 import { completeMultipartUploadSession } from "./upload-session-complete-storage";
@@ -94,7 +95,7 @@ export async function POST(
           sessionId,
           name: session.name,
           mimeType: asNullableString(parsed.data.mimeType) ?? session.mimeType,
-          expectedPartNumbers: parsed.data.multipart?.partNumbers,
+          expectedPartNumbers: readExpectedMultipartPartNumbers(parsed.data),
         });
         storageKey = multipartUpload.storageKey;
         storageUrl = multipartUpload.storageUrl;

@@ -53,7 +53,7 @@ export async function POST(
     notesMarkdown: body.notesMarkdown,
     setId,
     source,
-    tags: body.tags,
+    tags: body.tags ? Array.from(body.tags) : undefined,
     userId: ctx.user.id,
     workspaceId: ctx.workspace.workspaceId,
   });

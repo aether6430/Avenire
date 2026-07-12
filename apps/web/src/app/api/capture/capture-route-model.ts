@@ -27,7 +27,10 @@ const noteCaptureSchema = Schema.Struct({
 const misconceptionCaptureSchema = Schema.Struct({
   concept: Schema.optional(Schema.String),
   confidence: Schema.optional(
-    Schema.Number.check(Schema.isFinite(), Schema.isBetween(0, 1))
+    Schema.Number.check(
+      Schema.isFinite(),
+      Schema.isBetween({ minimum: 0, maximum: 1 })
+    )
   ),
   kind: Schema.Literal("misconception"),
   reason: Schema.optional(Schema.String),

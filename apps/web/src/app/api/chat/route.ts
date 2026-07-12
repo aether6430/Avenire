@@ -143,6 +143,17 @@ function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
+function getActiveOrganizationId(sessionDetails: unknown) {
+  if (!(isObject(sessionDetails) && "activeOrganizationId" in sessionDetails)) {
+    return null;
+  }
+
+  const { activeOrganizationId } = sessionDetails;
+  return typeof activeOrganizationId === "string"
+    ? activeOrganizationId
+    : null;
+}
+
 function isUiMessage(value: unknown): value is UIMessage {
   return (
     isObject(value) &&
@@ -1543,7 +1554,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const activeOrganizationId = session.session.activeOrganizationId ?? null;
+    const activeOrganizationId = getActiveOrganizationId(session.session);
     const workspace = await resolveWorkspaceForUser(
       session.user.id,
       activeOrganizationId
@@ -1682,7 +1693,7 @@ export async function POST(request: Request) {
     const originalMessages = await signMissingToolApprovalRequests(
       stripUnconfiguredToolApprovalParts(
         stripNonHttpFileParts(
-          normalizeMessageFileMediaTypes(body.messages ?? [])
+          normalizeMessageFileMediaTypes(Array.from(body.messages ?? []))
         )
       ),
       process.env.TOOL_APPROVAL_SECRET
@@ -2422,7 +2433,7 @@ export async function POST(request: Request) {
               try {
                 const persistedMessages = getPersistedMessages({
                   originalMessages,
-                  streamedMessages: messages as unknown as UIMessage[],
+                  streamedMessages: Array.from(messages),
                   responseMessage: responseMessage as unknown as UIMessage,
                   isContinuation,
                 });
@@ -2678,9 +2689,7 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: "Missing chat id" }, { status: 400 });
     }
 
-    const activeOrganizationId =
-      (session as { session?: { activeOrganizationId?: string | null } })
-        .session?.activeOrganizationId ?? null;
+    const activeOrganizationId = getActiveOrganizationId(session.session);
     const workspace = await resolveWorkspaceForUser(
       session.user.id,
       activeOrganizationId

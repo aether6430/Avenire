@@ -89,7 +89,7 @@ export async function POST(request: Request) {
         status: body.status ?? "planned",
         priority: body.priority ?? "normal",
         dueAt: body.dueAt ? new Date(body.dueAt) : null,
-        resources: body.resources ?? [],
+        resources: body.resources?.map((resource) => ({ ...resource })) ?? [],
       }
     );
 
