@@ -429,6 +429,7 @@ describe("retrieveRelevantChunks", () => {
         inputType: "search_query",
       }
     );
+    expect(mocks.embedMultimodal).toHaveBeenCalledTimes(1);
     expect(searchLexical).toHaveBeenCalledTimes(2);
     expect(searchTrigram).not.toHaveBeenCalled();
     expect(
