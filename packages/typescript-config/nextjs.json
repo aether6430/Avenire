@@ -3,7 +3,7 @@
   "compilerOptions": {
     "plugins": [{ "name": "next" }],
     "jsx": "preserve",
-    "lib": ["dom", "ES2022"],
+    "lib": ["dom", "ES2023"],
     "incremental": true,
     "isolatedModules": true
   }

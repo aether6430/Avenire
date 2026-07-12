@@ -26,6 +26,6 @@
     "@react-email/preview-server": "5.2.10",
     "@types/node": "25.4.0",
     "@types/react": "latest",
-    "typescript": "7.0.2"
+    "typescript": "5.9.3"
   }
 }

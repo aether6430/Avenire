@@ -23,7 +23,7 @@
     "@avenire/typescript-config": "workspace:*",
     "@types/node": "25.4.0",
     "@types/react": "latest",
-    "typescript": "7.0.2"
+    "typescript": "5.9.3"
   },
   "engines": {
     "bun": ">=1.0.0"
