@@ -333,7 +333,7 @@ export function TreeView({
           >
             {hasChildren ? (
               <button
-                aria-label={expanded ? "Collapse" : "Expand"}
+                aria-label={isExpanded ? "Collapse" : "Expand"}
                 className="inline-flex size-5 shrink-0 items-center justify-center rounded-md hover:bg-primary/8"
                 onClick={(event) => {
                   event.stopPropagation();

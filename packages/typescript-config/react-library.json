@@ -2,7 +2,7 @@
   "extends": "./base.json",
   "compilerOptions": {
     "jsx": "react-jsx",
-    "lib": ["dom", "ES2022"],
+    "lib": ["dom", "ES2023"],
     "declaration": true,
     "emitDeclarationOnly": false
   }

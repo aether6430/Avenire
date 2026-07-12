@@ -656,7 +656,7 @@ export function PropertiesTable({
       return (
         <label className="flex min-w-0 flex-1 items-center justify-start gap-2 text-[13px] text-[var(--text-primary)]">
           <input
-            aria-label={property.name ?? "Property"}
+            aria-label={key || "Property"}
             checked={property.value}
             className="h-4 w-4 accent-[var(--accent-color,#3b82f6)]"
             disabled={disabled}

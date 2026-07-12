@@ -4117,11 +4117,9 @@ export function FileExplorer({
                     hashComputedBy: entry.contentHashSha256
                       ? "client"
                       : undefined,
-                    storageKey: entry.uploaded?.key,
-                    storageUrl: entry.uploaded?.ufsUrl,
-                    name: entry.uploaded?.name ?? entry.file.name,
-                    mimeType: entry.uploaded?.contentType ?? entry.file.type,
-                    sizeBytes: entry.uploaded?.size ?? entry.file.size,
+                    name: entry.file.name,
+                    mimeType: entry.file.type,
+                    sizeBytes: entry.file.size,
                   })),
                 }),
               }
