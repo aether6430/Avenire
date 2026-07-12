@@ -60,13 +60,15 @@ export async function consumeChatUnits(userId: string, units = 1) {
 
 export async function restoreChatUnits(
   userId: string,
-  usage: { consumedFromFourHour?: number; consumedFromOverage?: number }
+  usage: { consumedFromFourHour?: number; consumedFromOverage?: number },
+  idempotencyKey: string
 ) {
   return restoreUsageUnits({
     userId,
     meter: "chat",
     fourHourUnits: usage.consumedFromFourHour,
     overageUnits: usage.consumedFromOverage,
+    idempotencyKey,
   });
 }
 

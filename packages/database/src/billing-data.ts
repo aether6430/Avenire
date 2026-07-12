@@ -97,8 +97,13 @@ const BILLING_TABLE_NAMES = [
   "billing_usage_event",
 ];
 
-function isPolarCreditsShadowModeEnabled() {
-  return process.env.POLAR_CREDITS_SHADOW_MODE === "true";
+function isPolarCreditsEmissionEnabled() {
+  const mode = process.env.POLAR_CREDITS_MODE?.trim().toLowerCase();
+  return (
+    mode === "shadow" ||
+    mode === "cutover" ||
+    (mode === undefined && process.env.POLAR_CREDITS_SHADOW_MODE === "true")
+  );
 }
 
 function hasBillingTableName(input: string) {
@@ -335,7 +340,18 @@ export async function consumeUsageUnits(input: {
 
   try {
     return await db.transaction(async (tx) => {
-      const plan = await getUserPlan(input.userId);
+      const [subscription] = await tx
+        .select({
+          status: billingSubscription.status,
+          plan: billingSubscription.plan,
+        })
+        .from(billingSubscription)
+        .where(eq(billingSubscription.userId, input.userId))
+        .limit(1);
+      const plan =
+        subscription && ACTIVE_SUBSCRIPTION_STATUSES.has(subscription.status)
+          ? toPlan(subscription.plan)
+          : "access";
       const entitlement = PLAN_ENTITLEMENTS[plan][input.meter];
 
       await tx
@@ -450,7 +466,7 @@ export async function consumeUsageUnits(input: {
         })
         .where(eq(usageMeter.id, base.id));
 
-      if (isPolarCreditsShadowModeEnabled()) {
+      if (isPolarCreditsEmissionEnabled()) {
         const eventId = randomUUID();
         await tx.insert(billingUsageEvent).values({
           id: eventId,
@@ -474,7 +490,7 @@ export async function consumeUsageUnits(input: {
     });
   } catch (error) {
     if (
-      isPolarCreditsShadowModeEnabled() &&
+      isPolarCreditsEmissionEnabled() &&
       errorReferencesTable(error, "billing_usage_event")
     ) {
       throw error;
@@ -597,6 +613,7 @@ export async function restoreUsageUnits(input: {
   meter: UsageMeterType;
   fourHourUnits?: number;
   overageUnits?: number;
+  idempotencyKey: string;
 }) {
   const fourHourUnits = Math.max(0, Math.floor(input.fourHourUnits ?? 0));
   const overageUnits = Math.max(0, Math.floor(input.overageUnits ?? 0));
@@ -608,7 +625,18 @@ export async function restoreUsageUnits(input: {
 
   try {
     await db.transaction(async (tx) => {
-      const plan = await getUserPlan(input.userId);
+      const [subscription] = await tx
+        .select({
+          status: billingSubscription.status,
+          plan: billingSubscription.plan,
+        })
+        .from(billingSubscription)
+        .where(eq(billingSubscription.userId, input.userId))
+        .limit(1);
+      const plan =
+        subscription && ACTIVE_SUBSCRIPTION_STATUSES.has(subscription.status)
+          ? toPlan(subscription.plan)
+          : "access";
       const entitlement = PLAN_ENTITLEMENTS[plan][input.meter];
 
       const lockedRows = await tx.execute(sql`
@@ -635,6 +663,33 @@ export async function restoreUsageUnits(input: {
 
       if (!existing) {
         return;
+      }
+
+      if (isPolarCreditsEmissionEnabled()) {
+        const eventId = randomUUID();
+        const insertedEvents = await tx
+          .insert(billingUsageEvent)
+          .values({
+            id: eventId,
+            userId: input.userId,
+            meter: input.meter,
+            units: -(fourHourUnits + overageUnits),
+            idempotencyKey: input.idempotencyKey,
+            occurredAt: now,
+            nextAttemptAt: now,
+            createdAt: now,
+            updatedAt: now,
+          })
+          .onConflictDoNothing({
+            target: billingUsageEvent.idempotencyKey,
+          })
+          .returning({ id: billingUsageEvent.id });
+
+        // The immutable refund event doubles as the durable idempotency guard.
+        // A retried completion must not restore the local balance twice.
+        if (insertedEvents.length === 0) {
+          return;
+        }
       }
 
       const baselineFourHourBalance = recomputeRemainingFromConsumed({

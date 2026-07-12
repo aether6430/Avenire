@@ -2563,7 +2563,14 @@ export async function POST(request: Request) {
                   } else if (unusedCredits > 0) {
                     await restoreChatUnits(
                       session.user.id,
-                      getRefundedChatUsage(initialUsage, unusedCredits)
+                      getRefundedChatUsage(initialUsage, unusedCredits),
+                      `chat-refund:${session.user.id}:${chatSlug}:${
+                        idempotencyHeader ??
+                        originalMessages.findLast(
+                          (message) => message.role === "user"
+                        )?.id ??
+                        originalMessages.length
+                      }`
                     );
                   }
 
