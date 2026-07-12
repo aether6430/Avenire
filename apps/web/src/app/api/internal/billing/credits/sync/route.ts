@@ -1,6 +1,17 @@
-import { NextResponse } from "next/server";
+import { Effect, Schema } from "effect-v4";
 import { deliverPendingPolarUsageEvents } from "@/lib/billing-credit-sync";
-import { createApiLogger } from "@/lib/observability";
+import {
+  ApiUnauthorized,
+  ApiUnavailable,
+  runApiHandler,
+} from "@/lib/effect-handler";
+
+class BillingCreditSyncResponse extends Schema.Class<BillingCreditSyncResponse>(
+  "BillingCreditSyncResponse"
+)({
+  delivered: Schema.Number,
+  failed: Schema.Number,
+}) {}
 
 function isAuthorized(request: Request) {
   const secret = (
@@ -12,28 +23,24 @@ function isAuthorized(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const logger = createApiLogger({
+  const program = Effect.gen(function* () {
+    if (!isAuthorized(request)) {
+      return yield* ApiUnauthorized.make({ message: "Unauthorized" });
+    }
+
+    return yield* Effect.tryPromise({
+      try: () => deliverPendingPolarUsageEvents(),
+      catch: () =>
+        ApiUnavailable.make({
+          message: "Billing credit synchronization unavailable",
+        }),
+    });
+  });
+
+  return runApiHandler(request, program, {
     feature: "billing",
-    request,
     route: "/api/internal/billing/credits/sync",
+    successSchema: BillingCreditSyncResponse,
     userId: null,
   });
-  void logger.requestStarted();
-
-  if (!isAuthorized(request)) {
-    void logger.requestFailed(401, "Unauthorized");
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  try {
-    const result = await deliverPendingPolarUsageEvents();
-    void logger.requestSucceeded(200, result);
-    return NextResponse.json(result);
-  } catch (error) {
-    void logger.requestFailed(503, error);
-    return NextResponse.json(
-      { error: "Billing credit synchronization unavailable" },
-      { status: 503 }
-    );
-  }
 }

@@ -1,11 +1,24 @@
 import { Effect, Schema } from "effect-v4";
-import { NextResponse } from "next/server";
 import { reconcilePolarCreditConsumption } from "@/lib/billing-credit-sync";
-import { createApiLogger } from "@/lib/observability";
+import {
+  ApiInvalidRequest,
+  ApiUnauthorized,
+  ApiUnavailable,
+  runApiHandler,
+} from "@/lib/effect-handler";
 
 const reconciliationQuery = Schema.Struct({
   userId: Schema.Trim.check(Schema.isMinLength(1)),
 });
+
+class BillingCreditReconciliationResponse extends Schema.Class<BillingCreditReconciliationResponse>(
+  "BillingCreditReconciliationResponse"
+)({
+  diverged: Schema.Boolean,
+  divergenceRatio: Schema.Number,
+  localConsumedUnits: Schema.Number,
+  polarConsumedUnits: Schema.Number,
+}) {}
 
 function isAuthorized(request: Request) {
   const secret = (
@@ -17,41 +30,34 @@ function isAuthorized(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const logger = createApiLogger({
+  const program = Effect.gen(function* () {
+    if (!isAuthorized(request)) {
+      return yield* ApiUnauthorized.make({ message: "Unauthorized" });
+    }
+
+    const userId = new URL(request.url).searchParams.get("userId") ?? "";
+    const parsed = yield* Schema.decodeUnknownEffect(reconciliationQuery)({
+      userId,
+    }).pipe(
+      Effect.mapError(() =>
+        ApiInvalidRequest.make({ message: "Invalid userId" })
+      )
+    );
+
+    return yield* Effect.tryPromise({
+      try: () => reconcilePolarCreditConsumption(parsed.userId),
+      catch: () =>
+        ApiUnavailable.make({
+          message: "Billing credit reconciliation unavailable",
+        }),
+    });
+  });
+
+  return runApiHandler(request, program, {
     feature: "billing",
-    request,
     route: "/api/internal/billing/credits/reconcile",
+    successSchema: BillingCreditReconciliationResponse,
+    successStatus: (result) => (result.diverged ? 409 : 200),
     userId: null,
   });
-  void logger.requestStarted();
-  if (!isAuthorized(request)) {
-    void logger.requestFailed(401, "Unauthorized");
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const userId = new URL(request.url).searchParams.get("userId") ?? "";
-  const parsed = await Effect.runPromiseExit(
-    Schema.decodeUnknownEffect(reconciliationQuery)({ userId })
-  );
-  if (parsed._tag === "Failure") {
-    void logger.requestFailed(400, "Invalid userId");
-    return NextResponse.json({ error: "Invalid userId" }, { status: 400 });
-  }
-
-  try {
-    const result = await reconcilePolarCreditConsumption(parsed.value.userId);
-    const status = result.diverged ? 409 : 200;
-    if (result.diverged) {
-      void logger.requestFailed(status, "Polar credit divergence", result);
-    } else {
-      void logger.requestSucceeded(status, result);
-    }
-    return NextResponse.json(result, { status });
-  } catch (error) {
-    void logger.requestFailed(503, error);
-    return NextResponse.json(
-      { error: "Billing credit reconciliation unavailable" },
-      { status: 503 }
-    );
-  }
 }
