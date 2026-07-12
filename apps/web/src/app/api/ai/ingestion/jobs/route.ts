@@ -1,16 +1,18 @@
 import { listRecentIngestionJobsForWorkspace } from "@avenire/database";
 import { scheduleIngestionJob } from "@avenire/ingestion/queue";
+import { Schema } from "effect-v4";
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { parseJsonRequest } from "@/lib/api-request";
 import { getFileAssetById } from "@/lib/file-data";
 import { resolveApiErrorMessage } from "@/lib/api-error-message";
 import { ensureWorkspaceAccessForUser, getSessionUser } from "@/lib/workspace";
 import { publishWorkspaceStreamEvent } from "@/lib/workspace-event-stream";
 
-const enqueueSchema = z.object({
-  workspaceUuid: z.string().trim().uuid(),
-  fileUuid: z.string().trim().uuid(),
-  sourceType: z.string().optional(),
+const enqueueSchema = Schema.Struct({
+  workspaceUuid: Schema.Trim.check(Schema.isUUID()),
+  fileUuid: Schema.Trim.check(Schema.isUUID()),
+  sourceType: Schema.optional(Schema.String),
 });
 
 const listSchema = z.object({
@@ -31,10 +33,6 @@ function parseIngestionJobsListQuery(request: Request) {
     limit: searchParams.get("limit") ?? undefined,
     windowMinutes: searchParams.get("windowMinutes") ?? undefined,
   });
-}
-
-function parseIngestionJobsEnqueueBody(body: unknown) {
-  return enqueueSchema.safeParse(body);
 }
 
 function resolveIngestionJobsLimit(limit?: number) {
@@ -122,9 +120,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const parsed = parseIngestionJobsEnqueueBody(
-      await request.json().catch(() => ({}))
-    );
+    const parsed = await parseJsonRequest(request, enqueueSchema);
     if (!parsed.success) {
       return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
     }

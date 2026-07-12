@@ -1,5 +1,18 @@
 import { logInfo, reportError } from "@avenire/observability";
+import { Schema } from "effect-v4";
 import { NextResponse } from "next/server";
+import { parseJsonRequest } from "@/lib/api-request";
+
+const analyticsCaptureSchema = Schema.Struct({
+  distinctId: Schema.optional(Schema.String),
+  event: Schema.optional(Schema.String),
+  properties: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
+});
+
+const analyticsErrorSchema = Schema.Struct({
+  error: Schema.optional(Schema.String),
+  path: Schema.optional(Schema.String),
+});
 
 const ALLOWED_EVENTS = new Set([
   "web.pageview",
@@ -13,11 +26,11 @@ function safeString(value: unknown, fallback = "") {
 }
 
 export async function POST(request: Request) {
-  const body = (await request.json().catch(() => ({}))) as {
-    distinctId?: string;
-    event?: string;
-    properties?: Record<string, unknown>;
-  };
+  const parsed = await parseJsonRequest(request, analyticsCaptureSchema);
+  if (!parsed.success) {
+    return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
+  }
+  const body = parsed.data;
 
   const eventName = safeString(body.event);
   if (!ALLOWED_EVENTS.has(eventName)) {
@@ -55,10 +68,11 @@ export async function POST(request: Request) {
 }
 
 export async function PUT(request: Request) {
-  const body = (await request.json().catch(() => ({}))) as {
-    error?: string;
-    path?: string;
-  };
+  const parsed = await parseJsonRequest(request, analyticsErrorSchema);
+  if (!parsed.success) {
+    return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
+  }
+  const body = parsed.data;
 
   await reportError({
     error: new Error(safeString(body.error, "Client error")),

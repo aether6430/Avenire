@@ -1,6 +1,8 @@
 import { auth } from "@avenire/auth/server";
 import { headers } from "next/headers";
+import { Schema } from "effect-v4";
 import { NextResponse } from "next/server";
+import { parseJsonRequest } from "@/lib/api-request";
 import { createChatForUser } from "@/lib/chat-data";
 import { invalidateChatReadCaches } from "@/lib/domain-cache";
 import { resolveWorkspaceForUser } from "@/lib/file-data";
@@ -18,11 +20,16 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const body = (await request.json().catch(() => ({}))) as { title?: string };
+  const parsed = await parseJsonRequest(
+    request,
+    Schema.Struct({ title: Schema.optional(Schema.String) })
+  );
+  if (!parsed.success) {
+    return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
+  }
+  const body = parsed.data;
 
-  const activeOrganizationId =
-    (session as { session?: { activeOrganizationId?: string | null } }).session
-      ?.activeOrganizationId ?? null;
+  const activeOrganizationId = session.session.activeOrganizationId ?? null;
   const workspace = await resolveWorkspaceForUser(
     session.user.id,
     activeOrganizationId

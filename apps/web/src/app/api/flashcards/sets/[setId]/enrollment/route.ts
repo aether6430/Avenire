@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { parseJsonRequest } from "@/lib/api-request";
 import { invalidateFlashcardReadCaches } from "@/lib/domain-cache";
 import { upsertFlashcardSetEnrollmentForUser } from "@/lib/flashcards";
 import { getWorkspaceContextForUser } from "@/lib/workspace";
@@ -13,10 +14,11 @@ export async function POST(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const parsed = flashcardEnrollmentSchema.safeParse(
-    await request.json().catch(() => ({}))
-  );
-  if (!parsed.success) {
+  const parsed = await parseJsonRequest(request, flashcardEnrollmentSchema);
+  if (
+    !parsed.success ||
+    (parsed.data.newCardsPerDay === undefined && parsed.data.status === undefined)
+  ) {
     return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
   }
   const body = parsed.data;

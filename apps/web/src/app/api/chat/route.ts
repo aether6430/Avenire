@@ -19,9 +19,11 @@ import {
   type RetrievalQualityCandidate,
 } from "@avenire/ingestion";
 import { toDurableStreamResponse } from "@durable-streams/aisdk-transport";
+import { Schema } from "effect-v4";
 import { headers } from "next/headers";
 import { after, NextResponse } from "next/server";
 import { consumeChatUnits, restoreChatUnits } from "@/lib/billing";
+import { parseJsonRequest } from "@/lib/api-request";
 import {
   createChatForUser,
   deleteChatForUser,
@@ -136,6 +138,41 @@ const MODEL_TOOL_ALLOW_LIST = new Set([
   "load_skill",
   "show_widget",
 ]);
+
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function isUiMessage(value: unknown): value is UIMessage {
+  return (
+    isObject(value) &&
+    typeof value.id === "string" &&
+    typeof value.role === "string" &&
+    Array.isArray(value.parts)
+  );
+}
+
+const chatRequestSchema = Schema.Struct({
+  kind: Schema.optional(Schema.Literal("session-close")),
+  messages: Schema.optional(Schema.Array(Schema.declare<UIMessage>(isUiMessage))),
+  workspaceUuid: Schema.optional(Schema.String),
+  selectedModel: Schema.optional(
+    Schema.Literals([
+      "apollo-sprint",
+      "apollo-core",
+      "apollo-apex",
+      "apex-turbo",
+      "apollo-agent",
+      "apollo-meta",
+      "apollo-tiny",
+    ])
+  ),
+  chatId: Schema.optional(Schema.String),
+  id: Schema.optional(Schema.String),
+  sessionId: Schema.optional(Schema.String),
+  status: Schema.optional(Schema.String),
+  userName: Schema.optional(Schema.String),
+});
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
@@ -1486,7 +1523,7 @@ function mergeSupersededStreamMessages(input: {
 
 export async function POST(request: Request) {
   const requestHeadersPromise = headers();
-  const requestBodyPromise = request.json().catch(() => ({}));
+  const requestBodyPromise = parseJsonRequest(request, chatRequestSchema);
   const session = await auth.api.getSession({
     headers: await requestHeadersPromise,
   });
@@ -1506,9 +1543,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const activeOrganizationId =
-      (session as { session?: { activeOrganizationId?: string | null } })
-        .session?.activeOrganizationId ?? null;
+    const activeOrganizationId = session.session.activeOrganizationId ?? null;
     const workspace = await resolveWorkspaceForUser(
       session.user.id,
       activeOrganizationId
@@ -1521,17 +1556,12 @@ export async function POST(request: Request) {
       );
     }
 
-    const body = (await requestBodyPromise) as {
-      kind?: "session-close";
-      messages?: UIMessage[];
-      workspaceUuid?: string;
-      selectedModel?: ApolloModelName;
-      chatId?: string;
-      id?: string;
-      sessionId?: string;
-      status?: string;
-      userName?: string;
-    };
+    const parsedBody = await requestBodyPromise;
+    if (!parsedBody.success) {
+      apiLogger.requestFailed(400, "Invalid payload");
+      return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
+    }
+    const body = parsedBody.data;
 
     if (body.kind === "session-close") {
       const chatId = body.chatId?.trim() ?? "";

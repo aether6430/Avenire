@@ -1,40 +1,36 @@
-import { z } from "zod";
+import { Schema } from "effect-v4";
 
-export const flashcardReviewSchema = z.object({
-  answerText: z.string().nullable().optional(),
-  cardId: z.string().min(1),
-  rating: z.enum(["again", "hard", "good", "easy"]),
+export const flashcardReviewSchema = Schema.Struct({
+  answerText: Schema.optional(Schema.NullOr(Schema.String)),
+  cardId: Schema.String.check(Schema.isMinLength(1)),
+  rating: Schema.Literals(["again", "hard", "good", "easy"]),
 });
 
-export const flashcardSetMutationSchema = z.object({
-  description: z.string().nullable().optional(),
-  tags: z.array(z.string()).optional(),
-  title: z.string().optional(),
+export const flashcardSetMutationSchema = Schema.Struct({
+  description: Schema.optional(Schema.NullOr(Schema.String)),
+  tags: Schema.optional(Schema.Array(Schema.String)),
+  title: Schema.optional(Schema.String),
 });
 
-export const flashcardCardCreateSchema = z.object({
-  backMarkdown: z.string().optional(),
-  frontMarkdown: z.string().optional(),
-  notesMarkdown: z.string().nullable().optional(),
-  source: z.record(z.string(), z.unknown()).optional(),
-  tags: z.array(z.string()).optional(),
+export const flashcardCardCreateSchema = Schema.Struct({
+  backMarkdown: Schema.optional(Schema.String),
+  frontMarkdown: Schema.optional(Schema.String),
+  notesMarkdown: Schema.optional(Schema.NullOr(Schema.String)),
+  source: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
+  tags: Schema.optional(Schema.Array(Schema.String)),
 });
 
-export const flashcardCardUpdateSchema = z.object({
-  backMarkdown: z.string().optional(),
-  frontMarkdown: z.string().optional(),
-  notesMarkdown: z.string().nullable().optional(),
-  source: z.record(z.string(), z.unknown()).optional(),
-  tags: z.array(z.string()).optional(),
+export const flashcardCardUpdateSchema = Schema.Struct({
+  backMarkdown: Schema.optional(Schema.String),
+  frontMarkdown: Schema.optional(Schema.String),
+  notesMarkdown: Schema.optional(Schema.NullOr(Schema.String)),
+  source: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
+  tags: Schema.optional(Schema.Array(Schema.String)),
 });
 
-export const flashcardEnrollmentSchema = z
-  .object({
-    newCardsPerDay: z.number().int().min(1).max(100).optional(),
-    status: z.enum(["active", "paused"]).optional(),
-  })
-  .refine(
-    ({ newCardsPerDay, status }) =>
-      newCardsPerDay !== undefined || status !== undefined,
-    { message: "At least one enrollment field is required" }
-  );
+export const flashcardEnrollmentSchema = Schema.Struct({
+  newCardsPerDay: Schema.optional(
+    Schema.Number.check(Schema.isInt(), Schema.isBetween({ minimum: 1, maximum: 100 }))
+  ),
+  status: Schema.optional(Schema.Literals(["active", "paused"])),
+});

@@ -1,13 +1,14 @@
-import { z } from "zod";
+import { Schema } from "effect-v4";
 
-export const misconceptionScopeSchema = z.object({
-  concept: z.string().trim().min(1),
-  subject: z.string().trim().min(1),
-  topic: z.string().trim().min(1),
+export const misconceptionScopeSchema = Schema.Struct({
+  concept: Schema.Trim.check(Schema.isMinLength(1)),
+  subject: Schema.Trim.check(Schema.isMinLength(1)),
+  topic: Schema.Trim.check(Schema.isMinLength(1)),
 });
 
-export const misconceptionImproveSchema = misconceptionScopeSchema.extend({
-  decay: z.number().finite().optional(),
-  delta: z.number().finite().optional(),
-  resolveThreshold: z.number().finite().optional(),
+export const misconceptionImproveSchema = Schema.Struct({
+  ...misconceptionScopeSchema.fields,
+  decay: Schema.optional(Schema.Finite),
+  delta: Schema.optional(Schema.Finite),
+  resolveThreshold: Schema.optional(Schema.Finite),
 });

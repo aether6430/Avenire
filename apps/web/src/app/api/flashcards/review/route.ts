@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { parseJsonRequest } from "@/lib/api-request";
 import { invalidateFlashcardReadCaches } from "@/lib/domain-cache";
 import { reviewFlashcardForUser } from "@/lib/flashcards";
 import "@/lib/learning-automation";
@@ -12,9 +13,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const parsed = flashcardReviewSchema.safeParse(
-    await request.json().catch(() => ({}))
-  );
+  const parsed = await parseJsonRequest(request, flashcardReviewSchema);
   if (!parsed.success) {
     return NextResponse.json(
       { error: "cardId and rating are required" },

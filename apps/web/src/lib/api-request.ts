@@ -1,5 +1,7 @@
 import { Effect, Exit, Schema } from "effect-v4";
 
+export const unknownJsonRequestSchema = Schema.Unknown;
+
 interface JsonRequestFailure {
   reason: "invalid-json" | "invalid-payload";
   success: false;

@@ -1,7 +1,9 @@
 import { generateText, Output, zodSchema } from "@avenire/ai";
 import { apollo } from "@avenire/ai/models";
+import { Schema } from "effect-v4";
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { parseJsonRequest } from "@/lib/api-request";
 import { invalidateFlashcardReadCaches } from "@/lib/domain-cache";
 import {
   createFlashcardCardForUser,
@@ -24,16 +26,18 @@ const flashcardGenerationSchema = z.object({
   title: z.string().min(1),
 });
 
-const requestSchema = z.object({
-  concept: z.string().min(1).max(200),
-  count: z.number().int().min(1).max(12).optional(),
-  reason: z.string().min(1).max(500),
-  subject: z.string().min(1).max(120),
-  title: z.string().min(1).max(200).optional(),
-  topic: z.string().min(1).max(160),
+const requestSchema = Schema.Struct({
+  concept: Schema.String.check(Schema.isLengthBetween(1, 200)),
+  count: Schema.optional(
+    Schema.Number.check(Schema.isInt(), Schema.isBetween({ minimum: 1, maximum: 12 }))
+  ),
+  reason: Schema.String.check(Schema.isLengthBetween(1, 500)),
+  subject: Schema.String.check(Schema.isLengthBetween(1, 120)),
+  title: Schema.optional(Schema.String.check(Schema.isLengthBetween(1, 200))),
+  topic: Schema.String.check(Schema.isLengthBetween(1, 160)),
 });
 
-function buildStudySource(input: z.infer<typeof requestSchema>) {
+function buildStudySource(input: typeof requestSchema.Type) {
   return [
     `Concept: ${input.concept}`,
     `Subject: ${input.subject}`,
@@ -50,9 +54,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const parsed = requestSchema.safeParse(
-    await request.json().catch(() => ({}))
-  );
+  const parsed = await parseJsonRequest(request, requestSchema);
   if (!parsed.success) {
     return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
   }

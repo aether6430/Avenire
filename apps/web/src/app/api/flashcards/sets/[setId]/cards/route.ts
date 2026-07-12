@@ -1,5 +1,6 @@
 import { assertFlashcardTaxonomy } from "@avenire/database";
 import { NextResponse } from "next/server";
+import { parseJsonRequest } from "@/lib/api-request";
 import { invalidateFlashcardReadCaches } from "@/lib/domain-cache";
 import { createFlashcardCardForUser } from "@/lib/flashcards";
 import { getWorkspaceContextForUser } from "@/lib/workspace";
@@ -16,9 +17,7 @@ export async function POST(
   }
 
   const { setId } = await context.params;
-  const parsed = flashcardCardCreateSchema.safeParse(
-    await request.json().catch(() => ({}))
-  );
+  const parsed = await parseJsonRequest(request, flashcardCardCreateSchema);
   if (!parsed.success) {
     return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
   }

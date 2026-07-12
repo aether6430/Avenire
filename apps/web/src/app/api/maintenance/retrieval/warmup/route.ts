@@ -1,14 +1,22 @@
+import { Schema } from "effect-v4";
 import { NextResponse } from "next/server";
-import { z } from "zod";
+import { parseJsonRequest } from "@/lib/api-request";
 import { warmRetrievalCacheForWorkspace } from "@/lib/retrieval-service";
 
-const warmupSchema = z.object({
-  chunkCount: z.number().int().min(0).optional(),
-  fileId: z.string().nullable().optional(),
-  jobId: z.string().nullable().optional(),
-  resourceCount: z.number().int().min(0).optional(),
-  workspaceId: z.string().uuid(),
-});
+const optionalCount = Schema.optional(
+  Schema.Number.check(Schema.isInt(), Schema.isGreaterThanOrEqualTo(0))
+);
+const nullableString = Schema.NullOr(Schema.String);
+
+class RetrievalWarmupRequest extends Schema.Class<RetrievalWarmupRequest>(
+  "RetrievalWarmupRequest"
+)({
+  chunkCount: optionalCount,
+  fileId: Schema.optional(nullableString),
+  jobId: Schema.optional(nullableString),
+  resourceCount: optionalCount,
+  workspaceId: Schema.String.check(Schema.isUUID(4)),
+}) {}
 
 function isAuthorized(request: Request) {
   const token = process.env.MAINTENANCE_CRON_TOKEN;
@@ -25,7 +33,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const parsed = warmupSchema.safeParse(await request.json().catch(() => ({})));
+  const parsed = await parseJsonRequest(request, RetrievalWarmupRequest);
   if (!parsed.success) {
     return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
   }

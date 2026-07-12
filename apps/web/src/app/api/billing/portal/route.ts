@@ -4,7 +4,9 @@ import {
   createCustomerPortalLinkForExternalCustomer,
 } from "@avenire/payments";
 import { headers } from "next/headers";
+import { Schema } from "effect-v4";
 import { NextResponse } from "next/server";
+import { parseJsonRequest } from "@/lib/api-request";
 import { ensureUserBillingRecords } from "@/lib/billing";
 import { BILLING_SETTINGS_PATH } from "@/lib/billing-plans";
 import { getBillingCustomerByUserId } from "@/lib/database-billing";
@@ -25,9 +27,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const body = (await request.json().catch(() => ({}))) as {
-    returnPath?: string;
-  };
+  const parsed = await parseJsonRequest(
+    request,
+    Schema.Struct({ returnPath: Schema.optional(Schema.String) })
+  );
+  if (!parsed.success) {
+    void apiLogger.requestFailed(400, "Invalid payload");
+    return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
+  }
+  const body = parsed.data;
   const baseUrl =
     process.env.NEXT_PUBLIC_APP_URL ?? new URL(request.url).origin;
   const returnPath = body.returnPath?.startsWith("/")

@@ -1,10 +1,11 @@
 import { apollo, generateText } from "@avenire/ai";
+import { Schema } from "effect-v4";
 import { NextResponse } from "next/server";
-import { z } from "zod";
+import { parseJsonRequest } from "@/lib/api-request";
 import { getSessionUser } from "@/lib/workspace";
 
-const aiEditSchema = z.object({
-  action: z.enum([
+const aiEditSchema = Schema.Struct({
+  action: Schema.Literals([
     "elaborate",
     "explain",
     "improve",
@@ -12,7 +13,7 @@ const aiEditSchema = z.object({
     "simplify",
     "summarize",
   ]),
-  text: z.string().min(1).max(40_000),
+  text: Schema.String.check(Schema.isLengthBetween(1, 40_000)),
 });
 
 const markdownWriterRules = [
@@ -23,7 +24,7 @@ const markdownWriterRules = [
   "Do not escape markdown syntax unnecessarily.",
 ].join(" ");
 
-const prompts: Record<z.infer<typeof aiEditSchema>["action"], string> = {
+const prompts: Record<(typeof aiEditSchema.Type)["action"], string> = {
   elaborate: `${markdownWriterRules} Expand the selected text with useful detail while preserving the user's voice.`,
   explain: `${markdownWriterRules} Explain the selected text clearly and directly.`,
   improve: `${markdownWriterRules} Improve the selected writing for clarity, flow, and precision while preserving meaning.`,
@@ -39,7 +40,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const parsed = aiEditSchema.safeParse(await request.json().catch(() => ({})));
+  const parsed = await parseJsonRequest(request, aiEditSchema);
   if (!parsed.success) {
     return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
   }
