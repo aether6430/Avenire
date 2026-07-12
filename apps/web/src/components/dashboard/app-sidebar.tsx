@@ -2313,7 +2313,7 @@ export function DashboardSidebar({
       />
       <Sidebar
         className={cn(
-          "z-50 transition-all duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)]",
+          "z-50 transition-[box-shadow,border-radius,top,bottom,left] duration-200 ease-[var(--ease-out)] group-data-[instant=true]:transition-none",
           className,
           isPeekabooActive && "ring-1 ring-sidebar-border"
         )}

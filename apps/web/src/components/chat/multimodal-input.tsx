@@ -23,7 +23,7 @@ import {
   X,
 } from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import type React from "react";
 import {
   type Dispatch,
@@ -1627,15 +1627,16 @@ function PureComposerActionButton({
   onStop: () => void;
 }) {
   const disabled = !(isRunning || canSend);
+  const reduceMotion = useReducedMotion() ?? false;
+  const iconEnter = reduceMotion
+    ? { opacity: 0 }
+    : { opacity: 0, scale: 0.94 };
+  const iconExit = reduceMotion
+    ? { opacity: 0, transition: { duration: 0.06 } }
+    : { opacity: 0, scale: 0.94, transition: { duration: 0.06 } };
 
   return (
-    <motion.div
-      animate={{
-        scale: 1,
-      }}
-      className="relative h-9 w-9 shrink-0"
-      transition={springs.fast}
-    >
+    <div className="relative h-9 w-9 shrink-0">
       <motion.span
         animate={{
           opacity: disabled ? 0.68 : 1,
@@ -1646,7 +1647,7 @@ function PureComposerActionButton({
       <Button
         aria-label={isRunning ? "Stop generating" : "Send message"}
         className={cn(
-          "absolute inset-0 flex h-9 w-9 items-center justify-center rounded-full bg-transparent p-0 text-primary-foreground transition duration-150 ease-out hover:bg-transparent hover:text-primary-foreground focus-visible:ring-0",
+          "absolute inset-0 flex h-9 w-9 items-center justify-center rounded-full bg-transparent p-0 text-primary-foreground transition-[opacity,color,background-color] duration-150 ease-[var(--ease-out)] hover:bg-transparent hover:text-primary-foreground focus-visible:ring-0",
           disabled && "opacity-55"
         )}
         data-testid={isRunning ? "stop-button" : "send-button"}
@@ -1668,9 +1669,10 @@ function PureComposerActionButton({
         <AnimatePresence initial={false} mode="wait">
           {isRunning ? (
             <motion.span
-              animate={{ opacity: 1, rotate: 0, scale: 1 }}
-              exit={{ opacity: 0, rotate: -16, scale: 0.72 }}
-              initial={{ opacity: 0, rotate: 16, scale: 0.72 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="flex items-center justify-center"
+              exit={iconExit}
+              initial={iconEnter}
               key="stop"
               transition={springs.fast}
             >
@@ -1678,9 +1680,10 @@ function PureComposerActionButton({
             </motion.span>
           ) : (
             <motion.span
-              animate={{ opacity: 1, rotate: 0, scale: 1 }}
-              exit={{ opacity: 0, rotate: 16, scale: 0.72 }}
-              initial={{ opacity: 0, rotate: -16, scale: 0.72 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="flex items-center justify-center"
+              exit={iconExit}
+              initial={iconEnter}
               key="send"
               transition={springs.fast}
             >
@@ -1689,7 +1692,7 @@ function PureComposerActionButton({
           )}
         </AnimatePresence>
       </Button>
-    </motion.div>
+    </div>
   );
 }
 

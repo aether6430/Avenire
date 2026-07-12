@@ -175,16 +175,25 @@
   content: "";
 }
 
+/* Reduced motion: drop movement (transform/position), keep short opacity/color feedback.
+   Prefer useReducedMotion() in Motion components to omit transform keys entirely. */
 @media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
   *,
   *::before,
   *::after {
     scroll-behavior: auto !important;
-    transition-duration: 0.01ms !important;
-    transition-delay: 0ms !important;
+    /* Kill looping / positional keyframes; one-shot animations collapse to a frame. */
     animation-duration: 0.01ms !important;
-    animation-delay: 0ms !important;
     animation-iteration-count: 1 !important;
+    /* Allow only non-movement transitions so UI state still communicates. */
+    transition-property: opacity, color, background-color, border-color, box-shadow,
+      outline-color, fill, stroke, text-decoration-color !important;
+    transition-duration: 120ms !important;
+    transition-delay: 0ms !important;
   }
 }
 

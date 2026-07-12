@@ -6608,7 +6608,7 @@ export function FileExplorer({
                                   <CardContent className="space-y-2 px-0 pt-0">
                                     <div className="group relative flex h-28 w-full min-w-0 items-center justify-center overflow-hidden rounded-lg border border-border/45 bg-muted/70 p-1.5">
                                       <FolderGlyph
-                                        className="transition-transform duration-300 ease-out group-hover:scale-[1.03]"
+                                        className="transition-transform duration-200 ease-[var(--ease-out)] fine-hover:group-hover:scale-[1.03]"
                                         previewKinds={
                                           folderPreviewKinds.get(folder.id) ??
                                           []

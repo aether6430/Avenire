@@ -1263,21 +1263,24 @@ export function RollingPreviewPanel({
   open: boolean;
 }) {
   return (
-    <m.div
-      animate={{ height: open ? "auto" : 0, opacity: open ? 1 : 0 }}
-      initial={false}
-      style={{ overflow: "hidden" }}
-      transition={{ duration: 0.36, ease: [0.4, 0, 0.2, 1] }}
+    <div
+      aria-hidden={!open}
+      className={cn(
+        "grid overflow-hidden transition-[grid-template-rows,opacity] duration-200 ease-[var(--ease-out)]",
+        open ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+      )}
     >
-      <div
-        className={cn(
-          "mt-[3px] overflow-hidden rounded border border-foreground/[0.07] bg-foreground/[0.025]",
-          className
-        )}
-      >
-        {children}
+      <div className="min-h-0 overflow-hidden">
+        <div
+          className={cn(
+            "mt-[3px] overflow-hidden rounded border border-foreground/[0.07] bg-foreground/[0.025]",
+            className
+          )}
+        >
+          {children}
+        </div>
       </div>
-    </m.div>
+    </div>
   );
 }
 
@@ -1351,23 +1354,26 @@ function ReadPreviewPanel({
     .slice(0, 2);
 
   return (
-    <m.div
-      animate={{ height: open ? "auto" : 0, opacity: open ? 1 : 0 }}
-      initial={false}
-      style={{ overflow: "hidden" }}
-      transition={{ duration: 0.24, ease: [0.4, 0, 0.2, 1] }}
+    <div
+      aria-hidden={!open}
+      className={cn(
+        "grid overflow-hidden transition-[grid-template-rows,opacity] duration-200 ease-[var(--ease-out)]",
+        open ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+      )}
     >
-      <div className="mt-0.5 mb-1.5 ml-[48px] overflow-hidden rounded border border-foreground/[0.07] bg-foreground/[0.025]">
-        <div className="border-foreground/[0.06] border-b px-2.5 pt-1.5 pb-1">
-          <span className="block truncate font-mono text-[10px] text-foreground/28">
-            {preview.path}
-          </span>
+      <div className="min-h-0 overflow-hidden">
+        <div className="mt-0.5 mb-1.5 ml-[48px] overflow-hidden rounded border border-foreground/[0.07] bg-foreground/[0.025]">
+          <div className="border-foreground/[0.06] border-b px-2.5 pt-1.5 pb-1">
+            <span className="block truncate font-mono text-[10px] text-foreground/28">
+              {preview.path}
+            </span>
+          </div>
+          <pre className="overflow-hidden whitespace-pre-wrap break-words px-2.5 py-1.5 font-mono text-[10.5px] text-foreground/32 leading-[1.55]">
+            {lines.join("\n")}
+          </pre>
         </div>
-        <pre className="overflow-hidden whitespace-pre-wrap break-words px-2.5 py-1.5 font-mono text-[10.5px] text-foreground/32 leading-[1.55]">
-          {lines.join("\n")}
-        </pre>
       </div>
-    </m.div>
+    </div>
   );
 }
 
@@ -1379,33 +1385,36 @@ function SearchPreviewPanel({
   preview: SearchPreview;
 }) {
   return (
-    <m.div
-      animate={{ height: open ? "auto" : 0, opacity: open ? 1 : 0 }}
-      initial={false}
-      style={{ overflow: "hidden" }}
-      transition={{ duration: 0.24, ease: [0.4, 0, 0.2, 1] }}
+    <div
+      aria-hidden={!open}
+      className={cn(
+        "grid overflow-hidden transition-[grid-template-rows,opacity] duration-200 ease-[var(--ease-out)]",
+        open ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+      )}
     >
-      <div className="mt-0.5 mb-1.5 ml-[48px] overflow-hidden rounded border border-foreground/[0.07] bg-foreground/[0.025]">
-        <div className="border-foreground/[0.06] border-b px-2.5 pt-1.5 pb-1">
-          <span className="font-mono text-[10px] text-foreground/28">
-            {preview.matches.length} match
-            {preview.matches.length === 1 ? "" : "es"}
-            {" · "}
-            <span className="text-foreground/40">{preview.query}</span>
-          </span>
+      <div className="min-h-0 overflow-hidden">
+        <div className="mt-0.5 mb-1.5 ml-[48px] overflow-hidden rounded border border-foreground/[0.07] bg-foreground/[0.025]">
+          <div className="border-foreground/[0.06] border-b px-2.5 pt-1.5 pb-1">
+            <span className="font-mono text-[10px] text-foreground/28">
+              {preview.matches.length} match
+              {preview.matches.length === 1 ? "" : "es"}
+              {" · "}
+              <span className="text-foreground/40">{preview.query}</span>
+            </span>
+          </div>
+          <ul className="space-y-[3px] px-2.5 py-1.5">
+            {preview.matches.map((match, index) => (
+              <li
+                className="truncate font-mono text-[10.5px] text-foreground/30"
+                key={`${match}-${index}`}
+              >
+                {match}
+              </li>
+            ))}
+          </ul>
         </div>
-        <ul className="space-y-[3px] px-2.5 py-1.5">
-          {preview.matches.map((match, index) => (
-            <li
-              className="truncate font-mono text-[10.5px] text-foreground/30"
-              key={`${match}-${index}`}
-            >
-              {match}
-            </li>
-          ))}
-        </ul>
       </div>
-    </m.div>
+    </div>
   );
 }
 

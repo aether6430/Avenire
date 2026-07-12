@@ -716,15 +716,15 @@ const PurePreviewMessage = ({
   return (
     <AnimatePresence>
       <motion.div
-        animate={{ y: 0, opacity: 1 }}
+        animate={{ opacity: 1, transform: "translateY(0px)" }}
         className={cn("group/message mx-auto w-full max-w-4xl px-3 sm:px-4", {
           "justify-self-end": message.role === "user",
         })}
         data-message-id={message.id}
         data-role={message.role}
         data-testid={`message-${message.role}`}
-        initial={{ y: 5, opacity: 0 }}
-        transition={{ duration: 0.2, ease: "easeOut" }}
+        initial={{ opacity: 0, transform: "translateY(5px)" }}
+        transition={{ duration: 0.16, ease: [0.23, 1, 0.32, 1] }}
       >
         <div
           className="flex w-full flex-col gap-3 group-data-[role=user]/message:ml-auto group-data-[role=user]/message:max-w-[82%]"

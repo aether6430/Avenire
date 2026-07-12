@@ -2100,8 +2100,8 @@ export function CommandPalette({
       description="Search commands, projects, and threads..."
       showCloseButton={false}
       className={cn(
+        // Instant open (CommandDialog animate=false); snap size changes — no layout transition.
         "top-[4.5vh]! h-[min(78vh,39.5rem)] translate-y-0! gap-0! border-0! bg-transparent! p-0! shadow-none! ring-0!",
-        open && "transition-[width,height,max-width] duration-200 ease-out",
         showPreview
           ? "w-[min(calc(100vw-2rem),56.75rem)]! max-w-[56.75rem]!"
           : "w-[min(calc(100vw-2rem),34rem)]! max-w-[34rem]!"
@@ -2165,7 +2165,7 @@ export function CommandPalette({
 
         <div
           className={cn(
-            "grid transition-[grid-template-rows,opacity] duration-200 ease-out",
+            "grid transition-[grid-template-rows,opacity] duration-150 ease-[var(--ease-out)]",
             showFilters
               ? "grid-rows-[1fr] opacity-100"
               : "grid-rows-[0fr] opacity-0"
@@ -2207,7 +2207,7 @@ export function CommandPalette({
         {hasResults ? (
           <Command.Split
             className={cn(
-              "transition-[grid-template-columns,gap] duration-200 ease-out",
+              // Snap column layout; preview content may fade in separately if needed.
               !showPreview && "md:grid-cols-[minmax(0,1fr)]"
             )}
           >
