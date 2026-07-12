@@ -1,3 +1,4 @@
+import { Effect } from "effect-v4";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const database = vi.hoisted(() => ({
@@ -25,7 +26,10 @@ beforeEach(() => {
   process.env.POLAR_CREDITS_EVENT_NAME = "credits.consumed";
   process.env.POLAR_CREDITS_METER_ID = "meter-id";
   process.env.POLAR_CREDITS_MODE = "shadow";
-  delete process.env.POLAR_CREDITS_DIVERGENCE_THRESHOLD_RATIO;
+  Reflect.deleteProperty(
+    process.env,
+    "POLAR_CREDITS_DIVERGENCE_THRESHOLD_RATIO"
+  );
 });
 
 describe("compareCreditConsumption", () => {
@@ -63,7 +67,9 @@ describe("compareCreditConsumption", () => {
     payments.ingestPolarUsageEvents.mockResolvedValue(undefined);
     database.markBillingUsageEventDelivered.mockResolvedValue(undefined);
 
-    await expect(deliverPendingPolarUsageEvents()).resolves.toEqual({
+    await expect(
+      Effect.runPromise(deliverPendingPolarUsageEvents())
+    ).resolves.toEqual({
       delivered: 1,
       failed: 0,
     });
@@ -101,13 +107,15 @@ describe("compareCreditConsumption", () => {
     );
     database.markBillingUsageEventFailed.mockResolvedValue(undefined);
 
-    await expect(deliverPendingPolarUsageEvents()).resolves.toEqual({
+    await expect(
+      Effect.runPromise(deliverPendingPolarUsageEvents())
+    ).resolves.toEqual({
       delivered: 0,
       failed: 1,
     });
     expect(database.markBillingUsageEventFailed).toHaveBeenCalledWith({
       attempts: 3,
-      error: "Polar unavailable",
+      error: "Polar usage delivery failed",
       id: "event-id",
     });
     expect(database.markBillingUsageEventDelivered).not.toHaveBeenCalled();
@@ -118,11 +126,44 @@ describe("compareCreditConsumption", () => {
     database.getLocalDeliveredUsageTotal.mockResolvedValue(100);
     payments.getPolarCustomerMeter.mockResolvedValue({ consumedUnits: 92 });
 
-    await expect(reconcilePolarCreditConsumption("user-id")).resolves.toEqual({
+    await expect(
+      Effect.runPromise(reconcilePolarCreditConsumption("user-id"))
+    ).resolves.toEqual({
       diverged: false,
       divergenceRatio: 0.08,
       localConsumedUnits: 100,
       polarConsumedUnits: 92,
     });
+  });
+
+  it("keeps database failures in the typed error channel", async () => {
+    database.claimPendingBillingUsageEvents.mockRejectedValue(
+      new Error("postgres://user:password@internal/db")
+    );
+
+    await expect(
+      Effect.runPromise(
+        deliverPendingPolarUsageEvents().pipe(
+          Effect.flip,
+          Effect.map((error) => error._tag)
+        )
+      )
+    ).resolves.toBe("DatabaseOperationError");
+  });
+
+  it("keeps Polar failures in the typed error channel", async () => {
+    database.getLocalDeliveredUsageTotal.mockResolvedValue(100);
+    payments.getPolarCustomerMeter.mockRejectedValue(
+      new Error("Polar token pol_live_secret")
+    );
+
+    await expect(
+      Effect.runPromise(
+        reconcilePolarCreditConsumption("user-id").pipe(
+          Effect.flip,
+          Effect.map((error) => error._tag)
+        )
+      )
+    ).resolves.toBe("ProviderOperationError");
   });
 });

@@ -2,58 +2,99 @@ import {
   getPolarCustomerMeter,
   ingestPolarUsageEvents,
 } from "@avenire/payments";
+import { Effect } from "effect-v4";
+import { requirePolarCreditConfiguration } from "@/lib/billing-credit-policy";
 import {
   claimPendingBillingUsageEvents,
   getLocalDeliveredUsageTotal,
   markBillingUsageEventDelivered,
   markBillingUsageEventFailed,
 } from "@/lib/database-billing";
-import { requirePolarCreditConfiguration } from "@/lib/billing-credit-policy";
+import {
+  DatabaseOperationError,
+  ProviderOperationError,
+} from "@/lib/effect-errors/external-operation-errors";
 
-function toErrorMessage(error: unknown) {
-  return error instanceof Error ? error.message : String(error);
-}
-
-export async function deliverPendingPolarUsageEvents(limit = 50) {
-  const { eventName } = requirePolarCreditConfiguration();
-  const events = await claimPendingBillingUsageEvents({ limit });
+export const deliverPendingPolarUsageEvents = Effect.fn(
+  "billing.deliverPendingPolarUsageEvents"
+)(function* (limit = 50) {
+  const { eventName } = yield* Effect.try({
+    try: () => requirePolarCreditConfiguration(),
+    catch: (cause) =>
+      ProviderOperationError.make({
+        cause,
+        operation: "polar.readConfiguration",
+        retryable: false,
+      }),
+  });
+  const events = yield* Effect.tryPromise({
+    try: () => claimPendingBillingUsageEvents({ limit }),
+    catch: (cause) =>
+      DatabaseOperationError.make({
+        cause,
+        operation: "billing.claimPendingUsageEvents",
+        retryable: true,
+      }),
+  });
   if (events.length === 0) {
     return { delivered: 0, failed: 0 };
   }
 
-  try {
-    await ingestPolarUsageEvents({
-      eventName,
-      events: events.map((event) => ({
-        externalCustomerId: event.userId,
-        externalId: event.idempotencyKey,
-        meter: event.meter,
-        occurredAt: event.occurredAt,
-        units: event.units,
-      })),
-    });
-  } catch (error) {
-    const message = toErrorMessage(error);
-    await Promise.all(
-      events.map((event) =>
-        markBillingUsageEventFailed({
-          id: event.id,
-          attempts: event.attempts,
-          error: message,
-        })
-      )
-    );
+  const deliveredToPolar = yield* Effect.tryPromise({
+    try: () =>
+      ingestPolarUsageEvents({
+        eventName,
+        events: events.map((event) => ({
+          externalCustomerId: event.userId,
+          externalId: event.idempotencyKey,
+          meter: event.meter,
+          occurredAt: event.occurredAt,
+          units: event.units,
+        })),
+      }),
+    catch: (cause) =>
+      ProviderOperationError.make({
+        cause,
+        operation: "polar.ingestUsageEvents",
+        retryable: true,
+      }),
+  }).pipe(
+    Effect.as(true),
+    Effect.catchTag("ProviderOperationError", () =>
+      Effect.tryPromise({
+        try: () =>
+          Promise.all(
+            events.map((event) =>
+              markBillingUsageEventFailed({
+                id: event.id,
+                attempts: event.attempts,
+                error: "Polar usage delivery failed",
+              })
+            )
+          ),
+        catch: (cause) =>
+          DatabaseOperationError.make({
+            cause,
+            operation: "billing.markUsageEventsFailed",
+            retryable: true,
+          }),
+      }).pipe(Effect.as(false))
+    )
+  );
+  if (!deliveredToPolar) {
     return { delivered: 0, failed: events.length };
   }
 
-  const deliveryMarks = await Promise.allSettled(
-    events.map((event) => markBillingUsageEventDelivered(event.id))
+  const deliveryMarks = yield* Effect.promise(() =>
+    Promise.allSettled(
+      events.map((event) => markBillingUsageEventDelivered(event.id))
+    )
   );
   const failed = deliveryMarks.filter(
     (result) => result.status === "rejected"
   ).length;
   return { delivered: events.length - failed, failed };
-}
+});
 
 export interface CreditReconciliation {
   diverged: boolean;
@@ -80,13 +121,36 @@ export function compareCreditConsumption(input: {
   };
 }
 
-export async function reconcilePolarCreditConsumption(userId: string) {
-  const { divergenceThresholdRatio, meterId, mode } =
-    requirePolarCreditConfiguration();
-  const [localConsumedUnits, customerMeter] = await Promise.all([
-    getLocalDeliveredUsageTotal({ userId, meter: "chat" }),
-    getPolarCustomerMeter({ externalCustomerId: userId, meterId }),
-  ]);
+export const reconcilePolarCreditConsumption = Effect.fn(
+  "billing.reconcilePolarCreditConsumption"
+)(function* (userId: string) {
+  const { divergenceThresholdRatio, meterId, mode } = yield* Effect.try({
+    try: () => requirePolarCreditConfiguration(),
+    catch: (cause) =>
+      ProviderOperationError.make({
+        cause,
+        operation: "polar.readConfiguration",
+        retryable: false,
+      }),
+  });
+  const localConsumedUnits = yield* Effect.tryPromise({
+    try: () => getLocalDeliveredUsageTotal({ userId, meter: "chat" }),
+    catch: (cause) =>
+      DatabaseOperationError.make({
+        cause,
+        operation: "billing.getLocalDeliveredUsageTotal",
+        retryable: true,
+      }),
+  });
+  const customerMeter = yield* Effect.tryPromise({
+    try: () => getPolarCustomerMeter({ externalCustomerId: userId, meterId }),
+    catch: (cause) =>
+      ProviderOperationError.make({
+        cause,
+        operation: "polar.getCustomerMeter",
+        retryable: true,
+      }),
+  });
   const result = compareCreditConsumption({
     localConsumedUnits,
     polarConsumedUnits: customerMeter?.consumedUnits ?? 0,
@@ -101,4 +165,4 @@ export async function reconcilePolarCreditConsumption(userId: string) {
     });
   }
   return result;
-}
+});
