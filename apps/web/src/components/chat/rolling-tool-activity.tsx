@@ -1107,7 +1107,7 @@ function ReasoningBlock({
           className="flex h-7 items-center gap-2"
           role="status"
         >
-          <span className="font-semibold text-foreground/32 text-sm">
+          <span className="agent-activity-shimmer font-semibold text-sm">
             Thinking
           </span>
           {summary ? (
@@ -1594,7 +1594,7 @@ function ExploreBlock({
           className="flex h-7 items-center gap-2"
           role="status"
         >
-          <span className="font-semibold text-foreground/32 text-sm">
+          <span className="agent-activity-shimmer font-semibold text-sm">
             Exploring
           </span>
           {summary ? (
@@ -2084,6 +2084,7 @@ export function RollingAgentActivity({
             action={group.action}
             key={`agent-${group.groupUid}`}
           />
+        );
       })}
     </ul>
   );

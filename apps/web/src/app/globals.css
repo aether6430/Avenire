@@ -3,6 +3,37 @@
 @source "../../../**/*.{js,ts,jsx,tsx}";
 @source "../../../../packages/**/*.{js,ts,jsx,tsx}";
 
+@keyframes agent-activity-shim {
+  from {
+    background-position: 0% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+.agent-activity-shimmer {
+  color: transparent;
+  background: linear-gradient(
+    90deg,
+    #555 0%,
+    #555 35%,
+    #fff 50%,
+    #555 65%,
+    #555 100%
+  );
+  background-size: 200% 100%;
+  background-clip: text;
+  animation: agent-activity-shim 1.8s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .agent-activity-shimmer {
+    animation: none;
+    background-position: 0% 0;
+  }
+}
+
 @theme {
   --font-primary: "Inter Display", sans-serif;
   --font-mono: "DM Mono", monospace;
