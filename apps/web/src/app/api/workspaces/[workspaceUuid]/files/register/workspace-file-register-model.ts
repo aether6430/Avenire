@@ -1,19 +1,26 @@
+import { Schema } from "effect-v4";
 import { resolveApiErrorMessage } from "@/lib/api-error-message";
 
 import { extractMarkdownNotePageMetadata } from "@/lib/markdown-note-page-metadata";
 
-export interface WorkspaceFileRegisterBody {
-  content?: string;
-  contentHashSha256?: string | null;
-  folderId?: string;
-  hashComputedBy?: "client" | "server" | null;
-  metadata?: Record<string, unknown>;
-  mimeType?: string | null;
-  name?: string;
-  sizeBytes?: number;
-  storageKey?: string;
-  storageUrl?: string;
-}
+export class WorkspaceFileRegisterRequest extends Schema.Class<WorkspaceFileRegisterRequest>(
+  "WorkspaceFileRegisterRequest"
+)({
+  content: Schema.optional(Schema.String),
+  contentHashSha256: Schema.optional(Schema.NullOr(Schema.String)),
+  folderId: Schema.optional(Schema.String),
+  hashComputedBy: Schema.optional(
+    Schema.NullOr(Schema.Literals(["client", "server"]))
+  ),
+  metadata: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
+  mimeType: Schema.optional(Schema.NullOr(Schema.String)),
+  name: Schema.optional(Schema.String),
+  sizeBytes: Schema.optional(Schema.Number),
+  storageKey: Schema.optional(Schema.String),
+  storageUrl: Schema.optional(Schema.String),
+}) {}
+
+export type WorkspaceFileRegisterBody = WorkspaceFileRegisterRequest;
 
 export interface WorkspaceFileRegisterLogger {
   featureUsed: (event: string, properties?: Record<string, unknown>) => unknown;
