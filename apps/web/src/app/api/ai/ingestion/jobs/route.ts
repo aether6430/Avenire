@@ -1,11 +1,10 @@
 import { listRecentIngestionJobsForWorkspace } from "@avenire/database";
 import { scheduleIngestionJob } from "@avenire/ingestion/queue";
-import { Schema } from "effect-v4";
+import { Effect, Schema } from "effect-v4";
 import { NextResponse } from "next/server";
-import { z } from "zod";
+import { resolveApiErrorMessage } from "@/lib/api-error-message";
 import { parseJsonRequest } from "@/lib/api-request";
 import { getFileAssetById } from "@/lib/file-data";
-import { resolveApiErrorMessage } from "@/lib/api-error-message";
 import { ensureWorkspaceAccessForUser, getSessionUser } from "@/lib/workspace";
 import { publishWorkspaceStreamEvent } from "@/lib/workspace-event-stream";
 
@@ -15,10 +14,20 @@ const enqueueSchema = Schema.Struct({
   sourceType: Schema.optional(Schema.String),
 });
 
-const listSchema = z.object({
-  workspaceUuid: z.string().trim().uuid(),
-  limit: z.coerce.number().int().min(1).max(200).optional(),
-  windowMinutes: z.coerce.number().int().min(1).max(240).optional(),
+const listSchema = Schema.Struct({
+  workspaceUuid: Schema.Trim.check(Schema.isUUID()),
+  limit: Schema.optional(
+    Schema.NumberFromString.check(
+      Schema.isInt(),
+      Schema.isBetween({ minimum: 1, maximum: 200 })
+    )
+  ),
+  windowMinutes: Schema.optional(
+    Schema.NumberFromString.check(
+      Schema.isInt(),
+      Schema.isBetween({ minimum: 1, maximum: 240 })
+    )
+  ),
 });
 
 const DEFAULT_INGESTION_JOBS_LIMIT = 60;
@@ -26,13 +35,18 @@ const DEFAULT_INGESTION_JOBS_WINDOW_MINUTES = 10;
 const INGESTION_JOBS_LIST_ERROR = "Unable to load ingestion jobs.";
 const INGESTION_JOBS_ENQUEUE_ERROR = "Unable to queue ingestion job.";
 
-function parseIngestionJobsListQuery(request: Request) {
+async function parseIngestionJobsListQuery(request: Request) {
   const { searchParams } = new URL(request.url);
-  return listSchema.safeParse({
-    workspaceUuid: searchParams.get("workspaceUuid") ?? "",
-    limit: searchParams.get("limit") ?? undefined,
-    windowMinutes: searchParams.get("windowMinutes") ?? undefined,
-  });
+  const decoded = await Effect.runPromiseExit(
+    Schema.decodeUnknownEffect(listSchema)({
+      workspaceUuid: searchParams.get("workspaceUuid") ?? "",
+      limit: searchParams.get("limit") ?? undefined,
+      windowMinutes: searchParams.get("windowMinutes") ?? undefined,
+    })
+  );
+  return decoded._tag === "Success"
+    ? { data: decoded.value, success: true as const }
+    : { success: false as const };
 }
 
 function resolveIngestionJobsLimit(limit?: number) {
@@ -80,7 +94,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const parsed = parseIngestionJobsListQuery(request);
+    const parsed = await parseIngestionJobsListQuery(request);
     if (!parsed.success) {
       return NextResponse.json({ error: "Invalid query" }, { status: 400 });
     }

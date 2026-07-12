@@ -1,7 +1,7 @@
+import { Schema } from "effect-v4";
 import { NextResponse } from "next/server";
-import { z } from "zod";
+import { parseJsonRequest } from "@/lib/api-request";
 import { invalidateWorkspaceReadCaches } from "@/lib/domain-cache";
-import { parseJsonRequest, unknownJsonRequestSchema } from "@/lib/api-request";
 import {
   getFileAssetById,
   getFolderWithAncestors,
@@ -20,20 +20,20 @@ import {
   WORKSPACE_BULK_OPERATION_ERROR,
 } from "./workspace-items-bulk-route-model";
 
-const itemSchema = z.object({
-  id: z.string().uuid(),
-  kind: z.enum(["file", "folder"]),
+const itemSchema = Schema.Struct({
+  id: Schema.String.check(Schema.isUUID()),
+  kind: Schema.Literals(["file", "folder"]),
 });
 
-const requestSchema = z.discriminatedUnion("operation", [
-  z.object({
-    operation: z.literal("delete"),
-    items: z.array(itemSchema).min(1).max(500),
+const requestSchema = Schema.Union([
+  Schema.Struct({
+    operation: Schema.Literal("delete"),
+    items: Schema.Array(itemSchema).check(Schema.isLengthBetween(1, 500)),
   }),
-  z.object({
-    operation: z.literal("move"),
-    targetFolderId: z.string().uuid(),
-    items: z.array(itemSchema).min(1).max(500),
+  Schema.Struct({
+    operation: Schema.Literal("move"),
+    targetFolderId: Schema.String.check(Schema.isUUID()),
+    items: Schema.Array(itemSchema).check(Schema.isLengthBetween(1, 500)),
   }),
 ]);
 
@@ -69,11 +69,7 @@ export async function POST(
 
     const { workspaceUuid } = await context.params;
 
-    const requestBody = await parseJsonRequest(request, unknownJsonRequestSchema);
-    if (!requestBody.success) {
-      return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
-    }
-    const parsed = requestSchema.safeParse(requestBody.data);
+    const parsed = await parseJsonRequest(request, requestSchema);
     if (!parsed.success) {
       return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
     }

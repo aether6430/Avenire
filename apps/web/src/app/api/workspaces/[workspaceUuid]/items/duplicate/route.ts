@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
+import { parseJsonRequest } from "@/lib/api-request";
 import { ensureWorkspaceAccessForUser, getSessionUser } from "@/lib/workspace";
-import { parseJsonRequest, unknownJsonRequestSchema } from "@/lib/api-request";
 import { handleDuplicateWorkspaceFile } from "./workspace-item-duplicate-file";
 import { handleDuplicateWorkspaceFolder } from "./workspace-item-duplicate-folder";
 import {
@@ -28,11 +28,10 @@ export async function POST(
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const requestBody = await parseJsonRequest(request, unknownJsonRequestSchema);
-    if (!requestBody.success) {
-      return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
-    }
-    const parsed = workspaceItemDuplicateSchema.safeParse(requestBody.data);
+    const parsed = await parseJsonRequest(
+      request,
+      workspaceItemDuplicateSchema
+    );
     if (!parsed.success) {
       return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
     }

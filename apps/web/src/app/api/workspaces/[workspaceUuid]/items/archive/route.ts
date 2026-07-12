@@ -1,14 +1,15 @@
 import { auth } from "@avenire/auth/server";
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
+import { parseJsonRequest } from "@/lib/api-request";
 import { userCanAccessWorkspace } from "@/lib/file-data";
-import { parseJsonRequest, unknownJsonRequestSchema } from "@/lib/api-request";
 import { buildWorkspaceItemSingleDownload } from "./workspace-item-archive-file";
 import {
   createArchiveDownloadResponse,
   resolveRequestedArchiveItems,
   resolveWorkspaceItemArchiveError,
   WORKSPACE_ITEM_ARCHIVE_ERROR,
+  workspaceItemArchiveRequestSchema,
 } from "./workspace-item-archive-model";
 import { handleWorkspaceItemArchiveSelection } from "./workspace-item-archive-selection";
 
@@ -31,7 +32,10 @@ export async function POST(
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const requestBody = await parseJsonRequest(request, unknownJsonRequestSchema);
+    const requestBody = await parseJsonRequest(
+      request,
+      workspaceItemArchiveRequestSchema
+    );
     if (!requestBody.success) {
       return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
     }

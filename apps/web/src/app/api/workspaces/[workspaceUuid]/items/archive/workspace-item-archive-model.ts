@@ -1,6 +1,7 @@
-import { resolveApiErrorMessage } from "@/lib/api-error-message";
+import { Schema } from "effect-v4";
 
 import { NextResponse } from "next/server";
+import { resolveApiErrorMessage } from "@/lib/api-error-message";
 
 export type WorkspaceArchiveItemKind = "file" | "folder";
 
@@ -9,50 +10,27 @@ export interface WorkspaceArchiveItem {
   kind: WorkspaceArchiveItemKind;
 }
 
+const workspaceArchiveItemSchema = Schema.Struct({
+  id: Schema.Trim.check(Schema.isMinLength(1)),
+  kind: Schema.Literals(["file", "folder"]),
+});
+
+export const workspaceItemArchiveRequestSchema = Schema.Union([
+  workspaceArchiveItemSchema,
+  Schema.Struct({
+    items: Schema.Array(workspaceArchiveItemSchema).check(
+      Schema.isMinLength(1)
+    ),
+  }),
+]);
+
 export const WORKSPACE_ITEM_ARCHIVE_ERROR =
   "Unable to prepare archive download.";
 
 export function resolveRequestedArchiveItems(
-  input: unknown
+  input: typeof workspaceItemArchiveRequestSchema.Type
 ): WorkspaceArchiveItem[] {
-  const body =
-    typeof input === "object" && input !== null
-      ? (input as Record<string, unknown>)
-      : {};
-
-  const items: WorkspaceArchiveItem[] = [];
-  if (Array.isArray(body.items)) {
-    for (const item of body.items) {
-      if (typeof item !== "object" || item === null) {
-        continue;
-      }
-
-      const candidate = item as Record<string, unknown>;
-      const kind = candidate.kind;
-      if (
-        typeof candidate.id === "string" &&
-        candidate.id.trim().length > 0 &&
-        (kind === "file" || kind === "folder")
-      ) {
-        items.push({ id: candidate.id, kind });
-      }
-    }
-  }
-
-  if (items.length > 0) {
-    return items;
-  }
-
-  const kind = body.kind;
-  if (
-    typeof body.id === "string" &&
-    body.id.trim().length > 0 &&
-    (kind === "file" || kind === "folder")
-  ) {
-    return [{ id: body.id, kind }];
-  }
-
-  return [];
+  return "items" in input ? [...input.items] : [input];
 }
 
 export function sanitizeArchiveSegment(value: string) {

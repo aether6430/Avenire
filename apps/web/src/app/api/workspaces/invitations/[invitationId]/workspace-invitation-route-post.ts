@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server";
+import { parseJsonRequest } from "@/lib/api-request";
 import {
   listWorkspacesForUser,
   respondToInvitationForUser,
 } from "@/lib/file-data";
 import { getSessionUser } from "@/lib/workspace";
-import { parseJsonRequest, unknownJsonRequestSchema } from "@/lib/api-request";
 import {
   parseWorkspaceInvitationAction,
   resolveWorkspaceDirectoryRouteError,
+  workspaceInvitationActionSchema,
 } from "../../workspace-directory-route-model";
 
 export async function handleWorkspaceInvitationRoutePost(input: {
@@ -20,11 +21,17 @@ export async function handleWorkspaceInvitationRoutePost(input: {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const requestBody = await parseJsonRequest(input.request, unknownJsonRequestSchema);
+    const requestBody = await parseJsonRequest(
+      input.request,
+      workspaceInvitationActionSchema
+    );
     if (!requestBody.success) {
       return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
     }
-    const parsed = parseWorkspaceInvitationAction(requestBody.data, input.invitationId);
+    const parsed = parseWorkspaceInvitationAction(
+      requestBody.data,
+      input.invitationId
+    );
     if (!parsed.success) {
       return NextResponse.json({ error: parsed.error }, { status: 400 });
     }

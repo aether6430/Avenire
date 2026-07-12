@@ -1,10 +1,9 @@
+import { Schema } from "effect-v4";
 import { resolveApiErrorMessage } from "@/lib/api-error-message";
 
-import { z } from "zod";
-
-const workspaceFolderCreatePayloadSchema = z.object({
-  parentId: z.union([z.string(), z.null()]),
-  name: z.string(),
+export const workspaceFolderCreatePayloadSchema = Schema.Struct({
+  parentId: Schema.NullOr(Schema.String),
+  name: Schema.String,
 });
 
 export const WORKSPACE_FOLDER_CREATE_INVALID_PAYLOAD_ERROR =
@@ -17,7 +16,9 @@ export function normalizeWorkspaceFoldersRouteWorkspaceId(
   return workspaceUuid.trim();
 }
 
-export function parseWorkspaceFolderCreatePayload(payload: unknown):
+export function normalizeWorkspaceFolderCreatePayload(
+  payload: typeof workspaceFolderCreatePayloadSchema.Type
+):
   | {
       success: true;
       data: {
@@ -29,15 +30,7 @@ export function parseWorkspaceFolderCreatePayload(payload: unknown):
       success: false;
       error: string;
     } {
-  const parsed = workspaceFolderCreatePayloadSchema.safeParse(payload);
-  if (!parsed.success) {
-    return {
-      success: false,
-      error: WORKSPACE_FOLDER_CREATE_INVALID_PAYLOAD_ERROR,
-    };
-  }
-
-  const name = parsed.data.name.trim();
+  const name = payload.name.trim();
   if (!name) {
     return {
       success: false,
@@ -46,8 +39,8 @@ export function parseWorkspaceFolderCreatePayload(payload: unknown):
   }
 
   const parentId =
-    typeof parsed.data.parentId === "string"
-      ? parsed.data.parentId.trim() || null
+    typeof payload.parentId === "string"
+      ? payload.parentId.trim() || null
       : null;
 
   return {

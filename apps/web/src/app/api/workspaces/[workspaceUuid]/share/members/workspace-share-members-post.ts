@@ -1,7 +1,7 @@
 import { sendWorkspaceShareEmail } from "@avenire/auth/server";
 import { NextResponse } from "next/server";
+import { parseJsonRequest } from "@/lib/api-request";
 import { resolveAppBaseUrl } from "@/lib/app-base-url";
-import { parseJsonRequest, unknownJsonRequestSchema } from "@/lib/api-request";
 import {
   createWorkspaceInvitationByEmail,
   findAuthUserByEmail,
@@ -52,11 +52,7 @@ export async function handleWorkspaceShareMembersPost({
       );
     }
 
-    const requestBody = await parseJsonRequest(request, unknownJsonRequestSchema);
-    if (!requestBody.success) {
-      return NextResponse.json({ error: "Missing email" }, { status: 400 });
-    }
-    const parsed = workspaceShareInviteSchema.safeParse(requestBody.data);
+    const parsed = await parseJsonRequest(request, workspaceShareInviteSchema);
     if (!parsed.success) {
       void apiLogger.requestFailed(400, "Missing email", { workspaceUuid });
       return NextResponse.json({ error: "Missing email" }, { status: 400 });

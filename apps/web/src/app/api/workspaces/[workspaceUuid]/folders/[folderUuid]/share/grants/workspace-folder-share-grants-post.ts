@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
+import { parseJsonRequest } from "@/lib/api-request";
 import { resolveAppBaseUrl } from "@/lib/app-base-url";
-import { parseJsonRequest, unknownJsonRequestSchema } from "@/lib/api-request";
 import {
   createResourceShareLink,
   grantResourceToUserByEmail,
@@ -9,6 +9,7 @@ import type { WorkspaceFolderShareRouteContext } from "../workspace-folder-share
 import {
   buildWorkspaceFolderShareUrl,
   parseWorkspaceFolderShareGrantBody,
+  workspaceFolderShareGrantSchema,
 } from "../workspace-folder-share-route-model";
 
 export async function handleWorkspaceFolderShareGrantsPost(
@@ -16,7 +17,10 @@ export async function handleWorkspaceFolderShareGrantsPost(
     request: Request;
   } & WorkspaceFolderShareRouteContext
 ) {
-  const requestBody = await parseJsonRequest(input.request, unknownJsonRequestSchema);
+  const requestBody = await parseJsonRequest(
+    input.request,
+    workspaceFolderShareGrantSchema
+  );
   if (!requestBody.success) {
     return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
   }

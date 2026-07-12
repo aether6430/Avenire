@@ -1,7 +1,7 @@
 import { sendFileShareEmail } from "@avenire/auth/server";
 import { NextResponse } from "next/server";
+import { parseJsonRequest } from "@/lib/api-request";
 import { resolveAppBaseUrl } from "@/lib/app-base-url";
-import { parseJsonRequest, unknownJsonRequestSchema } from "@/lib/api-request";
 import {
   createResourceShareLink,
   grantResourceToUserByEmail,
@@ -10,6 +10,7 @@ import type { WorkspaceFileShareRouteContext } from "../workspace-file-share-rou
 import {
   buildWorkspaceFileShareUrl,
   parseWorkspaceFileShareGrantBody,
+  workspaceFileShareGrantSchema,
 } from "../workspace-file-share-route-model";
 
 export async function handleWorkspaceFileShareGrantsPost(
@@ -17,7 +18,10 @@ export async function handleWorkspaceFileShareGrantsPost(
     request: Request;
   } & WorkspaceFileShareRouteContext
 ) {
-  const requestBody = await parseJsonRequest(input.request, unknownJsonRequestSchema);
+  const requestBody = await parseJsonRequest(
+    input.request,
+    workspaceFileShareGrantSchema
+  );
   if (!requestBody.success) {
     return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
   }

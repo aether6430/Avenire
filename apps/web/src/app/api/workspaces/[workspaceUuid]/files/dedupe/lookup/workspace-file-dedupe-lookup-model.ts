@@ -1,29 +1,29 @@
+import { Schema } from "effect-v4";
 import { resolveApiErrorMessage } from "@/lib/api-error-message";
 
-import { z } from "zod";
+const hashSchema = Schema.Trim.check(Schema.isPattern(/^[a-fA-F0-9]{64}$/));
 
-const hashSchema = z
-  .string()
-  .transform((value) => value.trim().toLowerCase())
-  .refine((value) => /^[a-f0-9]{64}$/.test(value));
-
-const itemSchema = z.object({
-  clientUploadId: z.string().min(1).max(120),
-  folderId: z.string().uuid(),
+const itemSchema = Schema.Struct({
+  clientUploadId: Schema.String.check(Schema.isLengthBetween(1, 120)),
+  folderId: Schema.String.check(Schema.isUUID()),
   hashSha256: hashSchema,
-  mimeType: z.string().nullable().optional(),
-  name: z.string().min(1),
-  sizeBytes: z.number().int().nonnegative(),
+  mimeType: Schema.optional(Schema.NullOr(Schema.String)),
+  name: Schema.String.check(Schema.isMinLength(1)),
+  sizeBytes: Schema.Number.check(
+    Schema.isInt(),
+    Schema.isGreaterThanOrEqualTo(0)
+  ),
 });
 
-const requestSchema = z.object({
-  files: z.array(itemSchema).min(1).max(200),
+export const workspaceFileDedupeLookupRequestSchema = Schema.Struct({
+  files: Schema.Array(itemSchema).check(Schema.isLengthBetween(1, 200)),
 });
 
 export const WORKSPACE_FILE_DEDUPE_LOOKUP_ERROR =
   "Unable to check for duplicate files.";
 
-export type WorkspaceFileDedupeLookupRequest = z.infer<typeof requestSchema>;
+export type WorkspaceFileDedupeLookupRequest =
+  typeof workspaceFileDedupeLookupRequestSchema.Type;
 
 interface WorkspaceFileDedupeLookupExistingFile {
   folderId: string;
@@ -34,13 +34,15 @@ interface WorkspaceFileDedupeLookupExistingFile {
   storageUrl: string;
 }
 
-export function resolveWorkspaceFileDedupeLookupRequest(input: unknown) {
-  const parsed = requestSchema.safeParse(input);
-  if (!parsed.success) {
-    return null;
-  }
-
-  return parsed.data;
+export function normalizeWorkspaceFileDedupeLookupRequest(
+  input: WorkspaceFileDedupeLookupRequest
+) {
+  return {
+    files: input.files.map((file) => ({
+      ...file,
+      hashSha256: file.hashSha256.toLowerCase(),
+    })),
+  };
 }
 
 export function buildWorkspaceFileDedupeLookupResult(input: {
