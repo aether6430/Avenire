@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getFileAssetByContentHash } from "@/lib/file-data";
+import { parseJsonRequest, unknownJsonRequestSchema } from "@/lib/api-request";
 import {
   buildWorkspaceFileDedupeLookupResult,
   resolveWorkspaceFileDedupeLookupRequest,
@@ -12,9 +13,11 @@ export async function handleWorkspaceFileDedupeLookupPost(input: {
   workspaceUuid: string;
 }) {
   try {
-    const parsed = resolveWorkspaceFileDedupeLookupRequest(
-      await input.request.json().catch(() => ({}))
-    );
+    const requestBody = await parseJsonRequest(input.request, unknownJsonRequestSchema);
+    if (!requestBody.success) {
+      return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
+    }
+    const parsed = resolveWorkspaceFileDedupeLookupRequest(requestBody.data);
     if (!parsed) {
       return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
     }

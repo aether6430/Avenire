@@ -2,6 +2,7 @@ import { auth } from "@avenire/auth/server";
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import { userCanAccessWorkspace } from "@/lib/file-data";
+import { parseJsonRequest, unknownJsonRequestSchema } from "@/lib/api-request";
 import { buildWorkspaceItemSingleDownload } from "./workspace-item-archive-file";
 import {
   createArchiveDownloadResponse,
@@ -30,9 +31,11 @@ export async function POST(
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const requestedItems = resolveRequestedArchiveItems(
-      await request.json().catch(() => ({}))
-    );
+    const requestBody = await parseJsonRequest(request, unknownJsonRequestSchema);
+    if (!requestBody.success) {
+      return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
+    }
+    const requestedItems = resolveRequestedArchiveItems(requestBody.data);
     if (requestedItems.length === 0) {
       return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
     }

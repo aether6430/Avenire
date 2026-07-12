@@ -8,7 +8,9 @@ import {
   resolveWorkspacePatchFailure,
   resolveWorkspaceRouteError,
   WORKSPACE_ROUTE_PATCH_ERROR,
+  workspaceLogoPatchSchema,
 } from "./workspace-route-model";
+import { parseJsonRequest } from "@/lib/api-request";
 
 export async function handleWorkspaceRoutePatch(input: {
   request: Request;
@@ -16,9 +18,11 @@ export async function handleWorkspaceRoutePatch(input: {
   workspaceUuid: string;
 }) {
   try {
-    const body = (await input.request.json().catch(() => ({}))) as {
-      logo?: string | null;
-    };
+    const parsed = await parseJsonRequest(input.request, workspaceLogoPatchSchema);
+    if (!parsed.success) {
+      return NextResponse.json({ error: "Invalid request" }, { status: 400 });
+    }
+    const body = parsed.data;
 
     const result = await updateWorkspaceLogoForUser(
       input.userId,

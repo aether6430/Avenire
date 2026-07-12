@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { invalidateWorkspaceReadCaches } from "@/lib/domain-cache";
+import { parseJsonRequest, unknownJsonRequestSchema } from "@/lib/api-request";
 import {
   createFolder,
   isSharedFilesVirtualFolderId,
@@ -24,8 +25,11 @@ export async function handleWorkspaceFoldersPost(input: {
     input.workspaceUuid
   );
   try {
-    const payload = await input.request.json().catch(() => ({}));
-    const parsed = parseWorkspaceFolderCreatePayload(payload);
+    const requestBody = await parseJsonRequest(input.request, unknownJsonRequestSchema);
+    if (!requestBody.success) {
+      return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
+    }
+    const parsed = parseWorkspaceFolderCreatePayload(requestBody.data);
 
     if (!parsed.success) {
       return NextResponse.json({ error: parsed.error }, { status: 400 });

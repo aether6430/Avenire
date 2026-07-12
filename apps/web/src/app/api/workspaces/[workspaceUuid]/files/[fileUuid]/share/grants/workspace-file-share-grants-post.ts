@@ -1,6 +1,7 @@
 import { sendFileShareEmail } from "@avenire/auth/server";
 import { NextResponse } from "next/server";
 import { resolveAppBaseUrl } from "@/lib/app-base-url";
+import { parseJsonRequest, unknownJsonRequestSchema } from "@/lib/api-request";
 import {
   createResourceShareLink,
   grantResourceToUserByEmail,
@@ -16,11 +17,11 @@ export async function handleWorkspaceFileShareGrantsPost(
     request: Request;
   } & WorkspaceFileShareRouteContext
 ) {
-  const body = (await input.request.json().catch(() => ({}))) as {
-    email?: unknown;
-    permission?: unknown;
-  };
-  const parsedBody = parseWorkspaceFileShareGrantBody(body);
+  const requestBody = await parseJsonRequest(input.request, unknownJsonRequestSchema);
+  if (!requestBody.success) {
+    return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
+  }
+  const parsedBody = parseWorkspaceFileShareGrantBody(requestBody.data);
 
   if (!parsedBody.email) {
     void input.apiLogger.requestFailed(400, "Missing email", {

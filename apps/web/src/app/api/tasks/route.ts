@@ -11,6 +11,7 @@ import {
   setCachedTaskList,
 } from "@/lib/tasks-cache";
 import { getWorkspaceContextForUser } from "@/lib/workspace";
+import { parseJsonRequest } from "@/lib/api-request";
 import { taskCreateSchema } from "./task-route-model";
 
 export const runtime = "nodejs";
@@ -71,9 +72,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const parsed = taskCreateSchema.safeParse(
-    await request.json().catch(() => ({}))
-  );
+  const parsed = await parseJsonRequest(request, taskCreateSchema);
   if (!parsed.success) {
     return NextResponse.json({ error: "Invalid request" }, { status: 400 });
   }

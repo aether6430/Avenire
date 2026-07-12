@@ -1,4 +1,11 @@
 import { resolveApiErrorMessage } from "@/lib/api-error-message";
+import { Schema } from "effect-v4";
+
+export const workspaceLinkCreateSchema = Schema.Struct({
+  folderId: Schema.optional(Schema.String),
+  name: Schema.optional(Schema.String),
+  url: Schema.optional(Schema.String),
+});
 
 export const WORKSPACE_LINKS_CREATE_ERROR = "Unable to create workspace link.";
 

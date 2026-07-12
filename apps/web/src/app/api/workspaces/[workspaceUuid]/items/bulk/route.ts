@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { invalidateWorkspaceReadCaches } from "@/lib/domain-cache";
+import { parseJsonRequest, unknownJsonRequestSchema } from "@/lib/api-request";
 import {
   getFileAssetById,
   getFolderWithAncestors,
@@ -68,9 +69,11 @@ export async function POST(
 
     const { workspaceUuid } = await context.params;
 
-    const parsed = requestSchema.safeParse(
-      await request.json().catch(() => ({}))
-    );
+    const requestBody = await parseJsonRequest(request, unknownJsonRequestSchema);
+    if (!requestBody.success) {
+      return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
+    }
+    const parsed = requestSchema.safeParse(requestBody.data);
     if (!parsed.success) {
       return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
     }

@@ -1,4 +1,12 @@
 import { resolveApiErrorMessage } from "@/lib/api-error-message";
+import { Schema } from "effect-v4";
+
+export const workspaceFolderPatchSchema = Schema.Struct({
+  bannerUrl: Schema.optional(Schema.NullOr(Schema.String)),
+  iconColor: Schema.optional(Schema.NullOr(Schema.String)),
+  name: Schema.optional(Schema.String),
+  parentId: Schema.optional(Schema.NullOr(Schema.String)),
+});
 
 export function buildWorkspaceFolderRoutePayload<
   TFile extends { id: string },

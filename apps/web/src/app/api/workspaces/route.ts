@@ -7,10 +7,12 @@ import {
   resolveWorkspaceForUser,
 } from "@/lib/file-data";
 import { getSessionUser, getWorkspaceContextForUser } from "@/lib/workspace";
+import { parseJsonRequest } from "@/lib/api-request";
 import {
   resolveWorkspaceRouteError,
   WORKSPACE_ROUTE_CREATE_ERROR,
   WORKSPACE_ROUTE_LOAD_ERROR,
+  workspaceCreateSchema,
 } from "./workspaces-route-model";
 
 export async function GET() {
@@ -42,7 +44,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const body = (await request.json().catch(() => ({}))) as { name?: string };
+    const parsed = await parseJsonRequest(request, workspaceCreateSchema);
+    if (!parsed.success) {
+      return NextResponse.json({ error: "Invalid request" }, { status: 400 });
+    }
+    const body = parsed.data;
     const trimmed = body.name?.trim().slice(0, 80) || "New Workspace";
     const slugBase =
       trimmed

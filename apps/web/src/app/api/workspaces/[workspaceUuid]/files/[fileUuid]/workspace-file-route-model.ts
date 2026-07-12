@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { Schema } from "effect-v4";
 import { resolveApiErrorMessage } from "@/lib/api-error-message";
 
 import {
@@ -10,20 +10,20 @@ export const WORKSPACE_FILE_LOAD_ERROR = "Unable to load file.";
 export const WORKSPACE_FILE_UPDATE_ERROR = "Unable to update file.";
 export const WORKSPACE_FILE_DELETE_ERROR = "Unable to delete file.";
 
-const pagePatchSchema = z.object({
-  bannerUrl: z.string().nullable().optional(),
-  icon: z.string().nullable().optional(),
-  properties: z.record(z.string(), z.unknown()).optional(),
+const pagePatchSchema = Schema.Struct({
+  bannerUrl: Schema.optional(Schema.NullOr(Schema.String)),
+  icon: Schema.optional(Schema.NullOr(Schema.String)),
+  properties: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
 });
 
-export const workspaceFilePatchSchema = z.object({
-  folderId: z.string().min(1).optional(),
-  metadata: z.record(z.string(), z.unknown()).optional(),
-  name: z.string().min(1).optional(),
-  page: pagePatchSchema.optional(),
+export const workspaceFilePatchSchema = Schema.Struct({
+  folderId: Schema.optional(Schema.String.check(Schema.isMinLength(1))),
+  metadata: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
+  name: Schema.optional(Schema.String.check(Schema.isMinLength(1))),
+  page: Schema.optional(pagePatchSchema),
 });
 
-export type WorkspaceFilePatchBody = z.infer<typeof workspaceFilePatchSchema>;
+export type WorkspaceFilePatchBody = typeof workspaceFilePatchSchema.Type;
 
 export function buildWorkspaceFileRouteSummary(file: {
   id: string;

@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/workspace";
+import { parseJsonRequest } from "@/lib/api-request";
+import { workspaceLinkCreateSchema } from "./workspace-links-route-model";
 import { resolveWorkspaceLinksRouteError } from "./workspace-links-route-model";
 import { handleWorkspaceLinksPost } from "./workspace-links-route-post";
 
@@ -14,11 +16,11 @@ export async function POST(
     }
 
     const { workspaceUuid } = await context.params;
-    const body = (await request.json().catch(() => ({}))) as {
-      folderId?: string;
-      name?: string;
-      url?: string;
-    };
+    const parsed = await parseJsonRequest(request, workspaceLinkCreateSchema);
+    if (!parsed.success) {
+      return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
+    }
+    const body = parsed.data;
 
     return await handleWorkspaceLinksPost({
       body,

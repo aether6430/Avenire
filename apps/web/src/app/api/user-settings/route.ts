@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { getUserSettings, upsertUserSettings } from "@/lib/user-settings";
 import { getSessionUser } from "@/lib/workspace";
+import { parseJsonRequest } from "@/lib/api-request";
+import { userSettingsMutationSchema } from "./user-settings-route-model";
 
 export async function GET() {
   const user = await getSessionUser();
@@ -18,20 +20,11 @@ export async function PUT(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  let payload: unknown;
-  try {
-    payload = await request.json();
-  } catch {
+  const parsed = await parseJsonRequest(request, userSettingsMutationSchema);
+  if (!parsed.success) {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
-
-  const raw = payload as {
-    emailReceipts?: unknown;
-    completedTasksAtTop?: unknown;
-    onboardingCompleted?: unknown;
-    petName?: unknown;
-    petAccessory?: unknown;
-  };
+  const raw = parsed.data;
 
   const hasEmailReceipts = typeof raw.emailReceipts === "boolean";
   const hasCompletedTasksAtTop = typeof raw.completedTasksAtTop === "boolean";
@@ -60,19 +53,19 @@ export async function PUT(request: Request) {
 
   const settings = await upsertUserSettings(user.id, {
     ...(hasEmailReceipts
-      ? { emailReceipts: raw.emailReceipts as boolean }
+      ? { emailReceipts: raw.emailReceipts }
       : {}),
     ...(hasCompletedTasksAtTop
-      ? { completedTasksAtTop: raw.completedTasksAtTop as boolean }
+      ? { completedTasksAtTop: raw.completedTasksAtTop }
       : {}),
     ...(hasOnboardingCompleted
-      ? { onboardingCompleted: raw.onboardingCompleted as boolean }
+      ? { onboardingCompleted: raw.onboardingCompleted }
       : {}),
     ...(hasPetName
-      ? { petName: (raw.petName as string).trim().slice(0, 32) }
+      ? { petName: raw.petName?.slice(0, 32) }
       : {}),
     ...(hasPetAccessory
-      ? { petAccessory: (raw.petAccessory as string).trim() }
+      ? { petAccessory: raw.petAccessory }
       : {}),
   });
 

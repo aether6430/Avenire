@@ -6,6 +6,7 @@ import {
 import { NextResponse } from "next/server";
 import { invalidateTaskListCache } from "@/lib/tasks-cache";
 import { getWorkspaceContextForUser } from "@/lib/workspace";
+import { parseJsonRequest } from "@/lib/api-request";
 import { taskMutationSchema } from "../task-route-model";
 
 interface RouteParams {
@@ -37,9 +38,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
   }
 
   const { taskId } = await params;
-  const parsed = taskMutationSchema.safeParse(
-    await request.json().catch(() => ({}))
-  );
+  const parsed = await parseJsonRequest(request, taskMutationSchema);
   if (!parsed.success) {
     return NextResponse.json({ error: "Invalid request" }, { status: 400 });
   }
