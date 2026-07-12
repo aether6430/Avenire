@@ -20,14 +20,14 @@ Completed in this branch:
 
 Pending:
 
-- [ ] Introduce typed Effect `Context` services and `Layer`s for authentication,
+- [x] Introduce typed Effect `Context` services and `Layer`s for authentication,
   workspace access, database access, and provider clients.
-- [ ] Add a general domain-handler runner with uniform success/error response
+- [x] Add a general domain-handler runner with uniform success/error response
   schemas and status mapping, then migrate route-local error mappers.
-- [ ] Model provider failures as tagged domain errors and verify provider details
+- [x] Model provider failures as tagged domain errors and verify provider details
   are redacted across every migrated domain.
-- [ ] Add end-to-end duration/completion logging through the existing API logger.
-- [ ] Add domain contract snapshots for status codes, public error tags,
+- [x] Add end-to-end duration/completion logging through the existing API logger.
+- [x] Add domain contract snapshots for status codes, public error tags,
   cancellation, and redaction.
 - [ ] Add positive and negative schema tests for schemas not yet directly covered.
 - [ ] Record before/after p50 and p95 latency for representative migrated routes.
@@ -66,39 +66,43 @@ Pending:
 
 ## Credit and billing
 
-- [ ] Prove atomic credit admission with the planned PostgreSQL stress test: 50
+- [x] Prove atomic credit admission with the planned PostgreSQL stress test: 50
   simultaneous requests against 25 credits must admit at most 25.
-- [ ] Complete the Polar credit-ledger migration and reconciliation tooling.
-- [ ] Inject local/Polar divergence and verify reconciliation alerts.
+- [x] Complete the Polar outbox, delivery, reconciliation, and cutover-policy
+  tooling while retaining the legacy ledger behind the required shadow gate.
+- [x] Inject local/Polar divergence and verify reconciliation alerts.
 - [ ] Run old and new billing paths in shadow mode and compare balances daily for
   one week before cutover.
-- [ ] Verify renewal and refund parity and zero Polar network calls on the chat
+- [x] Verify renewal and refund parity and zero Polar network calls on the chat
   admission hot path.
 - [ ] Remove duplicated refill scheduling, debit/refund, and entitlement logic
   only after the shadow-mode exit criteria pass.
 
 ## Upload security and MIME policy
 
-- [ ] Consolidate the server and client MIME allowlists into one exact policy;
+- [x] Consolidate the server and client MIME allowlists into one exact policy;
   reject wildcards and add magic-byte verification.
-- [ ] Bind every write and completion request to one opaque, expiring upload
+- [x] Bind every write and completion request to one opaque, expiring upload
   capability and enforce workspace ownership.
-- [ ] Enforce cumulative bytes and part counts before multipart assembly.
-- [ ] Make completion idempotent and consume the capability in the same
+- [x] Enforce cumulative bytes and part counts before multipart assembly.
+- [x] Make completion idempotent and consume the capability in the same
   transaction that registers the file.
-- [ ] Remove caller-selected storage keys/URLs and return only opaque file
+- [x] Remove caller-selected storage keys/URLs and return only opaque file
   identity plus safe metadata.
-- [ ] Sweep abandoned parts and failed provider objects within a documented TTL.
-- [ ] Add ownership-substitution, aggregate-exhaustion, replay, duplicate
+- [x] Sweep abandoned parts and failed provider objects within a documented TTL.
+- [x] Add ownership-substitution, aggregate-exhaustion, replay, duplicate
   completion, checksum, MIME-spoofing, cleanup, and cross-workspace tests.
-- [ ] Benchmark and document per-part validation overhead.
+- [x] Benchmark and document per-part validation overhead.
 
-## TypeScript 7 recovery
+## TypeScript recovery
 
+- [x] Revert every workspace compiler and the lockfile from TypeScript 7 to
+  TypeScript 5.9.3.
+- [x] Confirm an offline frozen-lockfile install succeeds locally.
 - [ ] Confirm frozen-lockfile install succeeds without warnings in clean CI.
 - [ ] Run every existing package test suite, not only affected-package tests.
 - [ ] Verify a production deployment preview renders correctly.
-- [ ] Confirm non-Next packages continue to compile and test under TypeScript 7.
+- [x] Confirm the database and ingestion packages compile under TypeScript 5.9.3.
 - [ ] Close the superseded TypeScript recovery PR when branch/PR ownership is
   confirmed.
 
