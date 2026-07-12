@@ -65,6 +65,7 @@ export function verifyUploadSessionPartToken(
   token: string,
   expected: {
     sessionId: string;
+    userId: string;
     workspaceUuid: string;
     partNumber: number;
   }
@@ -119,6 +120,9 @@ export function verifyUploadSessionPartToken(
 
   if (payload.sid !== expected.sessionId) {
     return { ok: false as const, reason: "session" };
+  }
+  if (payload.uid !== expected.userId) {
+    return { ok: false as const, reason: "user" };
   }
   if (payload.wid !== expected.workspaceUuid) {
     return { ok: false as const, reason: "workspace" };

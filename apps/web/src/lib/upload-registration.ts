@@ -12,6 +12,7 @@ export interface UploadRegistrationInput {
   sizeBytes: number;
   storageKey: string;
   storageUrl: string;
+  uploadSessionId?: string;
   userId: string;
   workspaceUuid: string;
 }

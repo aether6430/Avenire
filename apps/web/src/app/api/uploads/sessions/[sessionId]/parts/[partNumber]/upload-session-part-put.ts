@@ -33,6 +33,16 @@ export async function handleUploadSessionPartPut(input: {
   if (isUploadSessionExpired(session.expiresAt)) {
     return NextResponse.json({ error: "Session expired" }, { status: 410 });
   }
+  if (
+    session.status &&
+    session.status !== "created" &&
+    session.status !== "uploading"
+  ) {
+    return NextResponse.json(
+      { error: "Upload session is no longer writable" },
+      { status: 409 }
+    );
+  }
 
   const partNumber = parseUploadSessionPartNumber(input.partNumberRaw);
   if (!partNumber) {
@@ -55,6 +65,7 @@ export async function handleUploadSessionPartPut(input: {
 
   const verification = verifyUploadSessionPartToken(token, {
     sessionId: input.sessionId,
+    userId: session.userId,
     workspaceUuid: session.workspaceUuid,
     partNumber,
   });

@@ -7,6 +7,7 @@ import { canStoreBytes } from "@/lib/billing";
 import { userCanEditFolder } from "@/lib/file-data";
 import { createApiLogger } from "@/lib/observability";
 import { normalizeSha256 } from "@/lib/upload-registration";
+import { sweepAbandonedUploadArtifacts } from "@/lib/upload-cleanup";
 import { createUploadSession } from "@/lib/upload-session-store";
 import { ensureWorkspaceAccessForUser } from "@/lib/workspace";
 import { parseJsonRequest } from "@/lib/api-request";
@@ -28,6 +29,9 @@ export async function handleUploadSessionsPost(input: {
     userId: input.userId,
   });
   apiLogger.requestStarted();
+  void sweepAbandonedUploadArtifacts().catch((error) => {
+    void apiLogger.warn("upload.cleanup.sweep_failed", { error });
+  });
 
   const parsed = await parseJsonRequest(input.request, createUploadSessionSchema);
   if (!parsed.success) {

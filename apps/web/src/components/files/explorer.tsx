@@ -140,10 +140,7 @@ import {
   buildVideoPlaybackDescriptor,
 } from "@/lib/media-playback";
 import { getUploadErrorMessage } from "@/lib/upload";
-import {
-  completeUploadSession,
-  requestUploadPreflight,
-} from "@/lib/upload-preflight";
+import { uploadFileWithSession } from "@/lib/upload-preflight";
 import { useUploadThing } from "@/lib/uploadthing";
 import { cn } from "@/lib/utils";
 import {
@@ -853,14 +850,6 @@ type FileMutationHistoryEntry =
       operation: "move";
       items: MoveMutationHistoryItem[];
     };
-
-interface UploadResultLike {
-  contentType?: string;
-  key?: string;
-  name?: string;
-  size?: number;
-  ufsUrl?: string;
-}
 
 function isMarkdownUploadCandidate(file: File) {
   const mime = file.type.toLowerCase();
@@ -1684,7 +1673,6 @@ export function FileExplorer({
     (state) => state.setSettingsOpen
   );
 
-  const { startUpload } = useUploadThing("fileExplorerUploader");
   const { startUpload: startBannerUpload } = useUploadThing("imageUploader");
   const selection = useFileSelection({ gridRef, itemRefs });
   const triggerHaptic = useHaptics();
@@ -3798,7 +3786,6 @@ export function FileExplorer({
           file: File;
           queueItemId: string;
           targetFolderId: string;
-          uploaded?: UploadResultLike;
         }
         const preparedForRegister: UploadPrepared[] = [];
         let successCount = 0;
@@ -3999,22 +3986,11 @@ export function FileExplorer({
                 targetFolderId,
               });
             } else {
-              const preflight = await requestUploadPreflight({
+              const completed = await uploadFileWithSession({
+                checksumSha256: hashByQueueId.get(entry.queueItemId),
                 file: entry.candidate.file,
                 folderId: targetFolderId,
                 workspaceUuid,
-              });
-              const uploaded = ((await startUpload([entry.candidate.file])) ??
-                [])[0] as UploadResultLike | undefined;
-              if (!(uploaded?.key && uploaded.ufsUrl)) {
-                throw new Error("Upload returned no file metadata");
-              }
-
-              const completed = await completeUploadSession({
-                checksumSha256: hashByQueueId.get(entry.queueItemId),
-                file: entry.candidate.file,
-                sessionId: preflight.session.id,
-                uploaded,
               });
               const completedFile =
                 typeof completed === "object" &&
@@ -4236,7 +4212,6 @@ export function FileExplorer({
       isCurrentFolderReadOnly,
       loadFolder,
       loadTree,
-      startUpload,
       workspaceUuid,
     ]
   );

@@ -219,6 +219,7 @@ export const fileAsset = pgTable(
       .notNull()
       .references(() => fileFolder.id, { onDelete: "cascade" }),
     storageKey: text("storage_key").notNull(),
+    uploadSessionId: text("upload_session_id"),
     storageUrl: text("storage_url").notNull(),
     optimizedStorageKey: text("optimized_storage_key"),
     optimizedStorageUrl: text("optimized_storage_url"),
@@ -255,6 +256,7 @@ export const fileAsset = pgTable(
       table.workspaceId,
       table.storageKey
     ),
+    uniqueIndex("file_asset_upload_session_uidx").on(table.uploadSessionId),
     index("file_asset_workspace_hash_idx").on(
       table.workspaceId,
       table.contentHashSha256

@@ -44,11 +44,32 @@ export async function handleUploadSessionPartsPost(input: {
       void apiLogger.requestFailed(410, "Session expired");
       return NextResponse.json({ error: "Session expired" }, { status: 410 });
     }
+    if (session.status !== "created" && session.status !== "uploading") {
+      void apiLogger.requestFailed(409, "Upload session is no longer writable");
+      return NextResponse.json(
+        { error: "Upload session is no longer writable" },
+        { status: 409 }
+      );
+    }
 
     const parsed = await parseJsonRequest(input.request, uploadSessionPartsSchema);
     if (!parsed.success) {
       void apiLogger.requestFailed(400, "Invalid payload");
       return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
+    }
+
+    const maxPartBytes = resolveUploadSessionMaxPartBytes();
+    const maxPartCount = Math.max(1, Math.ceil(session.sizeBytes / maxPartBytes));
+    const partNumbers = Array.from(new Set(parsed.data.partNumbers));
+    if (
+      partNumbers.length !== parsed.data.partNumbers.length ||
+      partNumbers.some((partNumber) => partNumber > maxPartCount)
+    ) {
+      void apiLogger.requestFailed(413, "Part list exceeds upload budget");
+      return NextResponse.json(
+        { error: "Part list exceeds upload budget", maxPartCount },
+        { status: 413 }
+      );
     }
 
     const updated = await saveUploadSession({
@@ -57,7 +78,7 @@ export async function handleUploadSessionPartsPost(input: {
     });
     const ttlSeconds = 15 * 60;
     const baseUrl = new URL(input.request.url);
-    const partUrls = parsed.data.partNumbers.map((partNumber) => {
+    const partUrls = partNumbers.map((partNumber) => {
       const token = createUploadSessionPartToken({
         userId: session.userId,
         workspaceUuid: session.workspaceUuid,
@@ -81,14 +102,14 @@ export async function handleUploadSessionPartsPost(input: {
     void apiLogger.requestSucceeded(200, {
       workspaceUuid: updated.workspaceUuid,
       sessionId: updated.id,
-      partCount: parsed.data.partNumbers.length,
+      partCount: partNumbers.length,
     });
 
     return NextResponse.json({
       ok: true,
       session: updated,
       mode: "session-multipart",
-      maxPartBytes: resolveUploadSessionMaxPartBytes(),
+      maxPartBytes,
       parts: partUrls,
       message:
         "Upload each part using PUT to the provided uploadUrl. Call /complete once all parts are uploaded.",

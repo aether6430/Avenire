@@ -69,6 +69,7 @@ export async function finalizeUploadSessionCompletion({
       folderId: session.folderId,
       storageKey,
       storageUrl,
+      uploadSessionId: sessionId,
       name: session.name,
       mimeType,
       sizeBytes,

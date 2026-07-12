@@ -24,11 +24,7 @@ import { StudentCalendar } from "@/components/student-calendar";
 import type { FlashcardSetSummary } from "@/lib/flashcards";
 import type { MisconceptionRecord } from "@/lib/learning-data";
 import { getUploadErrorMessage } from "@/lib/upload";
-import {
-  completeUploadSession,
-  requestUploadPreflight,
-} from "@/lib/upload-preflight";
-import { useUploadThing } from "@/lib/uploadthing";
+import { uploadFileWithSession } from "@/lib/upload-preflight";
 
 interface WeakPointGroup {
   subject: string;
@@ -941,12 +937,6 @@ export function OnboardingModal({
   const activeStepIndex = Math.min(stepIndex, ONBOARDING_STEPS.length - 1);
   const step = ONBOARDING_STEPS[activeStepIndex] ?? ONBOARDING_STEPS[0];
   const isLast = activeStepIndex === ONBOARDING_STEPS.length - 1;
-  const { startUpload } = useUploadThing("fileExplorerUploader", {
-    onUploadError: () => {
-      setUploadPhase("failed");
-      setUploadMessage("Upload failed. Try another PDF.");
-    },
-  });
 
   useEffect(() => {
     setMemory(EMPTY_ONBOARDING_MEMORY);
@@ -1027,29 +1017,6 @@ export function OnboardingModal({
     fileInputRef.current?.click();
   };
 
-  const registerUpload = async (
-    file: File,
-    sessionId: string,
-    uploaded: {
-      key?: string;
-      name?: string;
-      size?: number;
-      contentType?: string;
-      ufsUrl?: string;
-    }
-  ) => {
-    if (!(workspaceUuid && rootFolderId && uploaded.key && uploaded.ufsUrl)) {
-      throw new Error("Upload metadata is incomplete.");
-    }
-
-    await completeUploadSession({
-      file,
-      metadata: { source: "onboarding" },
-      sessionId,
-      uploaded,
-    });
-  };
-
   const handleUploadSelection = async (
     event: ChangeEvent<HTMLInputElement>
   ) => {
@@ -1065,31 +1032,22 @@ export function OnboardingModal({
     setUploadPhase("uploading");
 
     try {
-      let sessionId: string | null = null;
-      if (workspaceUuid && rootFolderId) {
-        const preflight = await requestUploadPreflight({
-          file,
-          folderId: rootFolderId,
-          workspaceUuid,
-        });
-        sessionId = preflight.session.id;
-      }
-      const uploadedResults = (await startUpload([file])) ?? [];
-      const uploaded = uploadedResults[0];
-      if (!uploaded) {
-        throw new Error("Upload returned no storage payload.");
+      if (!(workspaceUuid && rootFolderId)) {
+        throw new Error("Upload destination is unavailable.");
       }
       setUploadMessage("Registering the file in your workspace.");
-      if (!sessionId) {
-        throw new Error("Upload session was not created.");
-      }
-      await registerUpload(file, sessionId, uploaded);
+      await uploadFileWithSession({
+        file,
+        folderId: rootFolderId,
+        metadata: { source: "onboarding" },
+        workspaceUuid,
+      });
       setUploadPhase("done");
       setUploadMessage("Uploaded and queued for ingestion.");
       setMemory((current) => ({
         ...current,
         uploadAt: new Date().toISOString(),
-        uploadFileName: uploaded.name ?? file.name,
+        uploadFileName: file.name,
       }));
       setTimeout(() => {
         router.refresh();

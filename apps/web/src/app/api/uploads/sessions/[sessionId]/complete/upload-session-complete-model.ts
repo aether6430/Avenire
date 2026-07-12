@@ -5,18 +5,7 @@ const metadataSchema = Schema.Record(Schema.String, Schema.Unknown);
 const sharedFields = {
   checksumSha256: Schema.optional(Schema.String),
   metadata: Schema.optional(metadataSchema),
-  mimeType: Schema.optional(Schema.NullOr(Schema.String)),
 };
-
-const directCompletionSchema = Schema.Struct({
-  ...sharedFields,
-  sizeBytes: Schema.Number.check(
-    Schema.isInt(),
-    Schema.isGreaterThanOrEqualTo(0)
-  ),
-  storageKey: Schema.String.check(Schema.isMinLength(1)),
-  storageUrl: Schema.String.check(Schema.isMinLength(1)),
-});
 
 const multipartCompletionSchema = Schema.Struct({
   ...sharedFields,
@@ -25,17 +14,9 @@ const multipartCompletionSchema = Schema.Struct({
       Schema.Array(Schema.Number.check(Schema.isInt(), Schema.isGreaterThan(0)))
     ),
   }),
-  sizeBytes: Schema.optional(
-    Schema.Number.check(Schema.isInt(), Schema.isGreaterThanOrEqualTo(0))
-  ),
-  storageKey: Schema.optional(Schema.String.check(Schema.isMinLength(1))),
-  storageUrl: Schema.optional(Schema.String.check(Schema.isMinLength(1))),
 });
 
-export const completeSchema = Schema.Union([
-  directCompletionSchema,
-  multipartCompletionSchema,
-]);
+export const completeSchema = multipartCompletionSchema;
 export type CompleteUploadPayload = typeof completeSchema.Type;
 
 export function readExpectedMultipartPartNumbers(

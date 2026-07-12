@@ -10,7 +10,7 @@ export const createUploadSessionSchema = Schema.Struct({
   mimeType: Schema.optional(Schema.NullOr(Schema.String)),
   sizeBytes: Schema.Number.check(
     Schema.isInt(),
-    Schema.isGreaterThanOrEqualTo(0)
+    Schema.isGreaterThan(0)
   ),
   checksumSha256: Schema.optional(Schema.String),
 });

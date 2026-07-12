@@ -8,6 +8,7 @@ import {
   createWorkspaceNoteFile,
   getFileAssetByContentHash,
   getFileAssetByStorageKey,
+  getFileAssetByUploadSessionId,
   registerFileAsset,
 } from "@/lib/file-data";
 import { publishFilesInvalidationEvent } from "@/lib/files-realtime-publisher";
@@ -244,6 +245,9 @@ export async function registerWorkspaceUploadedFile(
   const normalizedHash = normalizeSha256(normalizedUpload.contentHashSha256);
 
   if (dedupeMode !== "skip") {
+    const existingByUploadSession = input.uploadSessionId
+      ? await getFileAssetByUploadSessionId(input.uploadSessionId)
+      : null;
     const existingByHash = normalizedHash
       ? await getFileAssetByContentHash(input.workspaceUuid, normalizedHash)
       : null;
@@ -255,10 +259,17 @@ export async function registerWorkspaceUploadedFile(
           )
         : null;
     const existing =
+      existingByUploadSession ??
       existingByHash ??
       existingByNormalizedStorage ??
       (await getFileAssetByStorageKey(input.workspaceUuid, input.storageKey));
     if (existing) {
+      if (
+        existingByUploadSession &&
+        existingByUploadSession.storageKey !== input.storageKey
+      ) {
+        await deleteUploadThingFile(input.storageKey);
+      }
       const hasSucceeded = await hasSuccessfulIngestionForFile(
         input.workspaceUuid,
         existing.id
@@ -318,6 +329,7 @@ export async function registerWorkspaceUploadedFile(
     contentHashSha256: normalizedHash,
     hashComputedBy: normalizedHash ? (input.hashComputedBy ?? "client") : null,
     hashVerificationStatus: normalizedHash ? "pending" : null,
+    uploadSessionId: input.uploadSessionId ?? null,
   });
 
   const ingestionJob = await scheduleIngestionJob({

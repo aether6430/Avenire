@@ -4,19 +4,24 @@ import { parseJsonRequest } from "@/lib/api-request";
 import { userCanEditFolder } from "@/lib/file-data";
 import { createApiLogger } from "@/lib/observability";
 import { normalizeSha256 } from "@/lib/upload-registration";
-import { getUploadSession } from "@/lib/upload-session-store";
+import {
+  getUploadSession,
+  withUploadSessionCompletionLock,
+} from "@/lib/upload-session-store";
 import { getSessionUser } from "@/lib/workspace";
 import { finalizeUploadSessionCompletion } from "./upload-session-complete-finalize";
 import {
-  asNullableString,
   buildUploadCompletionReplayResponse,
   completeSchema,
   readExpectedMultipartPartNumbers,
   readUploadCompletionErrorCode,
 } from "./upload-session-complete-model";
-import { completeMultipartUploadSession } from "./upload-session-complete-storage";
+import {
+  cleanupUploadedStorageObject,
+  completeMultipartUploadSession,
+} from "./upload-session-complete-storage";
 
-export async function POST(
+async function completeUploadSessionRequest(
   request: Request,
   context: { params: Promise<{ sessionId: string }> }
 ) {
@@ -83,89 +88,69 @@ export async function POST(
       return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
     }
 
-    let storageKey = parsed.data.storageKey;
-    let storageUrl = parsed.data.storageUrl;
-    let sizeBytes = parsed.data.sizeBytes;
-    let checksumSha256 = normalizeSha256(parsed.data.checksumSha256);
-    let multipartPartCount = 0;
-
-    if (!(storageKey && storageUrl) || typeof sizeBytes !== "number") {
-      try {
-        const multipartUpload = await completeMultipartUploadSession({
-          sessionId,
-          name: session.name,
-          mimeType: asNullableString(parsed.data.mimeType) ?? session.mimeType,
-          expectedPartNumbers: readExpectedMultipartPartNumbers(parsed.data),
-        });
-        storageKey = multipartUpload.storageKey;
-        storageUrl = multipartUpload.storageUrl;
-        sizeBytes = multipartUpload.sizeBytes;
-        checksumSha256 = checksumSha256 ?? multipartUpload.checksumSha256;
-        multipartPartCount = multipartUpload.partCount;
-      } catch (error) {
-        const errorCode = readUploadCompletionErrorCode(error);
-        const isUnavailable = errorCode === "UPLOADTHING_UNAVAILABLE";
-        const isPartMismatch = errorCode === "MULTIPART_PART_MISMATCH";
-        void apiLogger.requestFailed(isUnavailable ? 503 : 500, error, {
-          workspaceUuid: session.workspaceUuid,
-          sessionId: session.id,
-        });
-        return NextResponse.json(
-          {
-            error: isPartMismatch
-              ? "Multipart parts mismatch"
+    let multipartUpload: Awaited<ReturnType<typeof completeMultipartUploadSession>>;
+    try {
+      multipartUpload = await completeMultipartUploadSession({
+        sessionId,
+        name: session.name,
+        mimeType: session.mimeType,
+        expectedPartNumbers: readExpectedMultipartPartNumbers(parsed.data),
+      });
+    } catch (error) {
+      const errorCode = readUploadCompletionErrorCode(error);
+      const isUnavailable = errorCode === "UPLOADTHING_UNAVAILABLE";
+      const isPartMismatch = errorCode === "MULTIPART_PART_MISMATCH";
+      const isContentMismatch =
+        errorCode === "UPLOAD_MIME_MISMATCH" ||
+        errorCode === "UPLOAD_MIME_UNSUPPORTED";
+      const status = isUnavailable ? 503 : isPartMismatch || isContentMismatch ? 422 : 500;
+      void apiLogger.requestFailed(status, error, {
+        workspaceUuid: session.workspaceUuid,
+        sessionId: session.id,
+      });
+      return NextResponse.json(
+        {
+          error: isPartMismatch
+            ? "Multipart parts mismatch"
+            : isContentMismatch
+              ? "Uploaded content does not match its declared file type"
               : isUnavailable
                 ? "Multipart completion unavailable"
                 : "Multipart completion failed",
-          },
-          { status: isPartMismatch ? 422 : isUnavailable ? 503 : 500 }
-        );
-      }
-    }
-
-    if (!(storageKey && storageUrl) || typeof sizeBytes !== "number") {
-      void apiLogger.requestFailed(
-        400,
-        "Missing upload metadata after completion"
-      );
-      return NextResponse.json(
-        { error: "Missing upload metadata after completion" },
-        { status: 400 }
+        },
+        { status }
       );
     }
+    const {
+      checksumSha256: assembledChecksumSha256,
+      partCount: multipartPartCount,
+      sizeBytes,
+      storageKey,
+      storageUrl,
+    } = multipartUpload;
+    const checksumSha256 = assembledChecksumSha256;
 
     const expectedChecksum = normalizeSha256(session.checksumSha256);
     if (
       expectedChecksum &&
-      checksumSha256 &&
       expectedChecksum !== checksumSha256
     ) {
+      await cleanupUploadedStorageObject(storageKey);
       void apiLogger.requestFailed(422, "Checksum mismatch");
       return NextResponse.json({ error: "Checksum mismatch" }, { status: 422 });
     }
 
     if (session.sizeBytes > 0 && sizeBytes !== session.sizeBytes) {
+      await cleanupUploadedStorageObject(storageKey);
       void apiLogger.requestFailed(422, "Size mismatch");
       return NextResponse.json({ error: "Size mismatch" }, { status: 422 });
-    }
-
-    if (
-      session.mimeType &&
-      parsed.data.mimeType &&
-      session.mimeType !== parsed.data.mimeType
-    ) {
-      void apiLogger.requestFailed(422, "MIME type mismatch");
-      return NextResponse.json(
-        { error: "MIME type mismatch" },
-        { status: 422 }
-      );
     }
 
     return await finalizeUploadSessionCompletion({
       apiLogger,
       checksumSha256,
       metadata: parsed.data.metadata,
-      mimeType: asNullableString(parsed.data.mimeType) ?? session.mimeType,
+      mimeType: session.mimeType,
       multipartPartCount,
       requestStartedAt,
       session,
@@ -186,4 +171,14 @@ export async function POST(
       { status: 500 }
     );
   }
+}
+
+export async function POST(
+  request: Request,
+  context: { params: Promise<{ sessionId: string }> }
+) {
+  const params = await context.params;
+  return withUploadSessionCompletionLock(params.sessionId, () =>
+    completeUploadSessionRequest(request, { params: Promise.resolve(params) })
+  );
 }

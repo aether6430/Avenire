@@ -269,6 +269,7 @@ describe("/api/uploads/sessions/[sessionId]/parts/[partNumber] route", () => {
     });
     expect(verifyUploadSessionPartTokenMock).toHaveBeenCalledWith("token-4", {
       sessionId: "session-1",
+      userId: "user-1",
       workspaceUuid: "workspace-1",
       partNumber: 4,
     });
