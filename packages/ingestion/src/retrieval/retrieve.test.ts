@@ -90,6 +90,18 @@ const makeCandidate = (
   title: overrides.title ?? "Retrieved chunk",
 });
 
+const makeVectorStore = (results: VectorSearchResult[] = []): VectorStore => ({
+  corpusStats: vi.fn(async () => ({
+    chunks: results.length,
+    embeddings: results.length,
+    resources: new Set(results.map((result) => result.resourceId)).size,
+  })),
+  getAdjacentChunks: vi.fn(async () => []),
+  search: vi.fn(async () => results),
+  searchLexical: vi.fn(async () => []),
+  searchTrigram: vi.fn(async () => []),
+});
+
 describe("retrieve helpers", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -578,17 +590,7 @@ describe("retrieveRelevantChunks", () => {
     mocks.rerank.mockResolvedValue({ ranking: [] });
     mocks.rerankByCohereWithQueryEmbedding.mockResolvedValue([]);
 
-    const vectorStore: VectorStore = {
-      corpusStats: vi.fn(async () => ({
-        chunks: 0,
-        embeddings: 0,
-        resources: 0,
-      })),
-      getAdjacentChunks: vi.fn(async () => []),
-      search: vi.fn(async () => []),
-      searchLexical: vi.fn(async () => []),
-      searchTrigram: vi.fn(async () => []),
-    };
+    const vectorStore = makeVectorStore();
 
     const result = await retrieveRelevantChunks(vectorStore, "osmosis", {
       limit: 2,
@@ -601,17 +603,7 @@ describe("retrieveRelevantChunks", () => {
   });
 
   it("fails closed on whitespace-only retrieval queries before embeddings or search run", async () => {
-    const vectorStore: VectorStore = {
-      corpusStats: vi.fn(async () => ({
-        chunks: 0,
-        embeddings: 0,
-        resources: 0,
-      })),
-      getAdjacentChunks: vi.fn(async () => []),
-      search: vi.fn(async () => []),
-      searchLexical: vi.fn(async () => []),
-      searchTrigram: vi.fn(async () => []),
-    };
+    const vectorStore = makeVectorStore();
 
     await expect(
       retrieveRelevantChunks(vectorStore, "   ", {
@@ -642,17 +634,7 @@ describe("retrieveRelevantChunks", () => {
         score: 0.99,
       });
 
-      const vectorStore: VectorStore = {
-        corpusStats: vi.fn(async () => ({
-          chunks: 1,
-          embeddings: 1,
-          resources: 1,
-        })),
-        getAdjacentChunks: vi.fn(async () => []),
-        search: vi.fn(async () => [candidate]),
-        searchLexical: vi.fn(async () => []),
-        searchTrigram: vi.fn(async () => []),
-      };
+      const vectorStore = makeVectorStore([candidate]);
 
       const result = await retrieveRelevantChunksAdaptive(
         vectorStore,
@@ -684,17 +666,7 @@ describe("retrieveRelevantChunks", () => {
       .mockResolvedValueOnce({ embeddings: [] });
     mocks.rerank.mockResolvedValue({ ranking: [] });
 
-    const vectorStore: VectorStore = {
-      corpusStats: vi.fn(async () => ({
-        chunks: 0,
-        embeddings: 0,
-        resources: 0,
-      })),
-      getAdjacentChunks: vi.fn(async () => []),
-      search: vi.fn(async () => []),
-      searchLexical: vi.fn(async () => []),
-      searchTrigram: vi.fn(async () => []),
-    };
+    const vectorStore = makeVectorStore();
 
     const retrieval = retrieveRelevantChunksAdaptive(vectorStore, "osmosis", {
       limit: 1,
@@ -724,17 +696,7 @@ describe("retrieveRelevantChunks", () => {
       content: "A complete explanation of the water cycle and evaporation.",
       score: 0.99,
     });
-    const vectorStore: VectorStore = {
-      corpusStats: vi.fn(async () => ({
-        chunks: 1,
-        embeddings: 1,
-        resources: 1,
-      })),
-      getAdjacentChunks: vi.fn(async () => []),
-      search: vi.fn(async () => [candidate]),
-      searchLexical: vi.fn(async () => []),
-      searchTrigram: vi.fn(async () => []),
-    };
+    const vectorStore = makeVectorStore([candidate]);
     const randomSpy = vi.spyOn(Math, "random").mockReturnValue(1);
 
     try {
@@ -752,17 +714,7 @@ describe("retrieveRelevantChunks", () => {
   });
 
   it("fails closed on whitespace-only adaptive retrieval queries before embeddings or search run", async () => {
-    const vectorStore: VectorStore = {
-      corpusStats: vi.fn(async () => ({
-        chunks: 0,
-        embeddings: 0,
-        resources: 0,
-      })),
-      getAdjacentChunks: vi.fn(async () => []),
-      search: vi.fn(async () => []),
-      searchLexical: vi.fn(async () => []),
-      searchTrigram: vi.fn(async () => []),
-    };
+    const vectorStore = makeVectorStore();
 
     await expect(
       retrieveRelevantChunksAdaptive(vectorStore, "   ", {
