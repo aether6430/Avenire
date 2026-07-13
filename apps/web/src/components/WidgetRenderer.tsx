@@ -23,6 +23,24 @@ interface WidgetRendererProps {
 }
 
 export const CANVAS_WIDGET_SANDBOX = "allow-scripts";
+export const CANVAS_WIDGET_ALLOWED_SCRIPT_ORIGINS: readonly string[] = [
+  "https://cdn.jsdelivr.net",
+  "https://cdnjs.cloudflare.com",
+  "https://esm.sh",
+];
+export const CANVAS_WIDGET_CSP = [
+  "default-src 'none'",
+  `script-src 'unsafe-inline' ${CANVAS_WIDGET_ALLOWED_SCRIPT_ORIGINS.join(" ")}`,
+  "style-src 'unsafe-inline'",
+  "img-src data: blob: https:",
+  "font-src data: https:",
+  "media-src data: blob: https:",
+  "connect-src 'none'",
+  "object-src 'none'",
+  "frame-src 'none'",
+  "base-uri 'none'",
+  "form-action 'none'",
+].join("; ");
 
 // ---------------------------------------------------------------------------
 // CSS variable extraction
@@ -307,13 +325,16 @@ svg .box > .ts { fill: var(--foreground) !important; }
 // Base HTML shell injected into the iframe
 // ---------------------------------------------------------------------------
 
-function buildIframeDocument(cssVarBlock: string, isDark: boolean): string {
+export function buildCanvasWidgetDocument(
+  cssVarBlock: string,
+  isDark: boolean
+): string {
   return `<!DOCTYPE html>
 <html lang="en" class="${isDark ? "dark" : ""}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://esm.sh; style-src 'unsafe-inline'; img-src data: blob: https:; font-src data: https:; media-src data: blob: https:; connect-src 'none'; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="${CANVAS_WIDGET_CSP}">
 <style>
 /* ── Base reset ── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -517,6 +538,9 @@ window._runScripts = async function() {
     }
     var parent = old.parentNode;
     if (!parent) continue;
+    if (!s.src) {
+      s.textContent = old.textContent;
+    }
     parent.replaceChild(s, old);
 
     if (s.src) {
@@ -524,8 +548,6 @@ window._runScripts = async function() {
         s.addEventListener('load', resolve, { once: true });
         s.addEventListener('error', resolve, { once: true });
       });
-    } else {
-      s.textContent = old.textContent;
     }
   }
   reportHeight();
@@ -702,7 +724,7 @@ export function WidgetRenderer({
 
     const vars = extractThemeVars();
     const cssVarBlock = buildCssVarBlock(vars);
-    const doc = buildIframeDocument(cssVarBlock, isDark);
+    const doc = buildCanvasWidgetDocument(cssVarBlock, isDark);
 
     // srcdoc is cleaner than document.write — no navigation events
     iframe.srcdoc = doc;
