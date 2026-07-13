@@ -76,6 +76,7 @@ import {
 } from "@/components/files/explorer/shared";
 import { PanPinchImageViewer } from "@/components/files/pan-pinch-image-viewer";
 import type { WorkspaceSearchResult } from "@/components/files/stylized-search-bar";
+import { PreviewRail } from "@/components/ui/preview-rail";
 import {
   getWarmState,
   isFileOpenedCached,
@@ -364,59 +365,31 @@ function LinkReaderTocRail({
   items: LinkReaderTocItem[];
   onSelect: (id: string) => void;
 }) {
-  const visibleItems = items.filter((item) => item.text.trim().length > 0);
-  const activeIndex = visibleItems.findIndex((item) => item.isActive);
-  const getMarkerWidth = (item: LinkReaderTocItem, itemIndex: number) => {
-    if (activeIndex < 0) {
-      return Math.max(8, 14 - Math.max(0, item.level - 1) * 3);
-    }
-
-    const distance = Math.abs(itemIndex - activeIndex);
-    const levelInset = Math.max(0, item.level - 1) * 3;
-    const width = 34 - distance * 10 - levelInset;
-
-    return Math.max(8, Math.min(34, width));
-  };
+  const visibleItems = useMemo(
+    () => items.filter((item) => item.text.trim().length > 0),
+    [items]
+  );
+  const railItems = useMemo(
+    () =>
+      visibleItems.map((item) => ({
+        id: item.id,
+        label: item.text,
+        level: item.level,
+      })),
+    [visibleItems]
+  );
 
   if (visibleItems.length === 0) {
     return null;
   }
 
   return (
-    <aside className="editor-toc-rail link-reader-toc-rail pointer-events-none">
-      <div className="pointer-events-auto">
-        <div className="editor-toc-rail__inner">
-          <nav
-            aria-label="Table of contents"
-            className="editor-toc-rail__panel"
-          >
-            <ol className="editor-toc-rail__list">
-              {visibleItems.map((item, itemIndex) => (
-                <li key={item.id}>
-                  <button
-                    className={cn(
-                      "editor-toc-rail__item",
-                      item.isActive && "is-active"
-                    )}
-                    onClick={() => onSelect(item.id)}
-                    style={
-                      {
-                        "--toc-tick-width": `${getMarkerWidth(item, itemIndex)}px`,
-                        "--toc-label-offset": `${Math.max(0, item.level - 1) * 8}px`,
-                      } as CSSProperties
-                    }
-                    type="button"
-                  >
-                    <span aria-hidden className="editor-toc-rail__tick" />
-                    <span className="editor-toc-rail__label">{item.text}</span>
-                  </button>
-                </li>
-              ))}
-            </ol>
-          </nav>
-        </div>
-      </div>
-    </aside>
+    <PreviewRail
+      activeId={visibleItems.find((item) => item.isActive)?.id}
+      className="link-reader-toc-rail"
+      items={railItems}
+      onSelect={onSelect}
+    />
   );
 }
 

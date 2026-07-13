@@ -292,22 +292,19 @@
 
 .editor-toc-rail__tick {
   display: block;
-  width: var(--toc-tick-width, 0.75rem);
+  width: 2.125rem;
   min-width: 0.5rem;
   height: 1px;
   margin-block: auto;
   background: currentcolor;
   border-radius: 999px;
-  transition:
-    width 160ms ease,
-    background-color 160ms ease,
-    transform 160ms ease;
+  transform-origin: right center;
+  will-change: transform;
 }
 
 .editor-toc-rail__label {
   position: absolute;
   top: 50%;
-  right: calc(100% + 0.55rem + var(--toc-label-offset, 0px));
   max-width: min(18rem, calc(50vw - 6rem));
   padding: 0.42rem 0.62rem;
   overflow: hidden;
@@ -322,11 +319,7 @@
   border-radius: 0.5rem;
   box-shadow: 0 10px 28px
     color-mix(in oklch, var(--foreground) 12%, transparent 88%);
-  opacity: 0;
-  transform: translate(0.35rem, -50%);
-  transition:
-    opacity 130ms ease,
-    transform 150ms ease;
+  translate: 0 -50%;
 }
 
 .editor-toc-rail__item:hover,
@@ -336,24 +329,18 @@
   transform: translateX(-0.1rem);
 }
 
-.editor-toc-rail__item:hover .editor-toc-rail__tick,
-.editor-toc-rail__item:focus-visible .editor-toc-rail__tick {
-  width: calc(var(--toc-tick-width, 0.75rem) + 0.25rem);
-}
-
-.editor-toc-rail__item:hover .editor-toc-rail__label,
-.editor-toc-rail__item:focus-visible .editor-toc-rail__label {
-  opacity: 1;
-  transform: translate(0, -50%);
-  transition-delay: 95ms;
-}
-
 .editor-toc-rail__item.is-active {
   color: var(--foreground);
 }
 
 .editor-toc-rail__item.is-active .editor-toc-rail__tick {
   height: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .editor-toc-rail__item {
+    transition: none;
+  }
 }
 
 @media (max-width: 1023px) {
