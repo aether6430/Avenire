@@ -29,7 +29,7 @@ Pending:
 - [x] Add end-to-end duration/completion logging through the existing API logger.
 - [x] Add domain contract snapshots for status codes, public error tags,
   cancellation, and redaction.
-- [ ] Add positive and negative schema tests for schemas not yet directly covered.
+- [x] Add positive and negative schema tests for schemas not yet directly covered.
 - [ ] Record before/after p50 and p95 latency for representative migrated routes.
 - [ ] Delete legacy runner/error helpers only after all domain services use the
   replacement contracts.
@@ -50,10 +50,12 @@ Completed in this branch:
 - Retrieval and request-level phase timings are emitted.
 - Slow-path query expansion and HyDE now overlap the adaptive fast-path probe;
   speculative provider work is cancelled when the fast path wins.
+- Cache outcomes, provider calls and latency, and bounded recall/citation/
+  confidence proxies are emitted as low-cardinality production telemetry.
 
 Pending:
 
-- [ ] Deploy migration `0022_workspace_ingestion_revision.sql` before deploying
+- [x] Deploy migration `0022_workspace_ingestion_revision.sql` before deploying
   application code that reads the new revision column.
 - [ ] Capture healthy, 3-second-latency, and unavailable-Redis traces and compare
   p50/p95 latency, recall, citation quality, provider call counts, and cache hits.
@@ -112,6 +114,10 @@ Pending:
 
 The canonical React Doctor score is 100/100 per the completed user-run scan.
 
+Production-only interaction and import profiling is now installed. It records
+slow interactions by audited surface and same-origin Next.js chunk timing with
+session caps; it does not collect DOM text, query strings, or external URLs.
+
 - [ ] Run the production build and interaction checks for chat, uploads, editor,
   and sidebar navigation on the final integrated branch.
 - [ ] Capture render-count profiles for converted components where the audit
@@ -132,6 +138,10 @@ The canonical React Doctor score is 100/100 per the completed user-run scan.
   incrementally.
 - [x] Extract the section-preview rail into a reusable accessible primitive and
   use it for both markdown and link viewers.
+- [x] Exercise chat switching and completed-tail replay through the real local
+  `@durable-streams/server` and AI SDK transport boundary.
+- [x] Fix inline canvas script execution ordering and cover the opaque sandbox,
+  approved CDN allowlist, and no-connect CSP contract.
 - [ ] Verify durable-stream catch-up and chat switching against the deployed
   Redis and durable-stream service, including a generation completed while its
   chat is not selected.
