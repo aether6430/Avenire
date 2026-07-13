@@ -17,6 +17,8 @@ const analyticsErrorSchema = Schema.Struct({
 const ALLOWED_EVENTS = new Set([
   "web.pageview",
   "web.session.end",
+  "web.performance.import",
+  "web.performance.interaction",
   "onboarding.started",
   "onboarding.completed",
 ]);
@@ -56,6 +58,16 @@ export async function POST(request: Request) {
       durationMs:
         typeof properties.durationMs === "number"
           ? Math.max(0, Math.round(properties.durationMs))
+          : undefined,
+      cached:
+        typeof properties.cached === "boolean" ? properties.cached : undefined,
+      initiatorType: safeString(properties.initiatorType),
+      interactionType: safeString(properties.interactionType),
+      resourcePath: safeString(properties.resourcePath),
+      surface: safeString(properties.surface),
+      transferSize:
+        typeof properties.transferSize === "number"
+          ? Math.max(0, Math.round(properties.transferSize))
           : undefined,
       viewport:
         typeof properties.viewport === "object" && properties.viewport

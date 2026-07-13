@@ -2,6 +2,7 @@
 
 import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef } from "react";
+import { startProductionPerformanceProfiler } from "@/lib/production-performance-profiler";
 
 function getDistinctId() {
   const key = "avenire_distinct_id";
@@ -45,10 +46,7 @@ export function PostHogTracker() {
   const enteredAtRef = useRef<number>(Date.now());
   const currentPathRef = useRef<string>("");
 
-  const search = useMemo(
-    () => searchParams?.toString() ?? "",
-    [searchParams]
-  );
+  const search = useMemo(() => searchParams?.toString() ?? "", [searchParams]);
 
   useEffect(() => {
     const path = `${pathname}${search ? `?${search}` : ""}`;
@@ -66,6 +64,17 @@ export function PostHogTracker() {
       },
     });
   }, [pathname, search]);
+
+  useEffect(() => {
+    if (process.env.NODE_ENV !== "production") {
+      return;
+    }
+
+    return startProductionPerformanceProfiler({
+      capture,
+      getPath: () => currentPathRef.current.split("?", 1)[0] ?? "",
+    });
+  }, []);
 
   useEffect(() => {
     const handlePageHide = () => {
