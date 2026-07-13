@@ -10,7 +10,7 @@ import {
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-function copyStreamingHeaders(response: Response) {
+function copyStreamingHeaders(response: Response, requestUrl: URL) {
   const headers = new Headers();
   response.headers.forEach((value, key) => {
     const lowerKey = key.toLowerCase();
@@ -25,7 +25,7 @@ function copyStreamingHeaders(response: Response) {
     headers.set(key, value);
   });
   headers.set("Cache-Control", "no-store");
-  if (response.ok) {
+  if (response.ok && requestUrl.searchParams.get("live") === "sse") {
     headers.set("Content-Type", "text/event-stream; charset=utf-8");
     headers.set("X-Accel-Buffering", "no");
   }
@@ -71,10 +71,11 @@ export async function GET(request: Request) {
       ...(getDurableChatStreamReadHeaders() ?? {}),
     },
     method: "GET",
+    signal: request.signal,
   });
 
   return new Response(upstreamResponse.body, {
-    headers: copyStreamingHeaders(upstreamResponse),
+    headers: copyStreamingHeaders(upstreamResponse, requestUrl),
     status: upstreamResponse.status,
     statusText: upstreamResponse.statusText,
   });

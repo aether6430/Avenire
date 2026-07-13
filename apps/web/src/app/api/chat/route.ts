@@ -85,6 +85,7 @@ import {
   clearActiveStreamId,
   getActiveStreamId,
   getRedisClient,
+  markActiveStreamComplete,
   setActiveStreamId,
 } from "./chat-stream-store";
 
@@ -2619,11 +2620,14 @@ export async function POST(request: Request) {
                   error,
                 });
               } finally {
-                await clearActiveStreamId(chatSlug, streamPath);
+                await markActiveStreamComplete(chatSlug, streamPath);
                 if (idempotencyRedisKey && idempotencyLockAcquired) {
                   await markIdempotencyDone(idempotencyRedisKey, chatSlug);
                 }
-                logInfo("Cleared active stream id", { chatId: chatSlug });
+                logInfo("Retained completed stream id for catch-up", {
+                  chatId: chatSlug,
+                  streamPath,
+                });
               }
             },
           })
