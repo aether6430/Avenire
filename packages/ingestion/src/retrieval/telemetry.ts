@@ -22,6 +22,19 @@ type RetrievalSourceType =
   | "pdf"
   | "video";
 
+type RetrievalQualityDecision = Pick<
+  RetrievalDecisionTelemetry,
+  | "ambiguityReasons"
+  | "candidateCount"
+  | "confidenceScore"
+  | "contextTruncated"
+  | "queryShape"
+  | "rerankCandidateCount"
+  | "rerankFallbackUsed"
+  | "resultCount"
+  | "topRerankScore"
+>;
+
 function boundedRatio(numerator: number, denominator: number) {
   if (denominator <= 0) {
     return 0;
@@ -67,7 +80,7 @@ export function recordRetrievalCacheTelemetry(input: {
 }
 
 export function recordRetrievalQualityTelemetry(input: {
-  decision: RetrievalDecisionTelemetry;
+  decision: RetrievalQualityDecision;
   path: "fast" | "slow";
 }) {
   const candidateDenominator = Math.min(

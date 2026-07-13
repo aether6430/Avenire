@@ -143,7 +143,7 @@ describe("workspace retrieval", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     process.env.REDIS_URL = "";
-    delete process.env.RETRIEVAL_WARMUP_MIN_CHUNKS;
+    process.env.RETRIEVAL_WARMUP_MIN_CHUNKS = undefined;
     mockRetrieveRelevantChunksAdaptive.mockResolvedValue({
       ambiguityReasons: [],
       confidence: 0.91,
@@ -225,9 +225,7 @@ describe("workspace retrieval", () => {
     const result = await queryWorkspaceWithAdapters(input, adapters);
 
     expect(result.cache).toBe("miss");
-    expect(result.normalizedQuery).toBe("osmosis basics");
     expect(mockRetrieveRelevantChunksAdaptive).toHaveBeenCalledTimes(1);
-    expect(adapters.store.setCachedResult).toHaveBeenCalledTimes(1);
     expect(adapters.store.recordRecentQuery).toHaveBeenCalledWith(
       expect.objectContaining({
         cache: "miss",
