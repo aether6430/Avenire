@@ -1,8 +1,8 @@
 "use client";
 
+import DOMPurify from "dompurify";
 import { useTheme } from "next-themes";
 import { useCallback, useEffect, useMemo, useRef } from "react";
-import DOMPurify from "dompurify";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -21,6 +21,8 @@ interface WidgetRendererProps {
   /** Run inline scripts after content updates (disable during streaming). */
   runScripts?: boolean;
 }
+
+export const CANVAS_WIDGET_SANDBOX = "allow-scripts";
 
 // ---------------------------------------------------------------------------
 // CSS variable extraction
@@ -111,6 +113,26 @@ function buildCanvasThemeBlock(isDark: boolean): string {
     .map(([k, v]) => `  ${k}: ${v};`)
     .join("\n");
   return `:root {\n${declarations}\n}`;
+}
+
+/**
+ * Canvas widgets intentionally support JavaScript, but only inside the
+ * opaque-origin iframe below. Keep active embedding/navigation primitives out
+ * of the payload while preserving the scripts that draw and update canvases.
+ */
+export function sanitizeCanvasWidgetHtml(value: string): string {
+  const parsed = new DOMParser().parseFromString(value, "text/html");
+  parsed
+    .querySelectorAll("base, embed, form, iframe, object")
+    .forEach((element) => {
+      element.remove();
+    });
+
+  return DOMPurify.sanitize(parsed.body.innerHTML, {
+    ADD_TAGS: ["script"],
+    FORBID_CONTENTS: [],
+    FORBID_TAGS: ["base", "embed", "form", "iframe", "object"],
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -291,6 +313,7 @@ function buildIframeDocument(cssVarBlock: string, isDark: boolean): string {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://esm.sh; style-src 'unsafe-inline'; img-src data: blob: https:; font-src data: https:; media-src data: blob: https:; connect-src 'none'; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'">
 <style>
 /* ── Base reset ── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -640,7 +663,10 @@ export function WidgetRenderer({
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === "dark";
   const isReadyRef = useRef(false);
-  const normalizedHtml = useMemo(() => normalizeWidgetHtmlPayload(html), [html]);
+  const normalizedHtml = useMemo(
+    () => normalizeWidgetHtmlPayload(html),
+    [html]
+  );
 
   const postToIframe = useCallback((data: Record<string, unknown>) => {
     const iframe = iframeRef.current;
@@ -660,7 +686,7 @@ export function WidgetRenderer({
     (nextHtml: string, shouldRunScripts: boolean) => {
       postToIframe({
         type: "avenire:setContent",
-        html: DOMPurify.sanitize(nextHtml),
+        html: sanitizeCanvasWidgetHtml(nextHtml),
         runScripts: shouldRunScripts,
       });
     },
@@ -758,7 +784,7 @@ export function WidgetRenderer({
           writeContent(normalizedHtml, runScripts);
         }}
         ref={iframeRef}
-        sandbox="allow-scripts"
+        sandbox={CANVAS_WIDGET_SANDBOX}
         style={{
           width: "100%",
           height: `${autoHeightRef.current}px`,
