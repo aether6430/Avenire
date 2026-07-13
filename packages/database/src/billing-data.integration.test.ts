@@ -2,8 +2,6 @@ import { randomUUID } from "node:crypto";
 import { and, eq } from "drizzle-orm";
 import { afterEach, describe, expect, it } from "vitest";
 import { user } from "./auth-schema";
-import { consumeUsageUnits, restoreUsageUnits } from "./billing-data";
-import { db } from "./client";
 import { billingUsageEvent, usageMeter } from "./schema";
 
 const runDatabaseTests = process.env.RUN_DATABASE_INTEGRATION_TESTS === "true";
@@ -15,11 +13,16 @@ describe.runIf(runDatabaseTests)("atomic billing admission", () => {
       return;
     }
 
+    const { db } = await import("./client");
     await db.delete(user).where(eq(user.id, Array.from(createdUserIds)[0]));
     createdUserIds.clear();
   });
 
   it("admits exactly 25 of 50 simultaneous one-credit requests", async () => {
+    const [{ consumeUsageUnits }, { db }] = await Promise.all([
+      import("./billing-data"),
+      import("./client"),
+    ]);
     const userId = `billing-atomic-${randomUUID()}`;
     const now = new Date();
     createdUserIds.add(userId);
@@ -62,15 +65,13 @@ describe.runIf(runDatabaseTests)("atomic billing admission", () => {
           overageBalance: usageMeter.overageBalance,
         })
         .from(usageMeter)
-        .where(
-          and(eq(usageMeter.userId, userId), eq(usageMeter.meter, "chat"))
-        )
+        .where(and(eq(usageMeter.userId, userId), eq(usageMeter.meter, "chat")))
         .limit(1);
 
       expect(meter).toEqual({ fourHourBalance: 0, overageBalance: 0 });
     } finally {
       if (previousCreditsMode === undefined) {
-        delete process.env.POLAR_CREDITS_MODE;
+        process.env.POLAR_CREDITS_MODE = undefined;
       } else {
         process.env.POLAR_CREDITS_MODE = previousCreditsMode;
       }
@@ -78,6 +79,10 @@ describe.runIf(runDatabaseTests)("atomic billing admission", () => {
   }, 15_000);
 
   it("restores a retried refund once and emits one immutable event", async () => {
+    const [{ restoreUsageUnits }, { db }] = await Promise.all([
+      import("./billing-data"),
+      import("./client"),
+    ]);
     const userId = `billing-refund-${randomUUID()}`;
     const idempotencyKey = `chat-refund:${randomUUID()}`;
     const now = new Date();
@@ -107,21 +112,19 @@ describe.runIf(runDatabaseTests)("atomic billing admission", () => {
     const previousCreditsMode = process.env.POLAR_CREDITS_MODE;
     process.env.POLAR_CREDITS_MODE = "shadow";
     try {
-      const refund: Parameters<typeof restoreUsageUnits>[0] = {
+      const refund = {
         userId,
         meter: "chat",
         fourHourUnits: 1,
         overageUnits: 0,
         idempotencyKey,
-      };
+      } satisfies Parameters<typeof restoreUsageUnits>[0];
       await Promise.all([restoreUsageUnits(refund), restoreUsageUnits(refund)]);
 
       const [meter] = await db
         .select({ fourHourBalance: usageMeter.fourHourBalance })
         .from(usageMeter)
-        .where(
-          and(eq(usageMeter.userId, userId), eq(usageMeter.meter, "chat"))
-        )
+        .where(and(eq(usageMeter.userId, userId), eq(usageMeter.meter, "chat")))
         .limit(1);
       const events = await db
         .select({ units: billingUsageEvent.units })
@@ -132,7 +135,7 @@ describe.runIf(runDatabaseTests)("atomic billing admission", () => {
       expect(events).toEqual([{ units: -1 }]);
     } finally {
       if (previousCreditsMode === undefined) {
-        delete process.env.POLAR_CREDITS_MODE;
+        process.env.POLAR_CREDITS_MODE = undefined;
       } else {
         process.env.POLAR_CREDITS_MODE = previousCreditsMode;
       }
