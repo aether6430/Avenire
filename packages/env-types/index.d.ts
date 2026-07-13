@@ -105,6 +105,8 @@ declare namespace NodeJS {
     OBSERVABILITY_AI_RECORD_OUTPUTS?: string;
     OBSERVABILITY_ENABLED?: string;
     OBSERVABILITY_FLUSH_ON_SHUTDOWN?: string;
+    OBSERVABILITY_POSTHOG_COOLDOWN_MS?: string;
+    OBSERVABILITY_POSTHOG_TIMEOUT_MS?: string;
     OBSERVABILITY_SAMPLE_RATE?: string;
     OBSERVABILITY_SERVICE?: string;
     OLLAMA_API_KEY?: string;
@@ -112,11 +114,11 @@ declare namespace NodeJS {
     OPENROUTER_API_KEY?: string;
     PG_POOL_MAX?: string;
     POLAR_ACCESS_TOKEN?: string;
+    POLAR_CREDITS_DIVERGENCE_THRESHOLD_RATIO?: string;
     POLAR_CREDITS_EVENT_NAME?: string;
     POLAR_CREDITS_METER_ID?: string;
+    POLAR_CREDITS_MODE?: string;
     POLAR_CREDITS_SHADOW_MODE?: string;
-    POLAR_CREDITS_MODE?: "disabled" | "shadow" | "cutover";
-    POLAR_CREDITS_DIVERGENCE_THRESHOLD_RATIO?: string;
     POLAR_ORGANIZATION_ID?: string;
     POLAR_PRODUCT_ID_CORE_MONTHLY?: string;
     POLAR_PRODUCT_ID_CORE_YEARLY?: string;
