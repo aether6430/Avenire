@@ -1,9 +1,11 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { meter } from "@avenire/observability";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@avenire/observability", () => ({
   logInfo: vi.fn(),
+  meter: vi.fn(),
 }));
 
 vi.mock("./retrieval/retrieve", () => ({
@@ -50,6 +52,7 @@ const mockEnsureManagedRedisClient =
   redisClientModule.ensureManagedRedisClient as unknown as ReturnType<
     typeof vi.fn
   >;
+const mockMeter = vi.mocked(meter);
 
 function createStoreStub(input?: {
   acquireWarmupLease?: () => Promise<boolean>;
@@ -235,6 +238,15 @@ describe("workspace retrieval", () => {
       })
     );
     expect(storeState.cachedResults.size).toBe(1);
+    expect(mockMeter).toHaveBeenCalledWith({
+      eventName: "retrieval.cache.lookup",
+      payload: expect.objectContaining({
+        mode: "auto",
+        origin: "chat",
+        outcome: "miss",
+        path: "slow",
+      }),
+    });
   });
 
   it("serves cached retrieval results through the same seam", async () => {
@@ -282,6 +294,15 @@ describe("workspace retrieval", () => {
         origin: "api",
       })
     );
+    expect(mockMeter).toHaveBeenCalledWith({
+      eventName: "retrieval.cache.lookup",
+      payload: expect.objectContaining({
+        mode: "auto",
+        origin: "api",
+        outcome: "hit",
+        path: "fast",
+      }),
+    });
   });
 
   it("starts retrieval when a cache probe exceeds the fast-path budget", async () => {

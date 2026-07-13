@@ -9,6 +9,10 @@ import {
 } from "../ingestion/embeddings";
 import { getLearnerSignalBoosts } from "./learner-signals";
 import { expandQuery, generateHydeDocument } from "./query-expansion";
+import {
+  observeRetrievalProviderCall,
+  recordRetrievalQualityTelemetry,
+} from "./telemetry";
 import type { VectorSearchResult, VectorStore } from "./vector-store";
 
 const RETRIEVAL_CONTEXT_TOKEN_BUDGET = 2400;
@@ -216,7 +220,11 @@ function startQueryEnhancementTasks(
 ): QueryEnhancementTasks {
   let hydeFallbackUsed = false;
   const expansionStartedAt = performance.now();
-  const expansion = expandQuery(normalizedQuery, { abortSignal })
+  const expansion = observeRetrievalProviderCall({
+    operation: "query_expansion",
+    provider: "apollo",
+    run: () => expandQuery(normalizedQuery, { abortSignal }),
+  })
     .catch((error) => {
       if (!abortSignal?.aborted) {
         logWarn({
@@ -234,7 +242,14 @@ function startQueryEnhancementTasks(
       value,
     }));
   const hydeStartedAt = performance.now();
-  const hyde = generateHydeDocument(normalizedQuery, { abortSignal })
+  const hydeProviderCall = config.retrievalHydeEnabled
+    ? observeRetrievalProviderCall({
+        operation: "hyde",
+        provider: "apollo",
+        run: () => generateHydeDocument(normalizedQuery, { abortSignal }),
+      })
+    : Promise.resolve(null);
+  const hyde = hydeProviderCall
     .catch((error) => {
       if (!abortSignal?.aborted) {
         hydeFallbackUsed = true;
@@ -1105,12 +1120,17 @@ export const retrieveRelevantChunks = async (
   const embeddings =
     queriesNeedingEmbeddings.length > 0
       ? (
-          await embedMultimodal(
-            queriesNeedingEmbeddings.map((value) =>
-              textToMultimodalInput(value)
-            ),
-            { inputType: "search_query" }
-          )
+          await observeRetrievalProviderCall({
+            operation: "embedding",
+            provider: "cohere",
+            run: () =>
+              embedMultimodal(
+                queriesNeedingEmbeddings.map((value) =>
+                  textToMultimodalInput(value)
+                ),
+                { inputType: "search_query" }
+              ),
+          })
         ).embeddings
       : [];
   const embeddingLatencyMs = Math.round(performance.now() - embeddingStartedAt);
@@ -1306,6 +1326,7 @@ export const retrieveRelevantChunks = async (
         workspaceId: options?.workspaceId ?? null,
       },
     });
+    recordRetrievalQualityTelemetry({ decision: telemetry, path: "slow" });
 
     return {
       context: "",
@@ -1317,11 +1338,16 @@ export const retrieveRelevantChunks = async (
   }
 
   const rerankStartedAt = performance.now();
-  const reranked = await rerank({
-    model: apollo.rerankingModel("apollo-reranking"),
-    documents: rerankCandidates.map((candidate) => candidate.content),
-    query: normalizedQuery,
-    topN: limit,
+  const reranked = await observeRetrievalProviderCall({
+    operation: "rerank",
+    provider: "apollo",
+    run: () =>
+      rerank({
+        model: apollo.rerankingModel("apollo-reranking"),
+        documents: rerankCandidates.map((candidate) => candidate.content),
+        query: normalizedQuery,
+        topN: limit,
+      }),
   })
     .then(({ ranking }) =>
       ranking.map((item) => ({
@@ -1335,11 +1361,16 @@ export const retrieveRelevantChunks = async (
     )
     .catch(async (error) => {
       rerankFallbackUsed = true;
-      const fallback = await rerankByCohereWithQueryEmbedding(
-        embeddingByQuery.get(normalizedQuery) ?? [],
-        rerankCandidates,
-        limit
-      );
+      const fallback = await observeRetrievalProviderCall({
+        operation: "rerank_fallback",
+        provider: "cohere",
+        run: () =>
+          rerankByCohereWithQueryEmbedding(
+            embeddingByQuery.get(normalizedQuery) ?? [],
+            rerankCandidates,
+            limit
+          ),
+      });
       if (fallback.length > 0) {
         return fallback.map((candidate) => ({
           ...candidate,
@@ -1438,6 +1469,7 @@ export const retrieveRelevantChunks = async (
       workspaceId: options?.workspaceId ?? null,
     },
   });
+  recordRetrievalQualityTelemetry({ decision: telemetry, path: "slow" });
 
   return {
     context: assembled.context,
@@ -1744,8 +1776,13 @@ export const retrieveRelevantChunksAdaptive = async (
         );
 
   const [fastEmbedding] = (
-    await embedMultimodal([textToMultimodalInput(normalizedQuery)], {
-      inputType: "search_query",
+    await observeRetrievalProviderCall({
+      operation: "embedding",
+      provider: "cohere",
+      run: () =>
+        embedMultimodal([textToMultimodalInput(normalizedQuery)], {
+          inputType: "search_query",
+        }),
     })
   ).embeddings;
   if (!fastEmbedding) {
@@ -1825,6 +1862,11 @@ export const retrieveRelevantChunksAdaptive = async (
         }
       })();
     }
+
+    recordRetrievalQualityTelemetry({
+      decision: fastPreview.decision,
+      path: "fast",
+    });
 
     return {
       ambiguityReasons: routeReasons,

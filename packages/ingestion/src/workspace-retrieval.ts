@@ -4,6 +4,7 @@ import {
   normalizeRetrievalQuery,
   retrieveRelevantChunksAdaptive,
 } from "./retrieval/retrieve";
+import { recordRetrievalCacheTelemetry } from "./retrieval/telemetry";
 import type { VectorStore } from "./retrieval/vector-store";
 import {
   createWorkspaceRetrievalStore,
@@ -464,6 +465,14 @@ export async function queryWorkspaceWithAdapters(
           response,
         }),
       });
+      recordRetrievalCacheTelemetry({
+        cacheLookupMs,
+        mode: input.mode ?? "auto",
+        origin: input.origin ?? "unknown",
+        outcome: "hit",
+        path: response.path,
+        sourceType: input.sourceType,
+      });
 
       await adapters.store.recordRecentQuery({
         cache: "hit",
@@ -527,6 +536,14 @@ export async function queryWorkspaceWithAdapters(
         results: response.results,
       },
     }),
+  });
+  recordRetrievalCacheTelemetry({
+    cacheLookupMs,
+    mode: input.mode ?? "auto",
+    origin: input.origin ?? "unknown",
+    outcome: cacheTimedOut ? "slow_probe_bypassed" : "miss",
+    path: response.path,
+    sourceType: input.sourceType,
   });
   logInfo({
     eventName: "retrieval.request_phase_timings",
