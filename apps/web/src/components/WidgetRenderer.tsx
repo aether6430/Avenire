@@ -1,6 +1,5 @@
 "use client";
 
-import DOMPurify from "dompurify";
 import { useTheme } from "next-themes";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 
@@ -131,26 +130,6 @@ function buildCanvasThemeBlock(isDark: boolean): string {
     .map(([k, v]) => `  ${k}: ${v};`)
     .join("\n");
   return `:root {\n${declarations}\n}`;
-}
-
-/**
- * Canvas widgets intentionally support JavaScript, but only inside the
- * opaque-origin iframe below. Keep active embedding/navigation primitives out
- * of the payload while preserving the scripts that draw and update canvases.
- */
-export function sanitizeCanvasWidgetHtml(value: string): string {
-  const parsed = new DOMParser().parseFromString(value, "text/html");
-  parsed
-    .querySelectorAll("base, embed, form, iframe, object")
-    .forEach((element) => {
-      element.remove();
-    });
-
-  return DOMPurify.sanitize(parsed.body.innerHTML, {
-    ADD_TAGS: ["script"],
-    FORBID_CONTENTS: [],
-    FORBID_TAGS: ["base", "embed", "form", "iframe", "object"],
-  });
 }
 
 // ---------------------------------------------------------------------------
@@ -708,7 +687,10 @@ export function WidgetRenderer({
     (nextHtml: string, shouldRunScripts: boolean) => {
       postToIframe({
         type: "avenire:setContent",
-        html: sanitizeCanvasWidgetHtml(nextHtml),
+        // Widgets intentionally contain executable HTML. Capability isolation
+        // belongs to the opaque iframe sandbox and CSP above; mutating the
+        // payload here breaks full-document styles and interactive controls.
+        html: nextHtml,
         runScripts: shouldRunScripts,
       });
     },
