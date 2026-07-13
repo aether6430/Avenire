@@ -1,6 +1,6 @@
 # Audit findings: remaining work
 
-Updated: 2026-07-12
+Updated: 2026-07-13
 
 This list records only work that is still pending after the Effect API-boundary
 migration and retrieval-performance pass. Completed implementation is noted so
@@ -48,6 +48,8 @@ Completed in this branch:
 - Workspace corpus validation now uses an ingestion revision instead of an
   O(corpus) ordered content fingerprint.
 - Retrieval and request-level phase timings are emitted.
+- Slow-path query expansion and HyDE now overlap the adaptive fast-path probe;
+  speculative provider work is cancelled when the fast path wins.
 
 Pending:
 
@@ -117,6 +119,24 @@ The canonical React Doctor score is 100/100 per the completed user-run scan.
 - [ ] Verify extracted monolith components remain independently tested and do not
   gain unexpected sibling imports.
 - [ ] Verify removed exports through production telemetry or import tracing.
+
+## Post-audit regression follow-up
+
+- [x] Restore script-driven HTML/canvas widgets inside an opaque-origin iframe
+  sandbox with a widget-local CSP and active embedding/navigation primitives
+  removed from the payload.
+- [x] Make PostHog delivery best-effort with a bounded request timeout, no SDK
+  retries, and a cooldown circuit that prevents repeated network-error spam.
+- [x] Isolate durable-stream readers by chat, cancel stale reconnects, retain
+  completed stream pointers for bounded catch-up, and forward tool progress
+  incrementally.
+- [x] Extract the section-preview rail into a reusable accessible primitive and
+  use it for both markdown and link viewers.
+- [ ] Verify durable-stream catch-up and chat switching against the deployed
+  Redis and durable-stream service, including a generation completed while its
+  chat is not selected.
+- [ ] Verify representative script-driven canvas widgets in the deployment
+  preview, including an inline canvas and an approved-CDN chart.
 
 ## Final integration gates
 
