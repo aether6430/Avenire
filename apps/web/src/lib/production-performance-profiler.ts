@@ -145,7 +145,6 @@ export function startProductionPerformanceProfiler({
     });
     interactionObserver.observe({
       buffered: false,
-      durationThreshold: INTERACTION_DURATION_THRESHOLD_MS,
       type: "event",
     });
     observers.push(interactionObserver);
