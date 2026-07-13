@@ -1,5 +1,11 @@
 import { Effect, Exit, Layer } from "effect-v4";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("@/lib/workspace", () => ({
+  ensureWorkspaceAccessForUser: vi.fn(),
+  getSessionUser: vi.fn(),
+}));
+
 import {
   AuthenticatedSession,
   requireAuthenticatedUser,

@@ -73,6 +73,24 @@ describe("/api/misconceptions/improve route", () => {
     expect(invalidateActiveMisconceptionCachesMock).not.toHaveBeenCalled();
   });
 
+  it("reports a missing scope separately from invalid numeric input", async () => {
+    const response = await postImprove({
+      concept: "Diffusion",
+      delta: 0.1,
+      subject: " ",
+      topic: "Cells",
+    });
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: "Concept, subject, and topic are required",
+    });
+    expect(adjustMisconceptionConfidenceForConceptMock).not.toHaveBeenCalled();
+    expect(improveMisconceptionsForConceptMock).not.toHaveBeenCalled();
+    expect(recomputeConceptMasteryMock).not.toHaveBeenCalled();
+    expect(invalidateActiveMisconceptionCachesMock).not.toHaveBeenCalled();
+  });
+
   it("invalidates active misconception caches after improving misconceptions", async () => {
     improveMisconceptionsForConceptMock.mockResolvedValue([
       { active: false },

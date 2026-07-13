@@ -140,9 +140,9 @@ The canonical React Doctor score is 100/100 per the completed user-run scan.
 
 ## Final integration gates
 
-- [ ] Run the full workspace typecheck without a timeout/resource interruption.
+- [x] Run the full workspace typecheck without a timeout/resource interruption.
 - [ ] Run the full workspace test suite and production build.
-- [ ] Resolve or formally rebaseline the existing misconception-improvement test
+- [x] Resolve or formally rebaseline the existing misconception-improvement test
   whose expected generic validation message differs from the current specific
   response.
 - [ ] Run clean-install CI and deployment-preview validation.

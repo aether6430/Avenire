@@ -3,14 +3,11 @@ import { describe, expect, it } from "vitest";
 import { completeSchema } from "./upload-session-complete-model";
 
 describe("upload session completion model", () => {
-  it("accepts direct and multipart completion requests", () => {
+  it("accepts secure multipart completion requests", () => {
     expect(
       Exit.isSuccess(
         Schema.decodeUnknownExit(completeSchema)({
-          storageKey: "uploads/file.pdf",
-          storageUrl: "https://storage.example/file.pdf",
-          sizeBytes: 2048,
-          mimeType: "application/pdf",
+          multipart: {},
         })
       )
     ).toBe(true);
@@ -26,31 +23,12 @@ describe("upload session completion model", () => {
 
   it.each([
     [
-      "an empty direct storage key",
+      "a legacy caller-selected storage payload",
       {
-        storageKey: "",
-        storageUrl: "https://storage.example/file",
-        sizeBytes: 1,
-      },
-    ],
-    [
-      "an empty direct storage URL",
-      { storageKey: "uploads/file", storageUrl: "", sizeBytes: 1 },
-    ],
-    [
-      "a negative direct size",
-      {
-        storageKey: "uploads/file",
-        storageUrl: "https://storage.example/file",
-        sizeBytes: -1,
-      },
-    ],
-    [
-      "a non-integer direct size",
-      {
-        storageKey: "uploads/file",
-        storageUrl: "https://storage.example/file",
-        sizeBytes: 1.5,
+        storageKey: "uploads/file.pdf",
+        storageUrl: "https://storage.example/file.pdf",
+        sizeBytes: 2048,
+        mimeType: "application/pdf",
       },
     ],
     ["a non-positive multipart part", { multipart: { partNumbers: [0] } }],
