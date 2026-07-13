@@ -16,13 +16,17 @@ function stripCodeFences(value: string) {
     .trim();
 }
 
-export async function expandQuery(query: string): Promise<string | null> {
+export async function expandQuery(
+  query: string,
+  options?: { abortSignal?: AbortSignal }
+): Promise<string | null> {
   const normalizedQuery = normalizeExpansion(query);
   if (!normalizedQuery) {
     return null;
   }
 
   const { text } = await generateText({
+    abortSignal: options?.abortSignal,
     model: apollo.languageModel(QUERY_EXPANSION_MODEL),
     system:
       "Expand this student query into a full academic search phrase. Output only the expanded query, nothing else.",
@@ -48,7 +52,8 @@ export async function expandQuery(query: string): Promise<string | null> {
 }
 
 export async function generateHydeDocument(
-  query: string
+  query: string,
+  options?: { abortSignal?: AbortSignal }
 ): Promise<string | null> {
   const normalizedQuery = normalizeExpansion(query);
   if (!(normalizedQuery && config.retrievalHydeEnabled)) {
@@ -56,6 +61,7 @@ export async function generateHydeDocument(
   }
 
   const { text } = await generateText({
+    abortSignal: options?.abortSignal,
     model: apollo.languageModel(QUERY_EXPANSION_MODEL),
     system: [
       "Write a concise hypothetical source excerpt that would directly answer this student search query.",

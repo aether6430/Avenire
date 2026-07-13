@@ -49,6 +49,17 @@ type RetrievedCandidate = VectorSearchResult & {
   rerankScore: number;
 };
 
+interface TimedQueryEnhancement {
+  latencyMs: number;
+  value: string | null;
+}
+
+interface QueryEnhancementTasks {
+  expansion: Promise<TimedQueryEnhancement>;
+  hyde: Promise<TimedQueryEnhancement>;
+  wasHydeFallbackUsed: () => boolean;
+}
+
 interface RetrievalPathResult {
   ambiguityReasons: string[];
   calibration?: {
@@ -198,6 +209,56 @@ export const dedupeQueries = (values: string[]): string[] => {
 
   return out;
 };
+
+function startQueryEnhancementTasks(
+  normalizedQuery: string,
+  abortSignal?: AbortSignal
+): QueryEnhancementTasks {
+  let hydeFallbackUsed = false;
+  const expansionStartedAt = performance.now();
+  const expansion = expandQuery(normalizedQuery, { abortSignal })
+    .catch((error) => {
+      if (!abortSignal?.aborted) {
+        logWarn({
+          eventName: "retrieval.query_expansion_fallback",
+          payload: {
+            error: safeError(error),
+            query: normalizedQuery,
+          },
+        });
+      }
+      return null;
+    })
+    .then((value) => ({
+      latencyMs: Math.round(performance.now() - expansionStartedAt),
+      value,
+    }));
+  const hydeStartedAt = performance.now();
+  const hyde = generateHydeDocument(normalizedQuery, { abortSignal })
+    .catch((error) => {
+      if (!abortSignal?.aborted) {
+        hydeFallbackUsed = true;
+        logWarn({
+          eventName: "retrieval.hyde_fallback",
+          payload: {
+            error: safeError(error),
+            query: normalizedQuery,
+          },
+        });
+      }
+      return null;
+    })
+    .then((value) => ({
+      latencyMs: Math.round(performance.now() - hydeStartedAt),
+      value,
+    }));
+
+  return {
+    expansion,
+    hyde,
+    wasHydeFallbackUsed: () => hydeFallbackUsed,
+  };
+}
 
 export const decomposeQuery = (query: string): string[] => {
   const normalized = normalizeRetrievalQuery(query);
@@ -961,6 +1022,7 @@ export const retrieveRelevantChunks = async (
     initialQueryCandidates?: Array<
       VectorSearchResult & { fusionScore: number }
     >;
+    queryEnhancementTasks?: QueryEnhancementTasks;
   }
 ): Promise<{
   context: string;
@@ -1012,44 +1074,14 @@ export const retrieveRelevantChunks = async (
     limit * config.retrievalCandidateMultiplier
   );
 
-  let hydeFallbackUsed = false;
-  const expansionStartedAt = performance.now();
-  const expansionTask = expandQuery(normalizedQuery)
-    .catch((error) => {
-      logWarn({
-        eventName: "retrieval.query_expansion_fallback",
-        payload: {
-          error: safeError(error),
-          query: normalizedQuery,
-        },
-      });
-      return null;
-    })
-    .then((value) => ({
-      latencyMs: Math.round(performance.now() - expansionStartedAt),
-      value,
-    }));
-  const hydeStartedAt = performance.now();
-  const hydeTask = generateHydeDocument(normalizedQuery)
-    .catch((error) => {
-      hydeFallbackUsed = true;
-      logWarn({
-        eventName: "retrieval.hyde_fallback",
-        payload: {
-          error: safeError(error),
-          query: normalizedQuery,
-        },
-      });
-      return null;
-    })
-    .then((value) => ({
-      latencyMs: Math.round(performance.now() - hydeStartedAt),
-      value,
-    }));
+  const queryEnhancementTasks =
+    options?.queryEnhancementTasks ??
+    startQueryEnhancementTasks(normalizedQuery);
   const [expansionResult, hydeResult] = await Promise.all([
-    expansionTask,
-    hydeTask,
+    queryEnhancementTasks.expansion,
+    queryEnhancementTasks.hyde,
   ]);
+  const hydeFallbackUsed = queryEnhancementTasks.wasHydeFallbackUsed();
   const expandedQuery = expansionResult.value;
   const hydeDocument = hydeResult.value;
   const decomposedQueries = dedupeQueries(
@@ -1702,6 +1734,15 @@ export const retrieveRelevantChunksAdaptive = async (
     limit * config.retrievalCandidateMultiplier
   );
 
+  const queryEnhancementAbortController = new AbortController();
+  const queryEnhancementTasks =
+    options?.mode === "fast"
+      ? undefined
+      : startQueryEnhancementTasks(
+          normalizedQuery,
+          queryEnhancementAbortController.signal
+        );
+
   const [fastEmbedding] = (
     await embedMultimodal([textToMultimodalInput(normalizedQuery)], {
       inputType: "search_query",
@@ -1740,6 +1781,9 @@ export const retrieveRelevantChunksAdaptive = async (
   const fastLatencyMs = Math.round(performance.now() - start);
 
   if (shouldUseFast) {
+    queryEnhancementAbortController.abort(
+      new Error("Fast retrieval path completed")
+    );
     if (options?.mode !== "full" && shouldRunCalibrationShadow()) {
       void (async () => {
         try {
@@ -1805,6 +1849,7 @@ export const retrieveRelevantChunksAdaptive = async (
       workspaceId: options?.workspaceId,
       initialQueryCandidates: fastQueryCandidates,
       initialQueryEmbedding: fastEmbedding,
+      queryEnhancementTasks,
     }
   );
   const slowLatencyMs = Math.round(performance.now() - start);

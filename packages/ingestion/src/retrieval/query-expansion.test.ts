@@ -47,6 +47,19 @@ describe("expandQuery", () => {
     );
   });
 
+  it("forwards cancellation to query enhancement model calls", async () => {
+    mocks.generateText.mockResolvedValue({ text: "expanded osmosis query" });
+    const abortController = new AbortController();
+
+    await expandQuery("osmosis", {
+      abortSignal: abortController.signal,
+    });
+
+    expect(mocks.generateText).toHaveBeenCalledWith(
+      expect.objectContaining({ abortSignal: abortController.signal })
+    );
+  });
+
   it("keeps only the first usable expansion line from multi-line numbered output", async () => {
     mocks.generateText.mockResolvedValue({
       text: "1. diffusion across a semipermeable membrane\n2. osmosis in plant cells",

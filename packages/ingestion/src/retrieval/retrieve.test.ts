@@ -671,6 +671,86 @@ describe("retrieveRelevantChunks", () => {
     }
   });
 
+  it("starts slow-path query enhancements while the fast embedding is pending", async () => {
+    mocks.embedMultimodal.mockReset();
+    let resolveFastEmbedding:
+      | ((value: { embeddings: number[][] }) => void)
+      | undefined;
+    const fastEmbedding = new Promise<{ embeddings: number[][] }>((resolve) => {
+      resolveFastEmbedding = resolve;
+    });
+    mocks.embedMultimodal
+      .mockImplementationOnce(() => fastEmbedding)
+      .mockResolvedValueOnce({ embeddings: [] });
+    mocks.rerank.mockResolvedValue({ ranking: [] });
+
+    const vectorStore: VectorStore = {
+      corpusStats: vi.fn(async () => ({
+        chunks: 0,
+        embeddings: 0,
+        resources: 0,
+      })),
+      getAdjacentChunks: vi.fn(async () => []),
+      search: vi.fn(async () => []),
+      searchLexical: vi.fn(async () => []),
+      searchTrigram: vi.fn(async () => []),
+    };
+
+    const retrieval = retrieveRelevantChunksAdaptive(vectorStore, "osmosis", {
+      limit: 1,
+      mode: "full",
+    });
+
+    expect(mocks.expandQuery).toHaveBeenCalledTimes(1);
+    expect(mocks.generateHydeDocument).toHaveBeenCalledTimes(1);
+    resolveFastEmbedding?.({ embeddings: [[0.9, 0.8]] });
+
+    await expect(retrieval).resolves.toMatchObject({ path: "slow" });
+  });
+
+  it("cancels speculative enhancements when the fast path wins", async () => {
+    mocks.embedMultimodal.mockReset();
+    let enhancementSignal: AbortSignal | undefined;
+    mocks.expandQuery.mockImplementation(
+      (_query: string, options?: { abortSignal?: AbortSignal }) => {
+        enhancementSignal = options?.abortSignal;
+        return Promise.resolve(null);
+      }
+    );
+    mocks.embedMultimodal.mockResolvedValue({ embeddings: [[0.9, 0.8]] });
+    const candidate = makeCandidate({
+      chunkId: "fast-cancel-1",
+      resourceId: "res-fast-cancel",
+      content: "A complete explanation of the water cycle and evaporation.",
+      score: 0.99,
+    });
+    const vectorStore: VectorStore = {
+      corpusStats: vi.fn(async () => ({
+        chunks: 1,
+        embeddings: 1,
+        resources: 1,
+      })),
+      getAdjacentChunks: vi.fn(async () => []),
+      search: vi.fn(async () => [candidate]),
+      searchLexical: vi.fn(async () => []),
+      searchTrigram: vi.fn(async () => []),
+    };
+    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(1);
+
+    try {
+      const result = await retrieveRelevantChunksAdaptive(
+        vectorStore,
+        "explain the complete water cycle process",
+        { limit: 1 }
+      );
+
+      expect(result.path).toBe("fast");
+      expect(enhancementSignal?.aborted).toBe(true);
+    } finally {
+      randomSpy.mockRestore();
+    }
+  });
+
   it("fails closed on whitespace-only adaptive retrieval queries before embeddings or search run", async () => {
     const vectorStore: VectorStore = {
       corpusStats: vi.fn(async () => ({
