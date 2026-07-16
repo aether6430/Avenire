@@ -224,9 +224,6 @@ importers:
       '@tanstack/react-virtual':
         specifier: ^3.13.19
         version: 3.13.19(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
-      '@tavily/core':
-        specifier: ^0.7.6
-        version: 0.7.6
       '@tiptap/core':
         specifier: ^3.20.1
         version: 3.20.1(@tiptap/pm@3.20.1)
@@ -311,6 +308,9 @@ importers:
       fflate:
         specifier: ^0.8.2
         version: 0.8.2
+      firecrawl:
+        specifier: ^4.30.0
+        version: 4.30.0
       framer-motion:
         specifier: ^12.34.3
         version: 12.34.3(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -663,9 +663,6 @@ importers:
       '@mistralai/mistralai':
         specifier: ^1.14.1
         version: 1.14.1
-      '@tavily/core':
-        specifier: ^0.7.6
-        version: 0.7.6
       abso-ai:
         specifier: ^0.0.9
         version: 0.0.9(encoding@0.1.13)(react@19.2.4)(ws@8.21.0)(zod@4.3.6)
@@ -675,15 +672,12 @@ importers:
       bullmq:
         specifier: ^5.70.4
         version: 5.70.4
-      defuddle:
-        specifier: ^0.15.0
-        version: 0.15.0
       drizzle-orm:
         specifier: 0.45.2
         version: 0.45.2(@electric-sql/pglite@0.3.15)(@opentelemetry/api@1.9.1)(@prisma/client@5.22.0(prisma@7.4.2(@types/react@19.2.14)(better-sqlite3@12.8.0)(magicast@0.5.3)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3)))(@types/pg@8.20.0)(better-sqlite3@12.8.0)(kysely@0.28.17)(mysql2@3.15.3)(pg@8.20.0)(postgres@3.4.7)(prisma@7.4.2(@types/react@19.2.14)(better-sqlite3@12.8.0)(magicast@0.5.3)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3))
-      linkedom:
-        specifier: ^0.18.12
-        version: 0.18.12
+      firecrawl:
+        specifier: ^4.30.0
+        version: 4.30.0
       officeparser:
         specifier: 7.2.3
         version: 7.2.3(encoding@0.1.13)
@@ -6083,9 +6077,6 @@ packages:
   '@tanstack/virtual-core@3.13.19':
     resolution: {integrity: sha512-/BMP7kNhzKOd7wnDeB8NrIRNLwkf5AhCYCvtfZV2GXWbBieFm/el0n6LOAXlTi6ZwHICSNnQcIxRCWHrLzDY+g==}
 
-  '@tavily/core@0.7.6':
-    resolution: {integrity: sha512-swNz2RaietpfXWrA+y/ERSQ9H3bq0mNu0hcp2OcVKqTrUUcdygEXIXr67o6qQ1XSjgBbB3FNQtAkrPPB8bYkaA==}
-
   '@tiptap/core@3.20.1':
     resolution: {integrity: sha512-SwkPEWIfaDEZjC8SEIi4kZjqIYUbRgLUHUuQezo5GbphUNC8kM1pi3C3EtoOPtxXrEbY6e4pWEzW54Pcrd+rVA==}
     peerDependencies:
@@ -8510,6 +8501,10 @@ packages:
 
   find-my-way-ts@0.1.6:
     resolution: {integrity: sha512-a85L9ZoXtNAey3Y6Z+eBWW658kO/MwR7zIafkIUPUMf3isZG0NCs2pjW2wtjxAKuJPxMAsHUIP4ZPGv0o5gyTA==}
+
+  firecrawl@4.30.0:
+    resolution: {integrity: sha512-JBfoWkr4U1xH3QZ3wHHuKiOFJGtvMtFZrwPumqDaXHxx165qR/NDbPhyLfDg2HCHBE6r3Q/50B9RcHzncJA13Q==}
+    engines: {node: '>=22.0.0'}
 
   follow-redirects@1.16.0:
     resolution: {integrity: sha512-y5rN/uOsadFT/JfYwhxRS5R7Qce+g3zG97+JrtFZlC9klX/W5hD7iiLzScI4nZqUS7DNUdhPgw4xI8W2LuXlUw==}
@@ -11740,6 +11735,9 @@ packages:
   type-is@2.0.1:
     resolution: {integrity: sha512-OZs6gsjF4vMp32qrCbiVSkrFmXtG/AZhY3t0iAMrMBiAZyV9oALtXO8hsrHbMXF9x6L3grlFuwW2oAz7cav+Gw==}
     engines: {node: '>= 0.6'}
+
+  typescript-event-target@1.1.2:
+    resolution: {integrity: sha512-TvkrTUpv7gCPlcnSoEwUVUBwsdheKm+HF5u2tPAKubkIGMfovdSizCTaZRY/NhR8+Ijy8iZZUapbVQAsNrkFrw==}
 
   typescript@5.9.3:
     resolution: {integrity: sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw==}
@@ -17707,15 +17705,6 @@ snapshots:
 
   '@tanstack/virtual-core@3.13.19': {}
 
-  '@tavily/core@0.7.6':
-    dependencies:
-      axios: 1.16.0
-      https-proxy-agent: 7.0.6
-      js-tiktoken: 1.0.21
-    transitivePeerDependencies:
-      - debug
-      - supports-color
-
   '@tiptap/core@3.20.1(@tiptap/pm@3.20.1)':
     dependencies:
       '@tiptap/pm': 3.20.1
@@ -19034,7 +19023,8 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  boolbase@1.0.0: {}
+  boolbase@1.0.0:
+    optional: true
 
   bowser@2.14.1:
     optional: true
@@ -19394,12 +19384,15 @@ snapshots:
       domhandler: 5.0.3
       domutils: 3.2.2
       nth-check: 2.1.1
+    optional: true
 
-  css-what@6.2.2: {}
+  css-what@6.2.2:
+    optional: true
 
   cssesc@3.0.0: {}
 
-  cssom@0.5.0: {}
+  cssom@0.5.0:
+    optional: true
 
   csstype@3.2.3: {}
 
@@ -20452,6 +20445,15 @@ snapshots:
 
   find-my-way-ts@0.1.6: {}
 
+  firecrawl@4.30.0:
+    dependencies:
+      axios: 1.16.0
+      typescript-event-target: 1.1.2
+      zod: 3.25.76
+      zod-to-json-schema: 3.25.2(zod@3.25.76)
+    transitivePeerDependencies:
+      - debug
+
   follow-redirects@1.16.0: {}
 
   foreground-child@3.3.1:
@@ -20866,7 +20868,8 @@ snapshots:
 
   html-escaper@2.0.2: {}
 
-  html-escaper@3.0.3: {}
+  html-escaper@3.0.3:
+    optional: true
 
   html-to-text@9.0.5:
     dependencies:
@@ -20886,6 +20889,7 @@ snapshots:
       domhandler: 5.0.3
       domutils: 3.2.2
       entities: 7.0.1
+    optional: true
 
   htmlparser2@8.0.2:
     dependencies:
@@ -21365,6 +21369,7 @@ snapshots:
       html-escaper: 3.0.3
       htmlparser2: 10.1.0
       uhyphen: 0.2.0
+    optional: true
 
   linkify-it@5.0.1:
     dependencies:
@@ -22562,6 +22567,7 @@ snapshots:
   nth-check@2.1.1:
     dependencies:
       boolbase: 1.0.0
+    optional: true
 
   nypm@0.6.2:
     dependencies:
@@ -24610,13 +24616,16 @@ snapshots:
       media-typer: 1.1.0
       mime-types: 3.0.2
 
+  typescript-event-target@1.1.2: {}
+
   typescript@5.9.3: {}
 
   uc.micro@2.1.0: {}
 
   ufo@1.6.3: {}
 
-  uhyphen@0.2.0: {}
+  uhyphen@0.2.0:
+    optional: true
 
   uid-promise@1.0.0: {}
 

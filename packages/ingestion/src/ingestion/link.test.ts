@@ -1,73 +1,67 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("../utils/safety", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../utils/safety")>();
+const { scrapeMock } = vi.hoisted(() => ({
+  scrapeMock: vi.fn(),
+}));
+
+vi.mock("firecrawl", () => ({
+  Firecrawl: class {
+    scrape = scrapeMock;
+  },
+}));
+
+vi.mock("../config", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../config")>();
   return {
-    ...actual,
-    safeRemoteFetch: vi.fn(),
+    config: {
+      ...actual.config,
+      firecrawlApiKey: "test-key",
+      firecrawlApiUrl: "",
+    },
   };
 });
 
-import { safeRemoteFetch } from "../utils/safety";
 import { extractLinkPreview } from "./link";
-
-const articleHtml = `<!doctype html>
-<html>
-  <head>
-    <title>Project Glasswing</title>
-    <meta property="og:type" content="article">
-    <meta property="og:title" content="Project Glasswing">
-    <meta property="og:image" content="/images/glasswing.png">
-    <meta name="description" content="Securing critical software for the AI era">
-  </head>
-  <body>
-    <nav>Navigation should not dominate the extraction</nav>
-    <main>
-      <article>
-        <h2>Introduction</h2>
-        <p>Today we're announcing Project Glasswing, a new initiative for securing critical software.</p>
-        <p>We formed Project Glasswing because of capabilities we've observed in a new frontier model.</p>
-        <p>Claude Mythos Preview is a general-purpose frontier model that reveals a stark fact.</p>
-        <p><strong>Mythos Preview</strong> has already found thousands of high-severity vulnerabilities.</p>
-        <p>Anthropic is committing up to $100M in usage credits and $4M in direct donations.</p>
-        <p>Project Glasswing is an urgent attempt to put these capabilities to work for defensive purposes.</p>
-        <p>For cyber defenders to come out ahead, we need to act now.</p>
-        <p>\\## Escaped markdown heading should still parse</p>
-        <p>https://www-cdn.anthropic.com/images/asset-250x250.png?w=256</p>
-        <p><img src="https://www-cdn.anthropic.com/images/icon-163x98.svg" alt=""></p>
-      </article>
-    </main>
-  </body>
-</html>`;
 
 describe("link ingestion", () => {
   afterEach(() => {
-    vi.mocked(safeRemoteFetch).mockReset();
+    scrapeMock.mockReset();
   });
 
-  it("extracts blog posts as clean reader markdown instead of raw HTML", async () => {
-    vi.mocked(safeRemoteFetch).mockResolvedValue(
-      new Response(articleHtml, { status: 200 })
-    );
+  it("gets reader markdown and a full-page screenshot in one Firecrawl run", async () => {
+    scrapeMock.mockResolvedValue({
+      markdown:
+        "## Introduction\n\nToday we're announcing Project Glasswing.\n\n**Mythos Preview** found critical vulnerabilities.",
+      metadata: {
+        description: "Securing critical software for the AI era",
+        favicon: "https://anthropic.com/favicon.ico",
+        title: "Project Glasswing",
+      },
+      screenshot: "https://firecrawl.example/screenshots/glasswing.png",
+      summary: "A new initiative for securing critical software.",
+    });
 
     const preview = await extractLinkPreview("https://anthropic.com/glasswing");
 
-    expect(preview.displayMode).toBe("reader");
+    expect(preview.mode).toBe("firecrawl");
+    expect(preview.provider).toBe("firecrawl");
     expect(preview.kind).toBe("article");
-    expect(preview.snapshot?.imageUrl).toBe(
-      "https://anthropic.com/images/glasswing.png"
+    expect(preview.imageUrl).toBe(
+      "https://firecrawl.example/screenshots/glasswing.png"
     );
     expect(preview.readerMarkdown).toContain("Introduction");
     expect(preview.readerMarkdown).toContain("**Mythos Preview**");
-    expect(preview.readerMarkdown).toContain("$100M");
-    expect(preview.readerMarkdown).toContain("$4M");
-    expect(preview.readerMarkdown).toContain(
-      "## Escaped markdown heading should still parse"
-    );
-    expect(preview.readerMarkdown).not.toMatch(/<\/?(main|article|p|h2)\b/i);
-    expect(preview.readerMarkdown).not.toMatch(/\.svg/i);
-    expect(preview.readerMarkdown).not.toMatch(
-      /www-cdn\.anthropic\.com\/images/i
+    expect(scrapeMock).toHaveBeenCalledTimes(1);
+    expect(scrapeMock).toHaveBeenCalledWith(
+      "https://anthropic.com/glasswing",
+      expect.objectContaining({
+        formats: expect.arrayContaining([
+          "markdown",
+          "summary",
+          expect.objectContaining({ fullPage: true, type: "screenshot" }),
+        ]),
+        onlyMainContent: true,
+      })
     );
   });
 });

@@ -595,6 +595,25 @@ export async function getFileForIngestion(workspaceId: string, fileId: string) {
   };
 }
 
+export async function findReusableIngestionResource(input: {
+  source: string;
+  sourceType: string;
+}) {
+  const [row] = await db
+    .select({ metadata: ingestionResource.metadata })
+    .from(ingestionResource)
+    .where(
+      and(
+        eq(ingestionResource.sourceType, input.sourceType),
+        eq(ingestionResource.source, input.source)
+      )
+    )
+    .orderBy(desc(ingestionResource.updatedAt))
+    .limit(1);
+
+  return row ? { metadata: row.metadata } : null;
+}
+
 export async function upsertIngestionResource(input: {
   workspaceId: string;
   fileId: string | null;

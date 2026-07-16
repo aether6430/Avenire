@@ -3,7 +3,7 @@ import { PostgresVectorStore } from "../retrieval/postgres-vector-store";
 import { assertSafeUrl, safeRemoteFetch } from "../utils/safety";
 import { ingestAudio } from "./audio";
 import { ingestImage } from "./image";
-import { ingestLink } from "./link";
+import { ingestLink, linkPreviewFromMetadata } from "./link";
 import { ingestMarkdown } from "./markdown";
 import { ingestPdfs } from "./ocr";
 import { ingestOfficeDocument } from "./office";
@@ -527,7 +527,12 @@ export const ingestStoredFile = async (input: {
             url: linkSourceUrl,
           }),
         ]
-      : [await ingestLink(linkSourceUrl)];
+      : [
+          await ingestLink(
+            linkSourceUrl,
+            linkPreviewFromMetadata(linkMetadata)
+          ),
+        ];
   } else if (typeof input.content === "string") {
     resources = [
       ingestMarkdown({

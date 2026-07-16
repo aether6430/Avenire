@@ -1,6 +1,10 @@
+import { createHash } from "node:crypto";
+import { findReusableIngestionResource } from "@avenire/database";
 import { extractLinkPreview } from "@avenire/ingestion/link";
 import { scheduleIngestionJob } from "@avenire/ingestion/queue";
+import { uploadStorageFile } from "@avenire/storage";
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { canStoreBytes } from "@/lib/billing";
 import {
   createWorkspaceNoteFile,
@@ -20,6 +24,65 @@ interface WorkspaceLinksRouteBody {
   folderId?: string;
   name?: string;
   url?: string;
+}
+
+const ReusableLinkResourceSchema = z.object({
+  imageUrl: z.string().url().nullable().optional(),
+});
+
+function getScreenshotExtension(contentType: string) {
+  if (contentType.includes("webp")) {
+    return "webp";
+  }
+  if (contentType.includes("jpeg")) {
+    return "jpg";
+  }
+  return "png";
+}
+
+async function persistLinkPreviewImage(input: {
+  imageUrl: string | null;
+  sourceUrl: string;
+}) {
+  if (!input.imageUrl) {
+    return null;
+  }
+
+  const reusable = await findReusableIngestionResource({
+    source: input.sourceUrl,
+    sourceType: "link",
+  });
+  const reusableMetadata = ReusableLinkResourceSchema.safeParse(
+    reusable?.metadata
+  );
+  if (reusableMetadata.success && reusableMetadata.data.imageUrl) {
+    return reusableMetadata.data.imageUrl;
+  }
+
+  if (!process.env.UPLOADTHING_TOKEN) {
+    return input.imageUrl;
+  }
+
+  const response = await fetch(input.imageUrl);
+  if (!response.ok) {
+    throw new Error(
+      `Failed to download Firecrawl screenshot: ${response.status}`
+    );
+  }
+  const contentType = response.headers.get("content-type") ?? "image/png";
+  if (!contentType.toLowerCase().startsWith("image/")) {
+    throw new Error("Firecrawl screenshot response was not an image.");
+  }
+
+  const sourceHash = createHash("sha256").update(input.sourceUrl).digest("hex");
+  const extension = getScreenshotExtension(contentType);
+  const uploaded = await uploadStorageFile({
+    body: new Uint8Array(await response.arrayBuffer()),
+    contentType,
+    key: `uploads/link-previews/${sourceHash}.${extension}`,
+    name: `link-preview-${sourceHash}.${extension}`,
+  });
+  return uploaded.url;
 }
 
 export async function handleWorkspaceLinksPost(input: {
@@ -53,7 +116,18 @@ export async function handleWorkspaceLinksPost(input: {
     return NextResponse.json({ error: "Read-only folder" }, { status: 403 });
   }
 
-  const linkPreview = await extractLinkPreview(normalizedUrl);
+  const extractedPreview = await extractLinkPreview(normalizedUrl);
+  const imageUrl = await persistLinkPreviewImage({
+    imageUrl: extractedPreview.imageUrl,
+    sourceUrl: normalizedUrl,
+  });
+  const linkPreview = {
+    ...extractedPreview,
+    imageUrl,
+    snapshot: extractedPreview.snapshot
+      ? { ...extractedPreview.snapshot, imageUrl }
+      : null,
+  };
   const { fileName, noteTitle } = deriveWorkspaceLinkDocumentTitle({
     requestedName,
     previewTitle: linkPreview.title ?? "",
@@ -85,6 +159,7 @@ export async function handleWorkspaceLinksPost(input: {
       type: "note",
       resourceType: "link-resource",
       link: {
+        content: linkPreview.content,
         description: linkPreview.description,
         displayMode: linkPreview.displayMode,
         extractionMode: linkPreview.mode,

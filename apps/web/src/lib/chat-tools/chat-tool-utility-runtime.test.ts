@@ -1,9 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { loadSkillsMock, searchMock, tavilyMock } = vi.hoisted(() => ({
+const { loadSkillsMock, searchMock } = vi.hoisted(() => ({
   loadSkillsMock: vi.fn(),
   searchMock: vi.fn(),
-  tavilyMock: vi.fn(),
 }));
 
 vi.mock("@avenire/ai/skills", () => ({
@@ -12,8 +11,10 @@ vi.mock("@avenire/ai/skills", () => ({
   loadSkills: loadSkillsMock,
 }));
 
-vi.mock("@tavily/core", () => ({
-  tavily: tavilyMock,
+vi.mock("firecrawl", () => ({
+  Firecrawl: class {
+    search = searchMock;
+  },
 }));
 
 import {
@@ -28,22 +29,18 @@ describe("chat tool utility runtime", () => {
   beforeEach(() => {
     loadSkillsMock.mockReset();
     searchMock.mockReset();
-    tavilyMock.mockReset();
   });
 
-  it("runs web search through tavily", async () => {
-    const env = process.env.TAVILY_API_KEY;
-    process.env.TAVILY_API_KEY = "test-key";
-    tavilyMock.mockReturnValue({ search: searchMock });
+  it("runs web search through Firecrawl", async () => {
+    const env = process.env.FIRECRAWL_API_KEY;
+    process.env.FIRECRAWL_API_KEY = "test-key";
     searchMock.mockResolvedValue({
-      answer: "  Momentum is conserved.  ",
-      query: "momentum",
-      results: [
+      web: [
         {
-          content: "  Momentum summary  ",
-          favicon: "https://example.com/favicon.ico",
-          publishedDate: "2026-05-17",
-          score: 0.9,
+          description: "  Momentum summary  ",
+          metadata: {
+            favicon: "https://example.com/favicon.ico",
+          },
           title: "  Momentum  ",
           url: "https://example.com/momentum  ",
         },
@@ -53,9 +50,9 @@ describe("chat tool utility runtime", () => {
     const result = await runWebSearch({ query: "momentum" } as never);
 
     expect(result.totalResults).toBe(1);
-    expect(result.answer).toBe("Momentum is conserved.");
     expect(result.results[0]).toMatchObject({
       content: "Momentum summary",
+      score: 1,
       title: "Momentum",
       url: "https://example.com/momentum",
     });
@@ -64,7 +61,7 @@ describe("chat tool utility runtime", () => {
       "A web search query is required."
     );
     expect(searchMock).toHaveBeenCalledTimes(1);
-    process.env.TAVILY_API_KEY = env;
+    process.env.FIRECRAWL_API_KEY = env;
   });
 
   it("loads study and visual skills through the shared skill loader", async () => {

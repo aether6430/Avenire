@@ -56,6 +56,8 @@ declare namespace NodeJS {
     EMAIL_FROM?: string;
     EMBEDDING_DIMENSIONS?: string;
     ENABLE_ASYNC_MEDIA_OPTIMIZATION?: string;
+    FIRECRAWL_API_KEY?: string;
+    FIRECRAWL_API_URL?: string;
     FIREWORKS_API_KEY?: string;
     GEMINI_API_KEY?: string;
     GROQ_API_KEY?: string;
@@ -153,7 +155,6 @@ declare namespace NodeJS {
     RETRIEVAL_WARMUP_QUERY_LIMIT?: string;
     RETRIEVAL_WARMUP_SUMMARY_LIMIT?: string;
     SSE_TOKEN_SECRET?: string;
-    TAVILY_API_KEY?: string;
     TOOL_APPROVAL_SECRET?: string;
     TRUSTED_STORAGE_HOSTS?: string;
     TURBO_MODEL_CREDIT_MULTIPLIER?: string;

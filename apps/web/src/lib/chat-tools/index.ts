@@ -75,7 +75,7 @@ export function createChatTools(ctx: ChatToolContext): ToolSet {
   return {
     web_search: tool({
       description:
-        "Search the public web with Tavily and return relevant sources. Use when the user asks for current events, recent facts, external sources, or information outside the workspace.",
+        "Search the public web with Firecrawl and return relevant sources. Use when the user asks for current events, recent facts, external sources, or information outside the workspace.",
       inputSchema: toolSchema(chatToolSchemas.web_search.input),
       outputSchema: toolSchema(chatToolSchemas.web_search.output),
       execute: runWebSearch,
