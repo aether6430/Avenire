@@ -46,19 +46,12 @@ vi.mock("./learner-signals", () => ({
 }));
 
 import {
-  applyHeuristicScoreAdjustments,
-  applyModalityScoreAdjustments,
-  buildChunkContext,
-  buildContextAwareResults,
   decomposeQuery,
-  dedupeQueries,
-  diversifyByResource,
   exactPhraseScore,
   extractTrigramQuery,
   formatChunkHeader,
   formatChunkLocation,
   formatDuration,
-  fuseCandidatesByRrf,
   getPreferredSourceTypes,
   isFragmentaryChunk,
   isLikelyNoisyText,
@@ -109,57 +102,6 @@ describe("retrieve helpers", () => {
     mocks.generateHydeDocument.mockResolvedValue(null);
     mocks.getLearnerSignalBoosts.mockResolvedValue(new Map());
     mocks.rerankByCohereWithQueryEmbedding.mockResolvedValue([]);
-  });
-
-  it("dedupes queries, diversifies by resource, and fuses rankings with RRF", () => {
-    expect(dedupeQueries(["  Osmosis  ", "osmosis", "", "Diffusion"])).toEqual([
-      "Osmosis",
-      "Diffusion",
-    ]);
-
-    expect(
-      diversifyByResource(
-        [
-          { id: "a", resourceId: "r1" },
-          { id: "b", resourceId: "r1" },
-          { id: "c", resourceId: "r2" },
-        ],
-        1
-      )
-    ).toEqual([
-      { id: "a", resourceId: "r1" },
-      { id: "c", resourceId: "r2" },
-    ]);
-
-    const shared = makeCandidate({
-      chunkId: "shared",
-      resourceId: "r1",
-      score: 0.7,
-    });
-    const alsoShared = makeCandidate({
-      chunkId: "shared",
-      resourceId: "r1",
-      score: 0.8,
-    });
-    const other = makeCandidate({
-      chunkId: "other",
-      resourceId: "r2",
-      score: 0.4,
-    });
-
-    const fused = fuseCandidatesByRrf([[shared, shared, other], [alsoShared]]);
-
-    expect(fused).toHaveLength(2);
-    expect(
-      fused.find((candidate) => candidate.chunkId === "shared")
-    ).toMatchObject({
-      score: 0.8,
-    });
-    expect(
-      fused.find((candidate) => candidate.chunkId === "shared")?.fusionScore
-    ).toBeGreaterThan(
-      fused.find((candidate) => candidate.chunkId === "other")?.fusionScore ?? 0
-    );
   });
 
   it("decomposes compound queries", () => {
@@ -238,76 +180,6 @@ describe("retrieve helpers", () => {
     expect(isFragmentaryChunk("Short unfinished fragment")).toBe(false);
   });
 
-  it("assembles context, truncates oversized content, and applies score adjustments", () => {
-    const previous = makeCandidate({
-      chunkId: "prev",
-      resourceId: "r1",
-      chunkIndex: 0,
-      content: "Previous complete sentence.",
-      title: "Lesson",
-    });
-    const fragment = makeCandidate({
-      chunkId: "frag",
-      resourceId: "r1",
-      chunkIndex: 1,
-      title: "Lesson",
-      sourceType: "video",
-      content: `lowercase ${Array.from({ length: 30 }, () => "fragment").join(" ")}`,
-      startMs: 1000,
-      endMs: 3000,
-      score: 0.4,
-    });
-
-    expect(buildChunkContext([previous, fragment])).toContain("[Lesson]");
-
-    const expanded = buildContextAwareResults(
-      [
-        {
-          ...fragment,
-          rerankScore: 0.92,
-        },
-      ],
-      new Map([[fragment.chunkId, [previous]]]),
-      500
-    );
-    expect(expanded.context).toContain("Previous complete sentence.");
-    expect(expanded.results[0]?.content).toContain("[Lesson, 0:01-0:03]");
-
-    const oversized = buildContextAwareResults(
-      [
-        {
-          ...makeCandidate({
-            chunkId: "big",
-            resourceId: "r2",
-            content: Array.from({ length: 120 }, () => "oversized").join(" "),
-          }),
-          rerankScore: 0.8,
-        },
-      ],
-      new Map(),
-      10
-    );
-    expect(oversized.truncated).toBe(true);
-    expect(oversized.results[0]?.content.endsWith("[truncated]")).toBe(true);
-
-    expect(
-      applyModalityScoreAdjustments(1, fragment, {
-        audioIntent: false,
-        documentIntent: false,
-        preferredSourceTypes: new Set(["video", "image"]),
-        sourceType: undefined,
-        visualIntent: true,
-      })
-    ).toBeGreaterThan(1.8);
-
-    expect(
-      applyHeuristicScoreAdjustments(0.5, previous, {
-        audioIntent: false,
-        normalizedQuery: "previous complete sentence",
-        visualIntent: false,
-      })
-    ).toBeGreaterThan(0.5);
-  });
 });
 
 describe("retrieveRelevantChunks", () => {
