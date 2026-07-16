@@ -195,7 +195,7 @@ export function FileCard({
       <div className="h-full w-full overflow-hidden rounded-md">
         <img
           alt={name}
-          className="h-full w-full rounded-md object-contain transition-transform duration-200 ease-[var(--ease-out)] fine-hover:group-hover:scale-[1.02]"
+          className="h-full w-full rounded-md object-cover object-top transition-transform duration-200 ease-[var(--ease-out)] fine-hover:group-hover:scale-[1.02]"
           height={168}
           src={previewUrl}
           width={224}

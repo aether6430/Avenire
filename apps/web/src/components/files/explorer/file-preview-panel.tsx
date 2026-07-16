@@ -49,6 +49,7 @@ import {
   X,
 } from "@phosphor-icons/react";
 import dynamic from "next/dynamic";
+import Image from "next/image";
 
 import {
   type ChangeEvent,
@@ -407,6 +408,7 @@ function LinkResourcePreview({
   const readerContent = readerMarkdown
     ? stripDuplicateReaderTitle(readerMarkdown, title)
     : null;
+  const [view, setView] = useState<"preview" | "reader">("preview");
   const articleRef = useRef<HTMLElement | null>(null);
   const [activeTocId, setActiveTocId] = useState<string | null>(null);
   const [tocItems, setTocItems] = useState<LinkReaderTocItem[]>([]);
@@ -422,7 +424,7 @@ function LinkResourcePreview({
   }, []);
 
   useLayoutEffect(() => {
-    if (!readerContent) {
+    if (!(readerContent && view === "reader")) {
       setTocItems([]);
       setActiveTocId(null);
       return;
@@ -459,7 +461,7 @@ function LinkResourcePreview({
         ? current
         : (nextItems[0]?.id ?? null)
     );
-  }, [readerContent]);
+  }, [readerContent, view]);
 
   useEffect(() => {
     const article = articleRef.current;
@@ -510,40 +512,130 @@ function LinkResourcePreview({
   );
 
   return (
-    <div className="mx-auto w-full max-w-[1360px] px-4 py-6 sm:px-8">
-      {readerContent ? (
-        <div className="link-reader-shell" style={readerStyle}>
-          <LinkReaderTocRail
-            items={resolvedTocItems}
-            onSelect={handleTocSelect}
-          />
-          <article className="link-reader-document" ref={articleRef}>
-            <Markdown
-              className="link-reader-markdown scribe-surface max-w-full px-4 py-8 sm:px-10 sm:py-10 [&_img]:my-4 [&_img]:rounded-md"
-              content={readerContent}
-              enableMath={false}
-              id={`link-preview-${preview.sourceUrl}`}
-              parseIncompleteMarkdown={false}
-              textSize="default"
-              variant="reader"
-              workspaceUuid={workspaceUuid}
+    <div className="mx-auto w-full max-w-[1500px] px-4 py-5 sm:px-6">
+      {view === "reader" && readerContent ? (
+        <div>
+          <div className="mb-2 flex justify-end gap-2">
+            <Button
+              onClick={() => setView("preview")}
+              size="sm"
+              type="button"
+              variant="outline"
+            >
+              Preview
+            </Button>
+            <Button
+              onClick={() =>
+                window.open(preview.sourceUrl, "_blank", "noopener,noreferrer")
+              }
+              size="sm"
+              type="button"
+              variant="outline"
+            >
+              <ArrowUp className="size-3.5" />
+              Open link
+            </Button>
+          </div>
+          <div className="link-reader-shell" style={readerStyle}>
+            <LinkReaderTocRail
+              items={resolvedTocItems}
+              onSelect={handleTocSelect}
             />
-          </article>
+            <article className="link-reader-document" ref={articleRef}>
+              <Markdown
+                className="link-reader-markdown scribe-surface max-w-full px-4 py-8 sm:px-10 sm:py-10 [&_img]:my-4 [&_img]:rounded-md"
+                content={readerContent}
+                enableMath={false}
+                id={`link-preview-${preview.sourceUrl}`}
+                parseIncompleteMarkdown={false}
+                textSize="default"
+                variant="reader"
+                workspaceUuid={workspaceUuid}
+              />
+            </article>
+          </div>
         </div>
       ) : (
-        <div className="flex min-h-[420px] flex-col items-center justify-center gap-3 bg-background p-6 text-center text-muted-foreground text-sm">
-          <LinkSimple className="size-8" />
-          <p>Reader content unavailable.</p>
-          <Button
-            onClick={() =>
-              window.open(preview.sourceUrl, "_blank", "noopener,noreferrer")
-            }
-            size="sm"
-            type="button"
-            variant="outline"
-          >
-            Open source
-          </Button>
+        <div className="grid min-h-[72vh] gap-5 lg:grid-cols-[minmax(0,1fr)_17rem]">
+          <div className="min-w-0 overflow-hidden rounded-lg border border-border/60 bg-black shadow-sm">
+            {preview.imageUrl ? (
+              <Image
+                alt={`Full-page preview of ${title}`}
+                className="block h-auto w-full"
+                draggable={false}
+                height={900}
+                referrerPolicy="no-referrer"
+                src={preview.imageUrl}
+                unoptimized
+                width={1440}
+              />
+            ) : (
+              <div className="flex min-h-[56vh] flex-col items-center justify-center gap-3 p-8 text-center text-white/60 text-sm">
+                <LinkSimple className="size-8" />
+                <p>A visual preview is unavailable for this page.</p>
+              </div>
+            )}
+          </div>
+          <aside className="flex flex-col gap-6 lg:sticky lg:top-4 lg:self-start">
+            <div className="flex flex-wrap gap-2">
+              <Button
+                onClick={() =>
+                  window.open(
+                    preview.sourceUrl,
+                    "_blank",
+                    "noopener,noreferrer"
+                  )
+                }
+                size="sm"
+                type="button"
+                variant="outline"
+              >
+                <ArrowUp className="size-3.5" />
+                Open link
+              </Button>
+              <Button
+                disabled={!readerContent}
+                onClick={() => setView("reader")}
+                size="sm"
+                type="button"
+                variant="outline"
+              >
+                <FileText className="size-3.5" />
+                Reader
+              </Button>
+            </div>
+            <dl className="space-y-5 text-sm">
+              <div>
+                <dt className="mb-1 text-muted-foreground text-xs">Title</dt>
+                <dd className="font-medium leading-5 text-foreground">
+                  {title}
+                </dd>
+              </div>
+              <div>
+                <dt className="mb-1 text-muted-foreground text-xs">URL</dt>
+                <dd>
+                  <a
+                    className="break-all text-foreground underline decoration-border underline-offset-4 hover:decoration-foreground"
+                    href={preview.sourceUrl}
+                    rel="noreferrer"
+                    target="_blank"
+                  >
+                    {preview.sourceUrl}
+                  </a>
+                </dd>
+              </div>
+              {preview.description ? (
+                <div>
+                  <dt className="mb-1 text-muted-foreground text-xs">
+                    Summary
+                  </dt>
+                  <dd className="leading-6 text-foreground/90">
+                    {preview.description}
+                  </dd>
+                </div>
+              ) : null}
+            </dl>
+          </aside>
         </div>
       )}
     </div>

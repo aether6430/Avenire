@@ -64,11 +64,11 @@
   --warning-foreground: #dfab01;
 
   /* Charts */
-  --chart-1: #abc4ff;
-  --chart-2: #7f9cff;
-  --chart-3: #5a6cc0;
-  --chart-4: #c7d7ff;
-  --chart-5: #6f7fb8;
+  --chart-1: #e89a62;
+  --chart-2: #71b8c9;
+  --chart-3: #d982b5;
+  --chart-4: #b88f78;
+  --chart-5: #9b8ac4;
 
   /* Sidebar */
   --sidebar: #f3f3f3;
@@ -187,11 +187,11 @@
   --warning: #ffdc49;
   --warning-foreground: #ffdc49;
 
-  --chart-1: #abc4ff;
-  --chart-2: #8ea8ff;
-  --chart-3: #6f7fb8;
-  --chart-4: #c7d7ff;
-  --chart-5: #5a6cc0;
+  --chart-1: #f0a873;
+  --chart-2: #78c4d5;
+  --chart-3: #ed84bd;
+  --chart-4: #c39a82;
+  --chart-5: #a99ad1;
 
   --sidebar: #141414;
   --sidebar-foreground: #e4e4e48d;
