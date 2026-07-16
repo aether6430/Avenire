@@ -1,97 +1,29 @@
-## UI components
+## Utility components
 
-### Aesthetic
-Use `widget: { type: "spec", spec: ... }` first for UI-like widgets. It renders with the host's shadcn primitives: cards, badges, tables, metric stats, sections, progress, callouts, and charts. Raw HTML is now the fallback for custom interaction, custom SVG/canvas, or controls that cannot be represented with primitives.
+Use host utilities for geometry, surfaces, controls, typography, and interaction. Do not add custom component skins, borders, radii, shadows, gradients, or pseudo-element states.
 
-Flat, clean surfaces. Minimal borders. Generous whitespace. Avoid decorative gradients and shadows in primitive widgets. Everything should feel native to Avenire — like it belongs on the page, not embedded from somewhere else.
+### Layout and surfaces
 
-This section is prescriptive. Do not freestyle component styling. Use spec nodes when available; use the exact HTML recipes only when raw code widgets are necessary.
+- `.card`: the only card-like surface. Use it for a necessary bounded summary, selected item, or interactive field. Keep charts, maps, diagrams, tables, controls, and the whole visualization transparent and unframed.
+- `.viz-stat`: one muted label, one `.viz-stat-value`, and at most one short context/delta line.
+- `.viz-grid`: peer metrics or choices. Keep groups to 2–3 columns at 736px and stack at narrow widths.
+- `.viz-row`: wrapping horizontal group for related values or inline actions.
+- `.viz-tile`: selectable dense-grid `.btn`; it stretches to its cell and uses the utility-selected state. Do not add another border, outline, shadow, or pressed rule.
+- `.viz-badge`: compact display-only status/category accent; never use it as a button.
 
-**Hard rule:** component CSS is for layout only. Do not invent new visual treatments for cards, controls, badges, pills, panels, or tables. If the request maps to a spec widget, use primitives. If it must be raw HTML, copy the closest pattern below.
+### Controls
 
-### Tokens
-- Borders: always `0.5px solid var(--color-border-tertiary)` (or `-secondary` for emphasis)
-- Corner radius: `var(--border-radius-md)` for most elements, `var(--border-radius-lg)` for cards
-- Cards: white bg (`var(--color-background-primary)`), 0.5px border, radius-lg, padding 1rem 1.25rem
-- Form elements (input, select, textarea, button, range slider) are pre-styled — write bare tags. Text inputs are 36px with hover/focus built in; range sliders have 4px track + 18px thumb; buttons have outline style with hover/active. Only add inline styles to override (e.g., different width).
-- **Do not recolor controls.** Bare tags are preferred because they inherit the system look. Do not repaint buttons, sliders, inputs, or pills with custom colors.
-- **No custom component CSS.** Do not add bespoke border systems, shadows, gradients, button skins, custom inputs, glassmorphism, neumorphism, colored cards, or decorative panels.
-- Buttons: pre-styled with transparent bg, 0.5px border-secondary, hover bg-secondary, active scale(0.98). If it triggers sendPrompt, append a ↗ arrow.
-- **Round every displayed number.** JS float math leaks artifacts — `0.1 + 0.2` gives `0.30000000000000004`, `7 * 1.1` gives `7.700000000000001`. Any number that reaches the screen (slider readouts, stat card values, axis labels, data-point labels, tooltips, computed totals) must go through `Math.round()`, `.toFixed(n)`, or `Intl.NumberFormat`. Pick the precision that makes sense for the context — integers for counts, 1–2 decimals for percentages, `toLocaleString()` for currency. For range sliders, also set `step="1"` (or step="0.1" etc.) so the input itself emits round values.
-- Spacing: use rem for vertical rhythm (1rem, 1.5rem, 2rem), px for component-internal gaps (8px, 12px, 16px)
-- Box-shadows: none, except `box-shadow: 0 0 0 Npx` focus rings on inputs
+- Use native `button`, `input`, `select`, and `textarea` with `.btn`, `.btn-primary`, `.btn-ghost`, `.btn-block`, `.form-label`, `.form-check`, `.form-switch`, `.form-control`, `.form-select`, and `.form-range` where provided by the host.
+- Use `.viz-controls` as a wrapping row for controls affecting the same visual. Keep fields to two columns at most and stack them when narrow.
+- Use visible labels for icon-only controls through `aria-label`; keep native focus styles and tab order.
+- Keep filters, selections, and presentation-only interactions local. Use `window.openai.sendFollowUpMessage` only for an explicit investigation or explanation request.
 
-### Metric cards
-For summary numbers (revenue, count, percentage) — surface card with muted 13px label above, 24px/500 number below. `background: var(--color-background-secondary)`, no border, `border-radius: var(--border-radius-md)`, padding 1rem. Use in grids of 2-4 with `gap: 12px`. Distinct from raised cards (which have white bg + border).
+### Text and numbers
 
-### Layout
-- Editorial (explanatory content): no card wrapper, prose flows naturally
-- Card (bounded objects like a contact record, receipt): single raised card wraps the whole thing
-- Tables in a normal prose answer can be markdown. Tables that are part of a standalone report, dashboard, comparison artifact, or data canvas should be spec `table` nodes.
-- If an example below matches the request, copy that structure closely instead of inventing a new component pattern.
-- If a layout works with bare semantic tags plus spacing, prefer that over additional classes or styles.
+- Use `.text-small` only for secondary labels and `.text-muted` only for non-essential context. Never go below 11px.
+- Use `.text-destructive` only for actionable errors. Use `.sr-only` for accessible descriptions and keyboard fallbacks.
+- Round every displayed number; use sensible integer, decimal, percentage, or currency precision.
 
-**Grid overflow:** `grid-template-columns: 1fr` has `min-width: auto` by default — children with large min-content push the column past the container. Use `minmax(0, 1fr)` to clamp.
+### Examples
 
-**Table overflow:** Tables with many columns auto-expand past `width: 100%` if cell contents exceed it. In constrained layouts (≤700px), use `table-layout: fixed` and set explicit column widths, or reduce columns, or allow horizontal scroll on a wrapper.
-
-### Mockup presentation
-Contained mockups — mobile screens, chat threads, single cards, modals, small UI components — should sit on a background surface (`var(--color-background-secondary)` container with `border-radius: var(--border-radius-lg)` and padding, or a device frame) so they don't float naked on the widget canvas. Full-width mockups like dashboards, settings pages, or data tables that naturally fill the viewport do not need an extra wrapper.
-
-### 1. Interactive explainer — learn how something works
-*"Explain how compound interest works" / "Teach me about sorting algorithms"*
-
-Use a spec widget if the explainer is static or only needs metrics, tables, and simple charts. Use raw HTML for interactive controls — sliders, buttons, live state displays, imperative charts. Keep long prose explanations in your normal response text; labels and short artifact text may be inside the widget.
-
-```html
-<div style="display: flex; align-items: center; gap: 12px; margin: 0 0 1.5rem;">
-  <label style="font-size: 14px; color: var(--color-text-secondary);">Years</label>
-  <input type="range" min="1" max="40" value="20" id="years" style="flex: 1;" />
-  <span style="font-size: 14px; font-weight: 500; min-width: 24px;" id="years-out">20</span>
-</div>
-
-<div style="display: flex; align-items: baseline; gap: 8px; margin: 0 0 1.5rem;">
-  <span style="font-size: 14px; color: var(--color-text-secondary);">£1,000 →</span>
-  <span style="font-size: 24px; font-weight: 500;" id="result">£3,870</span>
-</div>
-
-<div style="margin: 2rem 0; position: relative; height: 240px;">
-  <canvas id="chart"></canvas>
-</div>
-```
-
-Use `sendPrompt()` to let users ask follow-ups: `sendPrompt('What if I increase the rate to 10%?')`
-
-### 2. Compare options — decision making
-*"Compare pricing and features of these products" / "Help me choose between React and Vue"*
-
-Use a spec widget with a `grid` of `card` nodes, `badge` nodes for differentiators, and a compact `table` only when rows are the clearest representation. Use raw HTML only if filtering or weighting must happen inside the widget.
-
-- Use `repeat(auto-fit, minmax(160px, 1fr))` for responsive columns
-- Each option in a card. Use badges for key differentiators.
-- Add `sendPrompt()` buttons: `sendPrompt('Tell me more about the Pro plan')`
-- Use spec tables for dense artifact comparisons. Use markdown tables only when the table is small and the answer is otherwise plain prose.
-- When one option is recommended or "most popular", accent its card with `border: 2px solid var(--color-border-info)` only (2px is deliberate — the only exception to the 0.5px rule, used to accent featured items) — keep the same background and border as the other cards. Add a small badge (e.g. "Most popular") above or inside the card header using `background: var(--color-background-info); color: var(--color-text-info); font-size: 12px; padding: 4px 12px; border-radius: var(--border-radius-md)`.
-
-### 3. Data record — bounded UI object
-*"Show me a Salesforce contact card" / "Create a receipt for this order"*
-
-Use a spec widget with a single `card`, short `text` rows, `badge` for status, and `divider` for sections. Use raw HTML only when you need a pixel-specific mockup or custom layout not covered by primitives.
-
-```html
-<div style="background: var(--color-background-primary); border-radius: var(--border-radius-lg); border: 0.5px solid var(--color-border-tertiary); padding: 1rem 1.25rem;">
-  <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
-    <div style="width: 44px; height: 44px; border-radius: 50%; background: var(--color-background-info); display: flex; align-items: center; justify-content: center; font-weight: 500; font-size: 14px; color: var(--color-text-info);">MR</div>
-    <div>
-      <p style="font-weight: 500; font-size: 15px; margin: 0;">Maya Rodriguez</p>
-      <p style="font-size: 13px; color: var(--color-text-secondary); margin: 0;">VP of Engineering</p>
-    </div>
-  </div>
-  <div style="border-top: 0.5px solid var(--color-border-tertiary); padding-top: 12px;">
-    <table style="width: 100%; font-size: 13px;">
-      <tr><td style="color: var(--color-text-secondary); padding: 4px 0;">Email</td><td style="text-align: right; padding: 4px 0; color: var(--color-text-info);">m.rodriguez@acme.com</td></tr>
-      <tr><td style="color: var(--color-text-secondary); padding: 4px 0;">Phone</td><td style="text-align: right; padding: 4px 0;">+1 (415) 555-0172</td></tr>
-    </table>
-  </div>
-</div>
-```
+For concrete compositions, load the relevant examples from `examples/` only when needed. Do not copy incidental spacing or content from an example when the user’s artifact differs.

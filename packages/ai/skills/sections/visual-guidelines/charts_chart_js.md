@@ -1,61 +1,17 @@
 ## Charts
 
-Use `widget: { type: "spec", spec: ... }` for normal charts and analytical canvases. Bar, line, and area charts belong in spec widgets, especially when paired with stats, tables, sections, progress rows, or callouts. The app renders these with native React/Recharts components and the shared UI theme.
+- Start with the plot for named numeric data. Label axes, units, important values, and chart meaning.
+- Use a tooltip only when direct labels would be less clear; mirror important tooltip data in a keyboard-visible fallback.
+- Animate transitions between data states, not initial appearance. Never loop chart motion and honor `prefers-reduced-motion`.
+- For distributions or multi-metric comparisons, prefer shared-scale facets or small multiples and show requested dimensions together.
+- Keep series count small enough to read at chat width. Pair color with labels, shape, or line style.
+- Use the primitive `chart` node for ordinary bar, line, and area charts when it clearly fits. Use raw Chart.js only for unsupported chart types, custom plugins, synchronized charts, or imperative annotations.
 
-Use raw Chart.js in `widget: { type: "code", code: ... }` only when the request needs a chart type not covered by primitives, custom plugin behavior, imperative interaction, multiple synchronized canvases, or highly custom annotations. Do not use Chart.js for ordinary dashboards.
+## Raw Chart.js
 
-For spec charts:
-- Include a specific title.
-- Use rounded display values.
-- Pair important charts with a small stat grid or callout when it improves scanning.
-- Use `table` nodes for supporting artifact data; use markdown tables only for small tables in a normal prose answer.
-- Keep series count small enough to read at chat width.
-
-## Raw Chart.js fallback
-
-```html
-<div style="position: relative; width: 100%; height: 300px;">
-  <canvas id="myChart"></canvas>
-</div>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js" onload="initChart()"></script>
-<script>
-  function initChart() {
-    new Chart(document.getElementById('myChart'), {
-      type: 'bar',
-      data: { labels: ['Q1','Q2','Q3','Q4'], datasets: [{ label: 'Revenue', data: [12,19,8,15] }] },
-      options: { responsive: true, maintainAspectRatio: false }
-    });
-  }
-  if (window.Chart) initChart();
-</script>
-```
-
-Rules for raw Chart.js only:
-- Canvas cannot resolve CSS variables. Use hardcoded hex or Chart.js defaults.
-- Wrap `<canvas>` in `<div>` with explicit `height` and `position: relative`.
-- **Canvas sizing**: set height ONLY on the wrapper div, never on the canvas element itself. Use position: relative on the wrapper and responsive: true, maintainAspectRatio: false in Chart.js options. Never set CSS height directly on canvas — this causes wrong dimensions, especially for horizontal bar charts.
-- For horizontal bar charts: wrapper div height should be at least (number_of_bars * 40) + 80 pixels.
-- Load UMD build via `<script src="https://cdnjs.cloudflare.com/ajax/libs/...">` — sets `window.Chart` global. Follow with plain `<script>` (no `type="module"`).
-- **Script load ordering**: CDN scripts may not be loaded when the next `<script>` runs (especially during streaming). Always use `onload="initChart()"` on the CDN script tag, define your chart init in a named function, and add `if (window.Chart) initChart();` as a fallback at the end of your inline script. This guarantees charts render regardless of load order.
-- Multiple charts: use unique IDs (`myChart1`, `myChart2`). Each gets its own canvas+div pair.
-- For bubble and scatter charts: bubble radii extend past their center points, so points near axis boundaries get clipped. Pad the scale range — set `scales.y.min` and `scales.y.max` ~10% beyond your data range (same for x). Or use `layout: { padding: 20 }` as a blunt fallback.
-- Chart.js auto-skips x-axis labels when they'd overlap. If you have ≤12 categories and need all labels visible (waterfall, monthly series), set `scales.x.ticks: { autoSkip: false, maxRotation: 45 }` — missing labels make bars unidentifiable.
-
-**Number formatting**: negative values are `-$5M` not `$-5M` — sign before currency symbol. Use a formatter: `(v) => (v < 0 ? '-' : '') + '$' + Math.abs(v) + 'M'`.
-
-**Legends** — always disable Chart.js default and build custom HTML. The default uses round dots and no values; custom HTML gives small squares, tight spacing, and percentages:
-
-```js
-plugins: { legend: { display: false } }
-```
-
-```html
-<div style="display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 8px; font-size: 12px; color: var(--color-text-secondary);">
-  <span style="display: flex; align-items: center; gap: 4px;"><span style="width: 10px; height: 10px; border-radius: 2px; background: #3266ad;"></span>Chrome 65%</span>
-  <span style="display: flex; align-items: center; gap: 4px;"><span style="width: 10px; height: 10px; border-radius: 2px; background: #73726c;"></span>Safari 18%</span>
-</div>
-```
-
-Include the value/percentage in each label when the data is categorical (pie, donut, single-series bar). Position the legend above the chart (`margin-bottom`) or below (`margin-top`) — not inside the canvas.
-
-For dashboard layout, prefer spec widgets with stats above the chart and supporting details below it. Use raw Chart.js only after the primitive chart cannot represent the requested behavior.
+- Put `<canvas>` in a wrapper with explicit height and `position: relative`; never set canvas CSS height directly.
+- Use `responsive: true` and `maintainAspectRatio: false`.
+- Load approved UMD scripts with `onload="initChart()"`, define a named initializer, and keep an `if (window.Chart) initChart()` fallback.
+- Use unique IDs for multiple charts. Pad bubble/scatter scales so marks are not clipped.
+- Disable the default legend when it hides values; build a semantic utility-based legend outside the canvas.
+- Canvas cannot resolve CSS variables. Do not hand-author colors; use Chart.js defaults or the host chart utility contract.

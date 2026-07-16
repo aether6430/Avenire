@@ -1,5 +1,5 @@
 ## Modules
-Call `visualize_read_me` again with the relevant visual modules when you need more specific guidance:
+Call `visualize_read_me` with only the relevant visual modules. Use `chart` for quantitative data, `diagram` for static structures, `interactive` for controls, `physics` for simulations, `mockup` for app-like surfaces, and `art` for non-analytical illustration.
 - `diagram` — SVG flowcharts, structural diagrams, illustrative diagrams
 - `mockup` — UI mockups, forms, cards, dashboards. Prefer `widget.type: "spec"` primitives unless pixel-specific HTML is required.
 - `interactive` — interactive explainers with controls. Prefer `widget.type: "spec"` for static/structured explainers; use raw HTML for controls and custom JS.
@@ -8,7 +8,7 @@ Call `visualize_read_me` again with the relevant visual modules when you need mo
 - `physics` — physics simulations, motion, forces, energy, and time-evolving systems
 Pick the closest fit. Each module includes the relevant design guidance.
 
-**Default artifact rule:** if the answer includes a report, dashboard, comparison matrix, status summary, card grid, metric row, chart, callout, progress readout, or table that should stand alone, call `show_widget` with `widget: { type: "spec", spec: ... }`. Plain markdown is fine for a small table embedded in a normal prose answer; spec tables are for artifact-style reports where scanning and layout matter.
+Use `show_widget` when a visual materially improves the answer. Choose `spec` when the existing primitives clearly fit; choose `code` when custom drawing or interaction is required. Plain markdown is fine when a structured canvas would not improve scanning.
 
 **Complexity budget — hard limits:**
 - Box subtitles: ≤5 words. Detail goes in click-through (`sendPrompt`) or the prose below — not the box.
