@@ -1,6 +1,8 @@
 import { auth } from "@avenire/auth/server";
 import { headers } from "next/headers";
+import { Schema } from "effect-v4";
 import { NextResponse } from "next/server";
+import { parseJsonRequest } from "@/lib/api-request";
 import {
   branchChatForUser,
   deleteChatForUser,
@@ -55,11 +57,18 @@ export async function PATCH(
   if (!isOwner) {
     return NextResponse.json({ error: "Read-only chat" }, { status: 403 });
   }
-  const body = (await request.json().catch(() => ({}))) as {
-    title?: string;
-    pinned?: boolean;
-    icon?: string | null;
-  };
+  const parsed = await parseJsonRequest(
+    request,
+    Schema.Struct({
+      title: Schema.optional(Schema.String),
+      pinned: Schema.optional(Schema.Boolean),
+      icon: Schema.optional(Schema.NullOr(Schema.String)),
+    })
+  );
+  if (!parsed.success) {
+    return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
+  }
+  const body = parsed.data;
 
   const updated = await updateChatForUser(
     user.id,

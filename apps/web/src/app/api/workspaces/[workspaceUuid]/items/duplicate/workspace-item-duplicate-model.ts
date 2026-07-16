@@ -1,17 +1,17 @@
+import { randomUUID } from "node:crypto";
+import { Schema } from "effect-v4";
 import { resolveApiErrorMessage } from "@/lib/api-error-message";
 
-import { randomUUID } from "node:crypto";
-import { z } from "zod";
-
-export const workspaceItemDuplicateSchema = z.object({
-  id: z.string().min(1),
-  kind: z.enum(["file", "folder"]),
-  parentId: z.string().min(1).nullable().optional(),
+export const workspaceItemDuplicateSchema = Schema.Struct({
+  id: Schema.String.check(Schema.isMinLength(1)),
+  kind: Schema.Literals(["file", "folder"]),
+  parentId: Schema.optional(
+    Schema.NullOr(Schema.String.check(Schema.isMinLength(1)))
+  ),
 });
 
-export type WorkspaceItemDuplicateRequest = z.infer<
-  typeof workspaceItemDuplicateSchema
->;
+export type WorkspaceItemDuplicateRequest =
+  typeof workspaceItemDuplicateSchema.Type;
 
 export interface DuplicateFolderLike {
   id: string;

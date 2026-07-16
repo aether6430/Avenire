@@ -1,4 +1,4 @@
-import { createHmac, randomUUID } from "node:crypto";
+import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 
 interface UploadSessionTokenPayload {
   exp: number;
@@ -65,6 +65,7 @@ export function verifyUploadSessionPartToken(
   token: string,
   expected: {
     sessionId: string;
+    userId: string;
     workspaceUuid: string;
     partNumber: number;
   }
@@ -85,7 +86,10 @@ export function verifyUploadSessionPartToken(
   }
 
   const expectedSignature = signPayload(payloadSegment, secret);
-  if (signature !== expectedSignature) {
+  if (
+    signature.length !== expectedSignature.length ||
+    !timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSignature))
+  ) {
     return { ok: false as const, reason: "signature" };
   }
 
@@ -116,6 +120,9 @@ export function verifyUploadSessionPartToken(
 
   if (payload.sid !== expected.sessionId) {
     return { ok: false as const, reason: "session" };
+  }
+  if (payload.uid !== expected.userId) {
+    return { ok: false as const, reason: "user" };
   }
   if (payload.wid !== expected.workspaceUuid) {
     return { ok: false as const, reason: "workspace" };

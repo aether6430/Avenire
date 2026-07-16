@@ -142,6 +142,7 @@ export function ForgettingCurve() {
         </div>
         <input
           type="range"
+          aria-label="Initial stability"
           min={1}
           max={10}
           value={stability}

@@ -411,19 +411,22 @@ export function UploadActivityPanel() {
             jobs.some((job) => job.id === item.ingestionJobId)
           )
       ),
-      ...jobs
-        .filter((job) => Boolean(job.fileName))
-        .map((job) => {
-          const status = mapRecentJobStatus(job.status);
-          return {
+      ...jobs.flatMap((job) => {
+        if (!job.fileName) {
+          return [];
+        }
+        const status = mapRecentJobStatus(job.status);
+        return [
+          {
             id: `job:${job.id}`,
             ingestionJobId: job.id,
             fileId: job.fileId,
             name: job.fileName as string,
             sizeLabel: "—",
             status,
-          };
-        }),
+          },
+        ];
+      }),
     ]);
   }, [
     activeWorkspaceUuid,
@@ -487,7 +490,11 @@ export function UploadActivityPanel() {
           try {
             payload = JSON.parse(messageEvent.data) as IngestionJobEvent;
           } catch (err) {
-            console.warn("Skipping malformed SSE event:", err, messageEvent.data);
+            console.warn(
+              "Skipping malformed SSE event:",
+              err,
+              messageEvent.data
+            );
             return;
           }
           const cursor =
@@ -672,7 +679,7 @@ export function UploadActivityPanel() {
   return (
     <div
       className={cn(
-        "fixed right-4 bottom-4 z-40 flex min-h-0 w-[22rem] flex-col overflow-hidden rounded-lg border border-border/70 bg-background transition-all duration-300",
+        "fixed right-4 bottom-4 z-40 flex min-h-0 w-[22rem] flex-col overflow-hidden rounded-lg border border-border/70 bg-background transition-[opacity,transform] duration-200 ease-[var(--ease-out)]",
         DESKTOP_PANEL_MAX_HEIGHT_CLASS,
         isQueueVisible
           ? "translate-y-0 opacity-100"

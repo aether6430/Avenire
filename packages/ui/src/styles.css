@@ -3,8 +3,19 @@
 @import "shadcn/tailwind.css";
 
 @custom-variant dark (&:is(.dark *));
+/* Hover/scale only when a real pointing device can hover (not touch sticky-hover). */
+@custom-variant fine-hover (@media (hover: hover) and (pointer: fine));
 
 :root {
+  /* Motion — strong curves for UI (enter/exit = ease-out; on-screen morph = ease-in-out) */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+  --duration-fast: 100ms;
+  --duration-normal: 160ms;
+  --duration-moderate: 200ms;
+  --duration-slow: 300ms;
+
   /* Core surfaces */
   --background: #fcfcfc;
   --foreground: #141414f0;
@@ -53,11 +64,11 @@
   --warning-foreground: #dfab01;
 
   /* Charts */
-  --chart-1: #abc4ff;
-  --chart-2: #7f9cff;
-  --chart-3: #5a6cc0;
-  --chart-4: #c7d7ff;
-  --chart-5: #6f7fb8;
+  --chart-1: #e89a62;
+  --chart-2: #71b8c9;
+  --chart-3: #d982b5;
+  --chart-4: #b88f78;
+  --chart-5: #9b8ac4;
 
   /* Sidebar */
   --sidebar: #f3f3f3;
@@ -176,11 +187,11 @@
   --warning: #ffdc49;
   --warning-foreground: #ffdc49;
 
-  --chart-1: #abc4ff;
-  --chart-2: #8ea8ff;
-  --chart-3: #6f7fb8;
-  --chart-4: #c7d7ff;
-  --chart-5: #5a6cc0;
+  --chart-1: #f0a873;
+  --chart-2: #78c4d5;
+  --chart-3: #ed84bd;
+  --chart-4: #c39a82;
+  --chart-5: #a99ad1;
 
   --sidebar: #141414;
   --sidebar-foreground: #e4e4e48d;
@@ -253,6 +264,14 @@
 }
 
 @theme inline {
+  --ease-out: var(--ease-out);
+  --ease-in-out: var(--ease-in-out);
+  --ease-drawer: var(--ease-drawer);
+  --duration-fast: var(--duration-fast);
+  --duration-normal: var(--duration-normal);
+  --duration-moderate: var(--duration-moderate);
+  --duration-slow: var(--duration-slow);
+
   --color-warning-foreground: var(--warning-foreground);
   --color-warning: var(--warning);
   --color-success-foreground: var(--success-foreground);

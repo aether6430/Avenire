@@ -86,9 +86,12 @@ export async function resolveStudySource(
 
     const summary = await getIngestionSummaryForFile(ctx.workspaceId, file.id);
     const content = (summary?.resources ?? [])
-      .flatMap((resource) => resource.chunks)
-      .map((chunk) => chunk.content.trim())
-      .filter(Boolean)
+      .flatMap((resource) =>
+        resource.chunks.flatMap((chunk) => {
+          const content = chunk.content.trim();
+          return content ? [content] : [];
+        })
+      )
       .join("\n\n")
       .slice(0, STUDY_SOURCE_CHAR_LIMIT);
 

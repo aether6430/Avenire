@@ -7,7 +7,10 @@ import {
   type UploadSessionRecord,
 } from "@/lib/upload-session-store";
 import { scheduleAsyncVideoDeliveryOptimization } from "@/lib/video-delivery-optimization-runtime";
-import { buildUploadCompletionSuccessResponse } from "./upload-session-complete-model";
+import {
+  buildUploadCompletionSuccessResponse,
+  readUploadCompletionErrorCode,
+} from "./upload-session-complete-model";
 import { cleanupUploadedStorageObject } from "./upload-session-complete-storage";
 
 interface FinalizeUploadSessionCompletionOptions {
@@ -66,6 +69,7 @@ export async function finalizeUploadSessionCompletion({
       folderId: session.folderId,
       storageKey,
       storageUrl,
+      uploadSessionId: sessionId,
       name: session.name,
       mimeType,
       sizeBytes,
@@ -148,8 +152,7 @@ export async function finalizeUploadSessionCompletion({
       });
     }
 
-    const isStorageLimit =
-      (error as { code?: string } | null | undefined)?.code === "STORAGE_LIMIT";
+    const isStorageLimit = readUploadCompletionErrorCode(error) === "STORAGE_LIMIT";
 
     void apiLogger.requestFailed(isStorageLimit ? 429 : 500, error, {
       completionDurationMs: Date.now() - requestStartedAt,

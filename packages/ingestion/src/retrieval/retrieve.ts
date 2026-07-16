@@ -9,6 +9,10 @@ import {
 } from "../ingestion/embeddings";
 import { getLearnerSignalBoosts } from "./learner-signals";
 import { expandQuery, generateHydeDocument } from "./query-expansion";
+import {
+  observeRetrievalProviderCall,
+  recordRetrievalQualityTelemetry,
+} from "./telemetry";
 import type { VectorSearchResult, VectorStore } from "./vector-store";
 
 const RETRIEVAL_CONTEXT_TOKEN_BUDGET = 2400;
@@ -49,6 +53,17 @@ type RetrievedCandidate = VectorSearchResult & {
   rerankScore: number;
 };
 
+interface TimedQueryEnhancement {
+  latencyMs: number;
+  value: string | null;
+}
+
+interface QueryEnhancementTasks {
+  expansion: Promise<TimedQueryEnhancement>;
+  hyde: Promise<TimedQueryEnhancement>;
+  wasHydeFallbackUsed: () => boolean;
+}
+
 interface RetrievalPathResult {
   ambiguityReasons: string[];
   calibration?: {
@@ -69,7 +84,14 @@ interface RetrievalPathResult {
   results: Array<{
     resourceId: string;
     fileId: string | null;
-    sourceType: "pdf" | "image" | "video" | "audio" | "document" | "markdown" | "link";
+    sourceType:
+      | "pdf"
+      | "image"
+      | "video"
+      | "audio"
+      | "document"
+      | "markdown"
+      | "link";
     source: string;
     provider: string | null;
     title: string | null;
@@ -192,6 +214,67 @@ export const dedupeQueries = (values: string[]): string[] => {
   return out;
 };
 
+function startQueryEnhancementTasks(
+  normalizedQuery: string,
+  abortSignal?: AbortSignal
+): QueryEnhancementTasks {
+  let hydeFallbackUsed = false;
+  const expansionStartedAt = performance.now();
+  const expansion = observeRetrievalProviderCall({
+    operation: "query_expansion",
+    provider: "apollo",
+    run: () => expandQuery(normalizedQuery, { abortSignal }),
+  })
+    .catch((error) => {
+      if (!abortSignal?.aborted) {
+        logWarn({
+          eventName: "retrieval.query_expansion_fallback",
+          payload: {
+            error: safeError(error),
+            query: normalizedQuery,
+          },
+        });
+      }
+      return null;
+    })
+    .then((value) => ({
+      latencyMs: Math.round(performance.now() - expansionStartedAt),
+      value,
+    }));
+  const hydeStartedAt = performance.now();
+  const hydeProviderCall = config.retrievalHydeEnabled
+    ? observeRetrievalProviderCall({
+        operation: "hyde",
+        provider: "apollo",
+        run: () => generateHydeDocument(normalizedQuery, { abortSignal }),
+      })
+    : Promise.resolve(null);
+  const hyde = hydeProviderCall
+    .catch((error) => {
+      if (!abortSignal?.aborted) {
+        hydeFallbackUsed = true;
+        logWarn({
+          eventName: "retrieval.hyde_fallback",
+          payload: {
+            error: safeError(error),
+            query: normalizedQuery,
+          },
+        });
+      }
+      return null;
+    })
+    .then((value) => ({
+      latencyMs: Math.round(performance.now() - hydeStartedAt),
+      value,
+    }));
+
+  return {
+    expansion,
+    hyde,
+    wasHydeFallbackUsed: () => hydeFallbackUsed,
+  };
+}
+
 export const decomposeQuery = (query: string): string[] => {
   const normalized = normalizeRetrievalQuery(query);
   if (!normalized) {
@@ -291,7 +374,9 @@ export const getPreferredSourceTypes = (intent: {
   visual: boolean;
   audio: boolean;
   document: boolean;
-}): Set<"pdf" | "image" | "video" | "audio" | "document" | "markdown" | "link"> | null => {
+}): Set<
+  "pdf" | "image" | "video" | "audio" | "document" | "markdown" | "link"
+> | null => {
   const { visual, audio, document } = intent;
 
   if (visual && !audio && !document) {
@@ -538,7 +623,14 @@ function buildRetrievalDecisionTelemetry(input: {
   normalizedQuery: string;
   options?: {
     provider?: string;
-    sourceType?: "pdf" | "image" | "video" | "audio" | "document" | "markdown" | "link";
+    sourceType?:
+      | "pdf"
+      | "image"
+      | "video"
+      | "audio"
+      | "document"
+      | "markdown"
+      | "link";
     userId?: string;
     workspaceId?: string;
   };
@@ -681,7 +773,14 @@ export const applyModalityScoreAdjustments = (
     preferredSourceTypes: Set<
       "pdf" | "image" | "video" | "audio" | "document" | "markdown" | "link"
     > | null;
-    sourceType?: "pdf" | "image" | "video" | "audio" | "document" | "markdown" | "link";
+    sourceType?:
+      | "pdf"
+      | "image"
+      | "video"
+      | "audio"
+      | "document"
+      | "markdown"
+      | "link";
     visualIntent: boolean;
   }
 ): number => {
@@ -797,7 +896,14 @@ const scoreRetrievedCandidate = (
     preferredSourceTypes: Set<
       "pdf" | "image" | "video" | "audio" | "document" | "markdown" | "link"
     > | null;
-    sourceType?: "pdf" | "image" | "video" | "audio" | "document" | "markdown" | "link";
+    sourceType?:
+      | "pdf"
+      | "image"
+      | "video"
+      | "audio"
+      | "document"
+      | "markdown"
+      | "link";
     visualIntent: boolean;
   }
 ): FusionCandidate => {
@@ -821,7 +927,14 @@ const searchForQuery = async (params: {
   includeLexical?: boolean;
   metadata?: Record<string, unknown>;
   options?: {
-    sourceType?: "pdf" | "image" | "video" | "audio" | "document" | "markdown" | "link";
+    sourceType?:
+      | "pdf"
+      | "image"
+      | "video"
+      | "audio"
+      | "document"
+      | "markdown"
+      | "link";
     provider?: string;
   };
   query: string;
@@ -910,9 +1023,21 @@ export const retrieveRelevantChunks = async (
     limit?: number;
     userId?: string;
     workspaceId?: string;
-    sourceType?: "pdf" | "image" | "video" | "audio" | "document" | "markdown" | "link";
+    sourceType?:
+      | "pdf"
+      | "image"
+      | "video"
+      | "audio"
+      | "document"
+      | "markdown"
+      | "link";
     provider?: string;
     corpus?: Awaited<ReturnType<VectorStore["corpusStats"]>>;
+    initialQueryEmbedding?: number[];
+    initialQueryCandidates?: Array<
+      VectorSearchResult & { fusionScore: number }
+    >;
+    queryEnhancementTasks?: QueryEnhancementTasks;
   }
 ): Promise<{
   context: string;
@@ -922,7 +1047,14 @@ export const retrieveRelevantChunks = async (
   results: Array<{
     resourceId: string;
     fileId: string | null;
-    sourceType: "pdf" | "image" | "video" | "audio" | "document" | "markdown" | "link";
+    sourceType:
+      | "pdf"
+      | "image"
+      | "video"
+      | "audio"
+      | "document"
+      | "markdown"
+      | "link";
     source: string;
     provider: string | null;
     title: string | null;
@@ -957,34 +1089,19 @@ export const retrieveRelevantChunks = async (
     limit * config.retrievalCandidateMultiplier
   );
 
-  const expandedQuery = await expandQuery(normalizedQuery).catch((error) => {
-    logWarn({
-      eventName: "retrieval.query_expansion_fallback",
-      payload: {
-        error: safeError(error),
-        query: normalizedQuery,
-      },
-    });
-    return null;
-  });
-  let hydeFallbackUsed = false;
-  const hydeDocument = await generateHydeDocument(normalizedQuery).catch(
-    (error) => {
-      hydeFallbackUsed = true;
-      logWarn({
-        eventName: "retrieval.hyde_fallback",
-        payload: {
-          error: safeError(error),
-          query: normalizedQuery,
-        },
-      });
-      return null;
-    }
-  );
-  const decomposedQueries = dedupeQueries(decomposeQuery(normalizedQuery)).slice(
-    0,
-    4
-  );
+  const queryEnhancementTasks =
+    options?.queryEnhancementTasks ??
+    startQueryEnhancementTasks(normalizedQuery);
+  const [expansionResult, hydeResult] = await Promise.all([
+    queryEnhancementTasks.expansion,
+    queryEnhancementTasks.hyde,
+  ]);
+  const hydeFallbackUsed = queryEnhancementTasks.wasHydeFallbackUsed();
+  const expandedQuery = expansionResult.value;
+  const hydeDocument = hydeResult.value;
+  const decomposedQueries = dedupeQueries(
+    decomposeQuery(normalizedQuery)
+  ).slice(0, 4);
   const decomposedQueryCount = decomposedQueries.length;
   const searchQueries = dedupeQueries([
     normalizedQuery,
@@ -996,18 +1113,44 @@ export const retrieveRelevantChunks = async (
     hydeDocument ?? "",
   ]);
 
-  const { embeddings } = await embedMultimodal(
-    embeddingQueries.map((value) => textToMultimodalInput(value)),
-    {
-      inputType: "search_query",
+  const queriesNeedingEmbeddings = options?.initialQueryEmbedding
+    ? embeddingQueries.filter((value) => value !== normalizedQuery)
+    : embeddingQueries;
+  const embeddingStartedAt = performance.now();
+  const embeddings =
+    queriesNeedingEmbeddings.length > 0
+      ? (
+          await observeRetrievalProviderCall({
+            operation: "embedding",
+            provider: "cohere",
+            run: () =>
+              embedMultimodal(
+                queriesNeedingEmbeddings.map((value) =>
+                  textToMultimodalInput(value)
+                ),
+                { inputType: "search_query" }
+              ),
+          })
+        ).embeddings
+      : [];
+  const embeddingLatencyMs = Math.round(performance.now() - embeddingStartedAt);
+  const embeddingByQuery = new Map<string, number[]>();
+  if (options?.initialQueryEmbedding) {
+    embeddingByQuery.set(normalizedQuery, options.initialQueryEmbedding);
+  }
+  queriesNeedingEmbeddings.forEach((value, index) => {
+    const embedding = embeddings[index];
+    if (embedding) {
+      embeddingByQuery.set(value, embedding);
     }
-  );
-  const embeddingByQuery = new Map(
-    embeddingQueries.map((value, index) => [value, embeddings[index]])
-  );
+  });
 
+  const searchStartedAt = performance.now();
   const querySearchResults = await Promise.all(
     searchQueries.map((searchQuery) => {
+      if (searchQuery === normalizedQuery && options?.initialQueryCandidates) {
+        return options.initialQueryCandidates;
+      }
       const queryEmbedding = embeddingByQuery.get(searchQuery);
       if (!queryEmbedding) {
         throw new Error("Failed to compute query embedding.");
@@ -1050,14 +1193,18 @@ export const retrieveRelevantChunks = async (
         })
       : [];
   const hydeCandidateCount = hydeSearchResults.length;
+  const searchLatencyMs = Math.round(performance.now() - searchStartedAt);
   const allSearchResults = [...querySearchResults, hydeSearchResults];
 
+  const fusionStartedAt = performance.now();
   const mergedCandidates = diversifyByResource(
     fuseCandidatesByRrf(allSearchResults).sort(
       (a, b) => b.fusionScore - a.fusionScore
     ),
     MAX_RESOURCE_DIVERSITY
   );
+  const fusionLatencyMs = Math.round(performance.now() - fusionStartedAt);
+  const learnerSignalsStartedAt = performance.now();
   const learnerSignalBoosts =
     options?.userId && options.workspaceId
       ? await getLearnerSignalBoosts({
@@ -1066,6 +1213,9 @@ export const retrieveRelevantChunks = async (
           workspaceId: options.workspaceId,
         })
       : new Map<string, { boost: number }>();
+  const learnerSignalsLatencyMs = Math.round(
+    performance.now() - learnerSignalsStartedAt
+  );
 
   const sortedCandidates: FusionCandidate[] = mergedCandidates
     .filter(
@@ -1152,6 +1302,31 @@ export const retrieveRelevantChunks = async (
       eventName: "retrieval.decision",
       payload: telemetry as unknown as Record<string, unknown>,
     });
+    logInfo({
+      eventName: "retrieval.phase_timings",
+      payload: {
+        embeddingMs: embeddingLatencyMs,
+        expansionMs: expansionResult.latencyMs,
+        fusionMs: fusionLatencyMs,
+        hydeMs: hydeResult.latencyMs,
+        learnerSignalsMs: learnerSignalsLatencyMs,
+        rerankMs: 0,
+        responseShapingMs: Math.max(
+          0,
+          latencyMs -
+            embeddingLatencyMs -
+            expansionResult.latencyMs -
+            hydeResult.latencyMs -
+            searchLatencyMs -
+            fusionLatencyMs -
+            learnerSignalsLatencyMs
+        ),
+        searchMs: searchLatencyMs,
+        totalMs: latencyMs,
+        workspaceId: options?.workspaceId ?? null,
+      },
+    });
+    recordRetrievalQualityTelemetry({ decision: telemetry, path: "slow" });
 
     return {
       context: "",
@@ -1162,11 +1337,17 @@ export const retrieveRelevantChunks = async (
     };
   }
 
-  const reranked = await rerank({
-    model: apollo.rerankingModel("apollo-reranking"),
-    documents: rerankCandidates.map((candidate) => candidate.content),
-    query: normalizedQuery,
-    topN: limit,
+  const rerankStartedAt = performance.now();
+  const reranked = await observeRetrievalProviderCall({
+    operation: "rerank",
+    provider: "apollo",
+    run: () =>
+      rerank({
+        model: apollo.rerankingModel("apollo-reranking"),
+        documents: rerankCandidates.map((candidate) => candidate.content),
+        query: normalizedQuery,
+        topN: limit,
+      }),
   })
     .then(({ ranking }) =>
       ranking.map((item) => ({
@@ -1180,11 +1361,16 @@ export const retrieveRelevantChunks = async (
     )
     .catch(async (error) => {
       rerankFallbackUsed = true;
-      const fallback = await rerankByCohereWithQueryEmbedding(
-        embeddings[0] ?? [],
-        rerankCandidates,
-        limit
-      );
+      const fallback = await observeRetrievalProviderCall({
+        operation: "rerank_fallback",
+        provider: "cohere",
+        run: () =>
+          rerankByCohereWithQueryEmbedding(
+            embeddingByQuery.get(normalizedQuery) ?? [],
+            rerankCandidates,
+            limit
+          ),
+      });
       if (fallback.length > 0) {
         return fallback.map((candidate) => ({
           ...candidate,
@@ -1207,7 +1393,9 @@ export const retrieveRelevantChunks = async (
         rerankScore: candidate.score,
       }));
     });
+  const rerankLatencyMs = Math.round(performance.now() - rerankStartedAt);
 
+  const responseShapingStartedAt = performance.now();
   const adjacentByChunkId = new Map<string, VectorSearchResult[]>(
     await Promise.all(
       reranked
@@ -1232,6 +1420,9 @@ export const retrieveRelevantChunks = async (
     RETRIEVAL_CONTEXT_TOKEN_BUDGET
   );
   const corpus = options?.corpus ?? (await vectorStore.corpusStats());
+  const responseShapingLatencyMs = Math.round(
+    performance.now() - responseShapingStartedAt
+  );
 
   const latencyMs = Math.round(performance.now() - start);
   const telemetry = buildRetrievalDecisionTelemetry({
@@ -1263,6 +1454,22 @@ export const retrieveRelevantChunks = async (
     eventName: "retrieval.decision",
     payload: telemetry as unknown as Record<string, unknown>,
   });
+  logInfo({
+    eventName: "retrieval.phase_timings",
+    payload: {
+      embeddingMs: embeddingLatencyMs,
+      expansionMs: expansionResult.latencyMs,
+      fusionMs: fusionLatencyMs,
+      hydeMs: hydeResult.latencyMs,
+      learnerSignalsMs: learnerSignalsLatencyMs,
+      rerankMs: rerankLatencyMs,
+      responseShapingMs: responseShapingLatencyMs,
+      searchMs: searchLatencyMs,
+      totalMs: latencyMs,
+      workspaceId: options?.workspaceId ?? null,
+    },
+  });
+  recordRetrievalQualityTelemetry({ decision: telemetry, path: "slow" });
 
   return {
     context: assembled.context,
@@ -1280,7 +1487,14 @@ function buildQueryResultPreview(params: {
   normalizedQuery: string;
   options?: {
     provider?: string;
-    sourceType?: "pdf" | "image" | "video" | "audio" | "document" | "markdown" | "link";
+    sourceType?:
+      | "pdf"
+      | "image"
+      | "video"
+      | "audio"
+      | "document"
+      | "markdown"
+      | "link";
     userId?: string;
     workspaceId?: string;
   };
@@ -1445,7 +1659,14 @@ async function logCalibrationShadow(input: {
   normalizedQuery: string;
   options?: {
     provider?: string;
-    sourceType?: "pdf" | "image" | "video" | "audio" | "document" | "markdown" | "link";
+    sourceType?:
+      | "pdf"
+      | "image"
+      | "video"
+      | "audio"
+      | "document"
+      | "markdown"
+      | "link";
     userId?: string;
     workspaceId?: string;
   };
@@ -1515,7 +1736,14 @@ export const retrieveRelevantChunksAdaptive = async (
     limit?: number;
     mode?: "auto" | "fast" | "full";
     provider?: string;
-    sourceType?: "pdf" | "image" | "video" | "audio" | "document" | "markdown" | "link";
+    sourceType?:
+      | "pdf"
+      | "image"
+      | "video"
+      | "audio"
+      | "document"
+      | "markdown"
+      | "link";
     userId?: string;
     workspaceId?: string;
   }
@@ -1528,10 +1756,9 @@ export const retrieveRelevantChunksAdaptive = async (
   const visualIntent = hasVisualIntent(normalizedQuery);
   const audioIntent = hasAudioIntent(normalizedQuery);
   const documentIntent = hasDocumentIntent(normalizedQuery);
-  const decomposedQueries = dedupeQueries(decomposeQuery(normalizedQuery)).slice(
-    0,
-    4
-  );
+  const decomposedQueries = dedupeQueries(
+    decomposeQuery(normalizedQuery)
+  ).slice(0, 4);
   const decomposedQueryCount = decomposedQueries.length;
   const limit = options?.limit ?? config.retrievalDefaultLimit;
   const candidateLimit = Math.max(
@@ -1539,9 +1766,23 @@ export const retrieveRelevantChunksAdaptive = async (
     limit * config.retrievalCandidateMultiplier
   );
 
+  const queryEnhancementAbortController = new AbortController();
+  const queryEnhancementTasks =
+    options?.mode === "fast"
+      ? undefined
+      : startQueryEnhancementTasks(
+          normalizedQuery,
+          queryEnhancementAbortController.signal
+        );
+
   const [fastEmbedding] = (
-    await embedMultimodal([textToMultimodalInput(normalizedQuery)], {
-      inputType: "search_query",
+    await observeRetrievalProviderCall({
+      operation: "embedding",
+      provider: "cohere",
+      run: () =>
+        embedMultimodal([textToMultimodalInput(normalizedQuery)], {
+          inputType: "search_query",
+        }),
     })
   ).embeddings;
   if (!fastEmbedding) {
@@ -1577,6 +1818,9 @@ export const retrieveRelevantChunksAdaptive = async (
   const fastLatencyMs = Math.round(performance.now() - start);
 
   if (shouldUseFast) {
+    queryEnhancementAbortController.abort(
+      new Error("Fast retrieval path completed")
+    );
     if (options?.mode !== "full" && shouldRunCalibrationShadow()) {
       void (async () => {
         try {
@@ -1590,6 +1834,8 @@ export const retrieveRelevantChunksAdaptive = async (
               sourceType: options?.sourceType,
               userId: options?.userId,
               workspaceId: options?.workspaceId,
+              initialQueryCandidates: fastQueryCandidates,
+              initialQueryEmbedding: fastEmbedding,
             }
           );
           await logCalibrationShadow({
@@ -1617,6 +1863,11 @@ export const retrieveRelevantChunksAdaptive = async (
       })();
     }
 
+    recordRetrievalQualityTelemetry({
+      decision: fastPreview.decision,
+      path: "fast",
+    });
+
     return {
       ambiguityReasons: routeReasons,
       confidence,
@@ -1638,6 +1889,9 @@ export const retrieveRelevantChunksAdaptive = async (
       sourceType: options?.sourceType,
       userId: options?.userId,
       workspaceId: options?.workspaceId,
+      initialQueryCandidates: fastQueryCandidates,
+      initialQueryEmbedding: fastEmbedding,
+      queryEnhancementTasks,
     }
   );
   const slowLatencyMs = Math.round(performance.now() - start);

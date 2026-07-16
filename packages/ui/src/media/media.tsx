@@ -2083,7 +2083,7 @@ function MediaPlayerSeek(props: MediaPlayerSeekProps) {
               ? "bg-amber-400/85 opacity-100"
               : "bg-amber-300/55 opacity-80"
           )}
-          key={`retrieval-range-${index}-${start}-${end}`}
+          key={`retrieval-range-${start}-${end}`}
           onClick={(event) => {
             event.preventDefault();
             event.stopPropagation();

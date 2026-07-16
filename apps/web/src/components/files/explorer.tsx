@@ -140,7 +140,7 @@ import {
   buildVideoPlaybackDescriptor,
 } from "@/lib/media-playback";
 import { getUploadErrorMessage } from "@/lib/upload";
-import { requestUploadPreflight } from "@/lib/upload-preflight";
+import { uploadFileWithSession } from "@/lib/upload-preflight";
 import { useUploadThing } from "@/lib/uploadthing";
 import { cn } from "@/lib/utils";
 import {
@@ -368,9 +368,11 @@ function mergePropertyDefinitions(
   }
 
   const merged = new Map<string, WorkspacePropertyDefinition>(
-    definitions
-      .filter((definition) => liveProperties.has(definition.key))
-      .map((definition) => [definition.key, definition])
+    definitions.flatMap((definition) =>
+      liveProperties.has(definition.key)
+        ? [[definition.key, definition] as const]
+        : []
+    )
   );
 
   for (const [key, property] of liveProperties) {
@@ -849,14 +851,6 @@ type FileMutationHistoryEntry =
       items: MoveMutationHistoryItem[];
     };
 
-interface UploadResultLike {
-  contentType?: string;
-  key?: string;
-  name?: string;
-  size?: number;
-  ufsUrl?: string;
-}
-
 function isMarkdownUploadCandidate(file: File) {
   const mime = file.type.toLowerCase();
   const name = file.name.toLowerCase();
@@ -949,9 +943,9 @@ function getMutationHistoryItemKey(item: FileMutationHistoryItem) {
 
 function getSuccessfulBulkMutationKeys(response: BulkMutationResponse | null) {
   return new Set(
-    (response?.results ?? [])
-      .filter((result) => result.status === "ok")
-      .map((result) => getMutationHistoryItemKey(result))
+    (response?.results ?? []).flatMap((result) =>
+      result.status === "ok" ? [getMutationHistoryItemKey(result)] : []
+    )
   );
 }
 
@@ -959,9 +953,9 @@ function getSuccessfulTrashMutationKeys(
   response: TrashMutationResponse | null
 ) {
   return new Set(
-    (response?.results ?? [])
-      .filter((result) => result.ok)
-      .map((result) => getMutationHistoryItemKey(result))
+    (response?.results ?? []).flatMap((result) =>
+      result.ok ? [getMutationHistoryItemKey(result)] : []
+    )
   );
 }
 
@@ -998,9 +992,10 @@ function subtractMutationHistoryKeys(
   keysToRemove: Set<string>
 ) {
   const remainingKeys = new Set(
-    entry.items
-      .map((item) => getMutationHistoryItemKey(item))
-      .filter((key) => !keysToRemove.has(key))
+    entry.items.flatMap((item) => {
+      const key = getMutationHistoryItemKey(item);
+      return keysToRemove.has(key) ? [] : [key];
+    })
   );
   return filterMutationHistoryEntry(entry, remainingKeys);
 }
@@ -1678,7 +1673,6 @@ export function FileExplorer({
     (state) => state.setSettingsOpen
   );
 
-  const { startUpload } = useUploadThing("fileExplorerUploader");
   const { startUpload: startBannerUpload } = useUploadThing("imageUploader");
   const selection = useFileSelection({ gridRef, itemRefs });
   const triggerHaptic = useHaptics();
@@ -2095,9 +2089,13 @@ export function FileExplorer({
       const parsed = raw ? (JSON.parse(raw) as unknown) : null;
       if (Array.isArray(parsed)) {
         const next = parsed
-          .filter((entry): entry is string => typeof entry === "string")
-          .map((entry) => entry.trim())
-          .filter((entry) => entry.length > 0 && validKeys.has(entry))
+          .flatMap((entry) => {
+            if (typeof entry !== "string") {
+              return [];
+            }
+            const key = entry.trim();
+            return key.length > 0 && validKeys.has(key) ? [key] : [];
+          })
           .slice(0, MAX_VISIBLE_CARD_PROPERTIES);
         if (next.length > 0) {
           setCardPropertyKeys(next);
@@ -3788,7 +3786,6 @@ export function FileExplorer({
           file: File;
           queueItemId: string;
           targetFolderId: string;
-          uploaded?: UploadResultLike;
         }
         const preparedForRegister: UploadPrepared[] = [];
         let successCount = 0;
@@ -3989,34 +3986,64 @@ export function FileExplorer({
                 targetFolderId,
               });
             } else {
-              await requestUploadPreflight({
+              const completed = await uploadFileWithSession({
+                checksumSha256: hashByQueueId.get(entry.queueItemId),
                 file: entry.candidate.file,
-                folderId: currentFolderId,
+                folderId: targetFolderId,
                 workspaceUuid,
               });
-              const uploaded = ((await startUpload([entry.candidate.file])) ??
-                [])[0] as UploadResultLike | undefined;
-              if (!(uploaded?.key && uploaded.ufsUrl)) {
-                throw new Error("Upload returned no file metadata");
-              }
-
-              preparedForRegister.push({
-                candidate: entry.candidate,
-                contentHashSha256: hashByQueueId.get(entry.queueItemId),
-                file: entry.candidate.file,
-                queueItemId: entry.queueItemId,
-                targetFolderId,
-                uploaded,
-              });
+              const completedFile =
+                typeof completed === "object" &&
+                completed !== null &&
+                "file" in completed
+                  ? completed.file
+                  : null;
+              const ingestionJob =
+                typeof completed === "object" &&
+                completed !== null &&
+                "ingestionJob" in completed
+                  ? completed.ingestionJob
+                  : null;
+              const fileId =
+                typeof completedFile === "object" &&
+                completedFile !== null &&
+                "id" in completedFile &&
+                typeof completedFile.id === "string"
+                  ? completedFile.id
+                  : undefined;
+              const ingestionJobId =
+                typeof ingestionJob === "object" &&
+                ingestionJob !== null &&
+                "id" in ingestionJob &&
+                typeof ingestionJob.id === "string"
+                  ? ingestionJob.id
+                  : undefined;
+              successCount += 1;
+              setUploadQueue((previous) =>
+                previous.map((item) =>
+                  item.id === entry.queueItemId
+                    ? {
+                        ...item,
+                        fileId,
+                        ingestionJobId,
+                        status: ingestionJobId ? "ingesting" : "uploaded",
+                        failureCount: 0,
+                        error: undefined,
+                      }
+                    : item
+                )
+              );
             }
 
-            setUploadQueue((previous) =>
-              previous.map((item) =>
-                item.id === entry.queueItemId
-                  ? { ...item, status: "uploaded", error: undefined }
-                  : item
-              )
-            );
+            if (isMarkdownUploadCandidate(entry.candidate.file)) {
+              setUploadQueue((previous) =>
+                previous.map((item) =>
+                  item.id === entry.queueItemId
+                    ? { ...item, status: "uploaded", error: undefined }
+                    : item
+                )
+              );
+            }
           } catch (error) {
             const message = getUploadErrorMessage(error);
             setUploadQueue((previous) =>
@@ -4090,11 +4117,9 @@ export function FileExplorer({
                     hashComputedBy: entry.contentHashSha256
                       ? "client"
                       : undefined,
-                    storageKey: entry.uploaded?.key,
-                    storageUrl: entry.uploaded?.ufsUrl,
-                    name: entry.uploaded?.name ?? entry.file.name,
-                    mimeType: entry.uploaded?.contentType ?? entry.file.type,
-                    sizeBytes: entry.uploaded?.size ?? entry.file.size,
+                    name: entry.file.name,
+                    mimeType: entry.file.type,
+                    sizeBytes: entry.file.size,
                   })),
                 }),
               }
@@ -4185,7 +4210,6 @@ export function FileExplorer({
       isCurrentFolderReadOnly,
       loadFolder,
       loadTree,
-      startUpload,
       workspaceUuid,
     ]
   );
@@ -4225,10 +4249,13 @@ export function FileExplorer({
         return;
       }
 
-      const filesToReingest = items
-        .filter((item) => item.kind === "file")
-        .map((item) => allFiles.find((entry) => entry.id === item.id))
-        .filter((file): file is FileRecord => Boolean(file && !file.readOnly));
+      const filesToReingest = items.flatMap((item) => {
+        if (item.kind !== "file") {
+          return [];
+        }
+        const file = allFiles.find((entry) => entry.id === item.id);
+        return file && !file.readOnly ? [file] : [];
+      });
 
       if (filesToReingest.length === 0) {
         return;
@@ -4905,36 +4932,29 @@ export function FileExplorer({
         return;
       }
 
-      const items = itemIds
-        .filter((itemId) => itemId !== targetFolderId)
-        .map((itemId) => {
-          const kind = resolveItemKind(itemId);
-          if (!kind) {
-            return null;
-          }
+      const items = itemIds.flatMap((itemId) => {
+        if (itemId === targetFolderId) {
+          return [];
+        }
+        const kind = resolveItemKind(itemId);
+        if (!kind) {
+          return [];
+        }
 
-          if (kind === "folder") {
-            const folder = allFolders.find((entry) => entry.id === itemId);
-            if (folder?.readOnly) {
-              return null;
-            }
-          } else {
-            const file = allFiles.find((entry) => entry.id === itemId);
-            if (file?.readOnly) {
-              return null;
-            }
+        if (kind === "folder") {
+          const folder = allFolders.find((entry) => entry.id === itemId);
+          if (folder?.readOnly) {
+            return [];
           }
+        } else {
+          const file = allFiles.find((entry) => entry.id === itemId);
+          if (file?.readOnly) {
+            return [];
+          }
+        }
 
-          return { id: itemId, kind };
-        })
-        .filter(
-          (
-            item
-          ): item is {
-            id: string;
-            kind: BulkItemKind;
-          } => Boolean(item)
-        );
+        return [{ id: itemId, kind }];
+      });
 
       if (items.length === 0) {
         return;
@@ -5136,13 +5156,13 @@ export function FileExplorer({
     });
   };
 
-  const openRenameFolderDialog = (folder: FolderRecord) => {
+  const openRenameFolderDialog = useCallback((folder: FolderRecord) => {
     setEditDialog({
       mode: "rename-folder",
       id: folder.id,
       value: folder.name,
     });
-  };
+  }, []);
 
   const openRenameFileDialog = (file: FileRecord) => {
     setEditDialog({
@@ -5905,6 +5925,7 @@ export function FileExplorer({
       </div>
 
       <input
+        aria-label="Upload files"
         className="sr-only"
         multiple
         onChange={(event) => {
@@ -5916,6 +5937,7 @@ export function FileExplorer({
         type="file"
       />
       <input
+        aria-label="Upload folders"
         className="sr-only"
         {...({ directory: "", webkitdirectory: "" } as Record<string, string>)}
         multiple
@@ -5937,6 +5959,7 @@ export function FileExplorer({
       />
       <input
         accept="image/*"
+        aria-label="Upload workspace banner"
         className="sr-only"
         onChange={handleBannerInputChange}
         ref={bannerInputRef}
@@ -6541,6 +6564,7 @@ export function FileExplorer({
                                   }}
                                 >
                                   <div
+                                    role="presentation"
                                     className="absolute top-2 left-2 z-20 rounded-md bg-background/90 p-1 shadow-sm backdrop-blur-sm"
                                     data-selection-control="true"
                                     onClickCapture={stopItemSelectionEvent}
@@ -6561,7 +6585,7 @@ export function FileExplorer({
                                   <CardContent className="space-y-2 px-0 pt-0">
                                     <div className="group relative flex h-28 w-full min-w-0 items-center justify-center overflow-hidden rounded-lg border border-border/45 bg-muted/70 p-1.5">
                                       <FolderGlyph
-                                        className="transition-transform duration-300 ease-out group-hover:scale-[1.03]"
+                                        className="transition-transform duration-200 ease-[var(--ease-out)] fine-hover:group-hover:scale-[1.03]"
                                         previewKinds={
                                           folderPreviewKinds.get(folder.id) ??
                                           []
@@ -6874,6 +6898,7 @@ export function FileExplorer({
                                   tabIndex={0}
                                 >
                                   <div
+                                    role="presentation"
                                     className="absolute top-2 left-2 z-20 rounded-md bg-background/90 p-1 shadow-sm backdrop-blur-sm"
                                     data-selection-control="true"
                                     onClickCapture={stopItemSelectionEvent}
@@ -7117,6 +7142,13 @@ export function FileExplorer({
                                   >
                                     {entry.kind === "folder" ? (
                                       <div
+                                        role="button"
+                                        tabIndex={0}
+                                        onKeyDown={(e) => {
+                                          if (e.key === "Enter" || e.key === " ") {
+                                            e.currentTarget.click();
+                                          }
+                                        }}
                                         className={cn(
                                           "flex cursor-pointer items-center gap-3 border-border/40 px-3 py-2.5 transition-colors hover:bg-muted/30",
                                           virtualItem.index <
@@ -7300,6 +7332,7 @@ export function FileExplorer({
                                         ) : (
                                           <>
                                             <div
+                                              role="presentation"
                                               className="relative z-10 flex shrink-0"
                                               data-selection-control="true"
                                               onClickCapture={
@@ -7368,6 +7401,13 @@ export function FileExplorer({
                                           getFileProperties(entry.file);
                                         return (
                                           <div
+                                            role="button"
+                                            tabIndex={0}
+                                            onKeyDown={(e) => {
+                                              if (e.key === "Enter" || e.key === " ") {
+                                                e.currentTarget.click();
+                                              }
+                                            }}
                                             className={cn(
                                               "flex cursor-pointer items-center gap-3 border-border/40 px-3 py-2.5 transition-colors hover:bg-muted/30",
                                               virtualItem.index <
@@ -7559,6 +7599,7 @@ export function FileExplorer({
                                             ) : (
                                               <>
                                                 <div
+                                                  role="presentation"
                                                   className="relative z-10 flex shrink-0"
                                                   data-selection-control="true"
                                                   onClickCapture={

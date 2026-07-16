@@ -1,5 +1,10 @@
+import { Cause, Effect, Exit, Result } from "effect-v4";
 import { NextResponse } from "next/server";
-import { getSessionUser } from "@/lib/workspace";
+import { parseJsonRequest } from "@/lib/api-request";
+import {
+  requireWorkspaceAuthorization,
+  WorkspaceServicesLive,
+} from "@/lib/effect-services/workspace";
 import {
   resolveWorkspaceFileContentRouteError,
   WORKSPACE_FILE_CONTENT_ERROR,
@@ -12,19 +17,42 @@ export async function PATCH(
   context: { params: Promise<{ workspaceUuid: string; fileUuid: string }> }
 ) {
   try {
-    const user = await getSessionUser();
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const { workspaceUuid, fileUuid } = await context.params;
+    const authorization = await Effect.runPromiseExit(
+      requireWorkspaceAuthorization(workspaceUuid).pipe(
+        Effect.provide(WorkspaceServicesLive)
+      ),
+      { signal: request.signal }
+    );
+    if (Exit.isFailure(authorization)) {
+      const failure = Cause.findError(authorization.cause);
+      if (Result.isSuccess(failure)) {
+        switch (failure.success._tag) {
+          case "AuthenticationRequired":
+            return NextResponse.json(
+              { error: "Unauthorized" },
+              { status: 401 }
+            );
+          case "WorkspaceAccessDenied":
+            return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+          case "AuthenticationLookupFailed":
+          case "WorkspaceAccessLookupFailed":
+            return NextResponse.json(
+              { error: WORKSPACE_FILE_CONTENT_ERROR },
+              { status: 500 }
+            );
+        }
+      }
+      return NextResponse.json(
+        { error: WORKSPACE_FILE_CONTENT_ERROR },
+        { status: 500 }
+      );
     }
 
-    const { workspaceUuid, fileUuid } = await context.params;
-    let json: unknown;
-    try {
-      json = await request.json();
-    } catch {
-      return NextResponse.json({ error: "Invalid request" }, { status: 400 });
-    }
-    const parsed = workspaceFileContentPatchSchema.safeParse(json);
+    const parsed = await parseJsonRequest(
+      request,
+      workspaceFileContentPatchSchema
+    );
     if (!parsed.success) {
       return NextResponse.json({ error: "Invalid request" }, { status: 400 });
     }
@@ -32,7 +60,7 @@ export async function PATCH(
     return await handleWorkspaceFileContentPatch({
       body: parsed.data,
       fileUuid,
-      userId: user.id,
+      userId: authorization.value.id,
       workspaceUuid,
     });
   } catch (error) {

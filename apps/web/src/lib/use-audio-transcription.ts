@@ -207,13 +207,13 @@ export function useAudioTranscription({
       mediaRecorderRef.current = recorder;
       startMeter(stream);
 
-      recorder.addEventListener("dataavailable", (event) => {
+      recorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
           audioChunksRef.current.push(event.data);
         }
-      });
+      };
 
-      recorder.addEventListener("stop", () => {
+      recorder.onstop = () => {
         if (disposedRef.current) {
           audioChunksRef.current = [];
           cleanupStream();
@@ -264,7 +264,7 @@ export function useAudioTranscription({
             setIsTranscribing(false);
             setMeterLevels([]);
           });
-      });
+      };
 
       recorder.start();
       setIsRecording(true);

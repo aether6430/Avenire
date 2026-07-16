@@ -114,20 +114,18 @@ export function hydrateUploadThingServerFiles(input: {
   urls: ReadonlyArray<{ key?: unknown; url?: unknown }>;
 }) {
   const urlByKey = new Map(
-    input.urls
-      .filter(
-        (entry) =>
-          typeof entry?.key === "string" && typeof entry?.url === "string"
-      )
-      .map((entry) => [entry.key as string, entry.url as string])
+    input.urls.flatMap((entry) =>
+      typeof entry?.key === "string" && typeof entry?.url === "string"
+        ? [[entry.key, entry.url] as const]
+        : []
+    )
   );
 
   return input.files
-    .map((file) => ({
-      ...file,
-      url: urlByKey.get(file.key) ?? "",
-    }))
-    .filter((file) => file.url.length > 0)
+    .flatMap((file) => {
+      const url = urlByKey.get(file.key) ?? "";
+      return url.length > 0 ? [{ ...file, url }] : [];
+    })
     .sort((a, b) => b.uploadedAt - a.uploadedAt);
 }
 

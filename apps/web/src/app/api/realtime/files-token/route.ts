@@ -1,4 +1,6 @@
+import { Schema } from "effect-v4";
 import { NextResponse } from "next/server";
+import { parseJsonRequest } from "@/lib/api-request";
 import { createFilesRealtimeToken } from "@/lib/files-realtime-token";
 import { ensureWorkspaceAccessForUser, getSessionUser } from "@/lib/workspace";
 
@@ -12,9 +14,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const body = (await request.json().catch(() => ({}))) as {
-    workspaceUuid?: string;
-  };
+  const parsed = await parseJsonRequest(
+    request,
+    Schema.Struct({ workspaceUuid: Schema.optional(Schema.String) })
+  );
+  if (!parsed.success) {
+    return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
+  }
+  const body = parsed.data;
 
   const workspaceUuid = body.workspaceUuid?.trim();
 

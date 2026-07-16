@@ -3,6 +3,11 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   typedRoutes: true,
+  // Production builds run `bun run check-types` before `next build`.
+  // Avoid repeating the same work in Next's memory-constrained build worker.
+  typescript: {
+    ignoreBuildErrors: true,
+  },
   // Allow .mdx extensions for files
   pageExtensions: ["js", "jsx", "md", "mdx", "ts", "tsx"],
   images: {

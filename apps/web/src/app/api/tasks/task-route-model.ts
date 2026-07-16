@@ -1,31 +1,36 @@
-import { z } from "zod";
+import { Schema } from "effect-v4";
 
-export const taskDueAtSchema = z
-  .string()
-  .trim()
-  .min(1)
-  .refine((value) => Number.isFinite(new Date(value).getTime()), {
-    message: "dueAt must be a valid date",
-  });
+export const taskDueAtSchema = Schema.Trim.check(
+  Schema.isMinLength(1),
+  Schema.isPattern(
+    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/
+  )
+);
 
-export const taskResourceSchema = z.object({
-  href: z.string().min(1),
-  resourceId: z.string().min(1),
-  resourceType: z.enum(["file", "folder", "chat"]),
-  subtitle: z.string().nullable(),
-  title: z.string().min(1),
+export const taskResourceSchema = Schema.Struct({
+  href: Schema.String.check(Schema.isMinLength(1)),
+  resourceId: Schema.String.check(Schema.isMinLength(1)),
+  resourceType: Schema.Literals(["file", "folder", "chat"]),
+  subtitle: Schema.NullOr(Schema.String),
+  title: Schema.String.check(Schema.isMinLength(1)),
 });
 
-export const taskMutationSchema = z.object({
-  assigneeUserId: z.string().min(1).nullable().optional(),
-  description: z.string().nullable().optional(),
-  dueAt: taskDueAtSchema.nullable().optional(),
-  priority: z.enum(["low", "normal", "high"]).optional(),
-  resources: z.array(taskResourceSchema).optional(),
-  status: z.enum(["planned", "drafting", "polishing", "completed"]).optional(),
-  title: z.string().optional(),
-});
+const taskMutationFields = {
+  assigneeUserId: Schema.optional(
+    Schema.NullOr(Schema.String.check(Schema.isMinLength(1)))
+  ),
+  description: Schema.optional(Schema.NullOr(Schema.String)),
+  dueAt: Schema.optional(Schema.NullOr(taskDueAtSchema)),
+  priority: Schema.optional(Schema.Literals(["low", "normal", "high"])),
+  resources: Schema.optional(Schema.Array(taskResourceSchema)),
+  status: Schema.optional(
+    Schema.Literals(["planned", "drafting", "polishing", "completed"])
+  ),
+  title: Schema.optional(Schema.String),
+};
 
-export const taskCreateSchema = taskMutationSchema.extend({
-  title: z.string().trim().min(1),
+export const taskMutationSchema = Schema.Struct(taskMutationFields);
+export const taskCreateSchema = Schema.Struct({
+  ...taskMutationFields,
+  title: Schema.Trim.check(Schema.isMinLength(1)),
 });

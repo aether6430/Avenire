@@ -144,8 +144,8 @@ interface ExploreItem {
 }
 
 type ActionGroup =
-  | { items: ExploreItem[]; type: "explore" }
-  | { action: MutationAction; type: "mutation" };
+  | { items: ExploreItem[]; type: "explore"; groupUid: number }
+  | { action: MutationAction; type: "mutation"; groupUid: number };
 
 const ROLLING_TOOL_TYPES = new Set([
   "tool-avenire_agent",
@@ -670,6 +670,7 @@ function labelFor(action: ExploreAction): string {
 
 function groupActions(actions: ActivityAction[]): ActionGroup[] {
   const groups: ActionGroup[] = [];
+  let groupUid = 0;
 
   for (const action of actions) {
     if (isExploreAction(action)) {
@@ -682,12 +683,12 @@ function groupActions(actions: ActivityAction[]): ActionGroup[] {
       if (lastGroup?.type === "explore") {
         lastGroup.items.push(item);
       } else {
-        groups.push({ items: [item], type: "explore" });
+        groups.push({ items: [item], type: "explore", groupUid: ++groupUid });
       }
       continue;
     }
 
-    groups.push({ action, type: "mutation" });
+    groups.push({ action, type: "mutation", groupUid: ++groupUid });
   }
 
   return groups;
@@ -1106,7 +1107,7 @@ function ReasoningBlock({
           className="flex h-7 items-center gap-2"
           role="status"
         >
-          <span className="font-semibold text-foreground/32 text-sm">
+          <span className="agent-activity-shimmer font-semibold text-sm">
             Thinking
           </span>
           {summary ? (
@@ -1263,21 +1264,24 @@ export function RollingPreviewPanel({
   open: boolean;
 }) {
   return (
-    <m.div
-      animate={{ height: open ? "auto" : 0, opacity: open ? 1 : 0 }}
-      initial={false}
-      style={{ overflow: "hidden" }}
-      transition={{ duration: 0.36, ease: [0.4, 0, 0.2, 1] }}
+    <div
+      aria-hidden={!open}
+      className={cn(
+        "grid overflow-hidden transition-[grid-template-rows,opacity] duration-200 ease-[var(--ease-out)]",
+        open ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+      )}
     >
-      <div
-        className={cn(
-          "mt-[3px] overflow-hidden rounded border border-foreground/[0.07] bg-foreground/[0.025]",
-          className
-        )}
-      >
-        {children}
+      <div className="min-h-0 overflow-hidden">
+        <div
+          className={cn(
+            "mt-[3px] overflow-hidden rounded border border-foreground/[0.07] bg-foreground/[0.025]",
+            className
+          )}
+        >
+          {children}
+        </div>
       </div>
-    </m.div>
+    </div>
   );
 }
 
@@ -1328,7 +1332,7 @@ function RollingWindow({ items }: { items: ExploreItem[] }) {
       </div>
       <ul className="sr-only">
         {items.map((item, index) => (
-          <li key={`${item.label}-${item.value}-${index}`}>
+          <li key={`${item.label}-${item.value}`}>
             {item.label}: {item.value}
           </li>
         ))}
@@ -1351,23 +1355,26 @@ function ReadPreviewPanel({
     .slice(0, 2);
 
   return (
-    <m.div
-      animate={{ height: open ? "auto" : 0, opacity: open ? 1 : 0 }}
-      initial={false}
-      style={{ overflow: "hidden" }}
-      transition={{ duration: 0.24, ease: [0.4, 0, 0.2, 1] }}
+    <div
+      aria-hidden={!open}
+      className={cn(
+        "grid overflow-hidden transition-[grid-template-rows,opacity] duration-200 ease-[var(--ease-out)]",
+        open ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+      )}
     >
-      <div className="mt-0.5 mb-1.5 ml-[48px] overflow-hidden rounded border border-foreground/[0.07] bg-foreground/[0.025]">
-        <div className="border-foreground/[0.06] border-b px-2.5 pt-1.5 pb-1">
-          <span className="block truncate font-mono text-[10px] text-foreground/28">
-            {preview.path}
-          </span>
+      <div className="min-h-0 overflow-hidden">
+        <div className="mt-0.5 mb-1.5 ml-[48px] overflow-hidden rounded border border-foreground/[0.07] bg-foreground/[0.025]">
+          <div className="border-foreground/[0.06] border-b px-2.5 pt-1.5 pb-1">
+            <span className="block truncate font-mono text-[10px] text-foreground/28">
+              {preview.path}
+            </span>
+          </div>
+          <pre className="overflow-hidden whitespace-pre-wrap break-words px-2.5 py-1.5 font-mono text-[10.5px] text-foreground/32 leading-[1.55]">
+            {lines.join("\n")}
+          </pre>
         </div>
-        <pre className="overflow-hidden whitespace-pre-wrap break-words px-2.5 py-1.5 font-mono text-[10.5px] text-foreground/32 leading-[1.55]">
-          {lines.join("\n")}
-        </pre>
       </div>
-    </m.div>
+    </div>
   );
 }
 
@@ -1379,33 +1386,36 @@ function SearchPreviewPanel({
   preview: SearchPreview;
 }) {
   return (
-    <m.div
-      animate={{ height: open ? "auto" : 0, opacity: open ? 1 : 0 }}
-      initial={false}
-      style={{ overflow: "hidden" }}
-      transition={{ duration: 0.24, ease: [0.4, 0, 0.2, 1] }}
+    <div
+      aria-hidden={!open}
+      className={cn(
+        "grid overflow-hidden transition-[grid-template-rows,opacity] duration-200 ease-[var(--ease-out)]",
+        open ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+      )}
     >
-      <div className="mt-0.5 mb-1.5 ml-[48px] overflow-hidden rounded border border-foreground/[0.07] bg-foreground/[0.025]">
-        <div className="border-foreground/[0.06] border-b px-2.5 pt-1.5 pb-1">
-          <span className="font-mono text-[10px] text-foreground/28">
-            {preview.matches.length} match
-            {preview.matches.length === 1 ? "" : "es"}
-            {" · "}
-            <span className="text-foreground/40">{preview.query}</span>
-          </span>
+      <div className="min-h-0 overflow-hidden">
+        <div className="mt-0.5 mb-1.5 ml-[48px] overflow-hidden rounded border border-foreground/[0.07] bg-foreground/[0.025]">
+          <div className="border-foreground/[0.06] border-b px-2.5 pt-1.5 pb-1">
+            <span className="font-mono text-[10px] text-foreground/28">
+              {preview.matches.length} match
+              {preview.matches.length === 1 ? "" : "es"}
+              {" · "}
+              <span className="text-foreground/40">{preview.query}</span>
+            </span>
+          </div>
+          <ul className="space-y-[3px] px-2.5 py-1.5">
+            {preview.matches.map((match, index) => (
+              <li
+                className="truncate font-mono text-[10.5px] text-foreground/30"
+                key={`${match}-${index}`}
+              >
+                {match}
+              </li>
+            ))}
+          </ul>
         </div>
-        <ul className="space-y-[3px] px-2.5 py-1.5">
-          {preview.matches.map((match, index) => (
-            <li
-              className="truncate font-mono text-[10.5px] text-foreground/30"
-              key={`${match}-${index}`}
-            >
-              {match}
-            </li>
-          ))}
-        </ul>
       </div>
-    </m.div>
+    </div>
   );
 }
 
@@ -1520,7 +1530,7 @@ function AccordionPanel({
             <AccordionFileRow
               index={index}
               item={item}
-              key={`${item.label}-${item.value}-${index}`}
+              key={`${item.label}-${item.value}`}
               parentOpen={open}
             />
           ))}
@@ -1584,7 +1594,7 @@ function ExploreBlock({
           className="flex h-7 items-center gap-2"
           role="status"
         >
-          <span className="font-semibold text-foreground/32 text-sm">
+          <span className="agent-activity-shimmer font-semibold text-sm">
             Exploring
           </span>
           {summary ? (
@@ -1818,12 +1828,12 @@ function NoteMutationBlock({
   }, [fileId, workspaceUuid]);
 
   return (
-    <div
+    <li
       className={cn(
         "mb-1 overflow-hidden rounded-md border border-border/80 bg-card shadow-sm",
         MUTATION_ROW_ENTER_CLASS
       )}
-      role="listitem"
+
     >
       <NoteMutationHeader
         action={action}
@@ -1838,7 +1848,7 @@ function NoteMutationBlock({
         </span>
       ) : null}
       <NoteMutationPreview preview={action.preview} />
-    </div>
+    </li>
   );
 }
 
@@ -1851,12 +1861,12 @@ function MutationBlock({
 }) {
   if (action.kind === "error") {
     return (
-      <div
+      <li
         className={cn(
           "mb-1 flex items-baseline gap-2 text-sm",
           MUTATION_ROW_ENTER_CLASS
         )}
-        role="listitem"
+
       >
         <span className="font-semibold text-destructive">Error</span>
         <span className="font-mono text-[12px] text-destructive/80">
@@ -1868,18 +1878,18 @@ function MutationBlock({
             <ThinkingDots />
           </span>
         ) : null}
-      </div>
+      </li>
     );
   }
 
   if (action.kind === "flashcards") {
     return (
-      <div
+      <li
         className={cn(
           "mb-1 flex items-baseline gap-2 text-sm",
           MUTATION_ROW_ENTER_CLASS
         )}
-        role="listitem"
+
       >
         <span className="font-semibold text-foreground/72">Mindset</span>
         <span className="font-mono text-[12px] text-foreground/62">
@@ -1891,7 +1901,7 @@ function MutationBlock({
             <ThinkingDots />
           </span>
         ) : null}
-      </div>
+      </li>
     );
   }
 
@@ -1903,12 +1913,12 @@ function MutationBlock({
 
   if (action.kind === "quiz") {
     return (
-      <div
+      <li
         className={cn(
           "mb-1 flex items-baseline gap-2 text-sm",
           MUTATION_ROW_ENTER_CLASS
         )}
-        role="listitem"
+
       >
         <span className="font-semibold text-foreground/72">Quiz</span>
         <span className="font-mono text-[12px] text-foreground/62">
@@ -1920,7 +1930,7 @@ function MutationBlock({
             <ThinkingDots />
           </span>
         ) : null}
-      </div>
+      </li>
     );
   }
 
@@ -1931,12 +1941,12 @@ function MutationBlock({
         : null;
 
     return (
-      <div
+      <li
         className={cn(
           "mb-1 flex items-baseline gap-2 text-sm",
           MUTATION_ROW_ENTER_CLASS
         )}
-        role="listitem"
+
       >
         <span className="font-semibold text-foreground/72">Misconception</span>
         <span className="min-w-0 truncate font-mono text-[12px] text-foreground/62">
@@ -1953,7 +1963,7 @@ function MutationBlock({
             <ThinkingDots />
           </span>
         ) : null}
-      </div>
+      </li>
     );
   }
 
@@ -1972,12 +1982,12 @@ function MutationBlock({
           : "Edit";
 
   return (
-    <div
+    <li
       className={cn(
         "mb-1 flex items-baseline gap-2 text-sm",
         MUTATION_ROW_ENTER_CLASS
       )}
-      role="listitem"
+
     >
       <span className="font-semibold text-foreground/72">{label}</span>
       <span className="font-mono text-[12px] text-foreground/62">
@@ -1998,7 +2008,7 @@ function MutationBlock({
           <ThinkingDots />
         </span>
       ) : null}
-    </div>
+    </li>
   );
 }
 
@@ -2023,9 +2033,9 @@ export function InlineToolMutationActivity({
   }
 
   return (
-    <div aria-label="Tool activity" className="mb-2 font-mono" role="list">
+    <ul aria-label="Tool activity" className="mb-2 font-mono">
       <MutationBlock action={action} workspaceUuid={workspaceUuid} />
-    </div>
+    </ul>
   );
 }
 
@@ -2057,14 +2067,14 @@ export function RollingAgentActivity({
   };
 
   return (
-    <div aria-label="Agent activity" className="mb-0.5 font-mono" role="list">
+    <ul aria-label="Agent activity" className="mb-0.5 font-mono">
       {groups.map((group, index) => {
         if (group.type === "explore") {
           return (
             <ExploreBlock
               done={isGroupDone(index)}
               items={group.items}
-              key={`agent-explore-${index}`}
+              key={`agent-${group.groupUid}`}
             />
           );
         }
@@ -2072,11 +2082,11 @@ export function RollingAgentActivity({
         return (
           <MutationBlock
             action={group.action}
-            key={`agent-mutation-${index}`}
+            key={`agent-${group.groupUid}`}
           />
         );
       })}
-    </div>
+    </ul>
   );
 }
 
@@ -2114,7 +2124,7 @@ export function RollingToolActivity({
   };
 
   return (
-    <div aria-label="Agent activity" className="mb-0.5 font-mono" role="list">
+    <ul aria-label="Agent activity" className="mb-0.5 font-mono">
       {groups.map((group, index) => {
         if (group.type === "explore") {
           return (
@@ -2134,6 +2144,6 @@ export function RollingToolActivity({
           />
         );
       })}
-    </div>
+    </ul>
   );
 }

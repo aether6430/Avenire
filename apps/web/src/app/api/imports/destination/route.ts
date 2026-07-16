@@ -1,15 +1,11 @@
 import { NextResponse } from "next/server";
-import { z } from "zod";
+import { parseJsonRequest } from "@/lib/api-request";
 import {
   getDataImportOverview,
   saveDataImportDestination,
 } from "@/lib/imports";
 import { getSessionUser } from "@/lib/workspace";
-
-const destinationSchema = z.object({
-  folderId: z.string().uuid(),
-  workspaceId: z.string().uuid(),
-});
+import { importDestinationRequestSchema } from "../import-route-contracts";
 
 export async function GET() {
   const user = await getSessionUser();
@@ -27,9 +23,7 @@ export async function PUT(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const parsed = destinationSchema.safeParse(
-    await request.json().catch(() => ({}))
-  );
+  const parsed = await parseJsonRequest(request, importDestinationRequestSchema);
   if (!parsed.success) {
     return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
   }

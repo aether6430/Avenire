@@ -8,6 +8,7 @@ const {
   deleteStorageFilesMock,
   getFileAssetByContentHashMock,
   getFileAssetByStorageKeyMock,
+  getFileAssetByUploadSessionIdMock,
   hasSuccessfulIngestionForFileMock,
   publishFilesInvalidationEventMock,
   publishWorkspaceStreamEventMock,
@@ -19,6 +20,7 @@ const {
   createWorkspaceNoteFileMock: vi.fn(),
   getFileAssetByContentHashMock: vi.fn(),
   getFileAssetByStorageKeyMock: vi.fn(),
+  getFileAssetByUploadSessionIdMock: vi.fn(),
   hasSuccessfulIngestionForFileMock: vi.fn(),
   publishFilesInvalidationEventMock: vi.fn(),
   publishWorkspaceStreamEventMock: vi.fn(),
@@ -45,6 +47,7 @@ vi.mock("@/lib/file-data", () => ({
   createWorkspaceNoteFile: createWorkspaceNoteFileMock,
   getFileAssetByContentHash: getFileAssetByContentHashMock,
   getFileAssetByStorageKey: getFileAssetByStorageKeyMock,
+  getFileAssetByUploadSessionId: getFileAssetByUploadSessionIdMock,
   registerFileAsset: registerFileAssetMock,
   softDeleteFileAsset: softDeleteFileAssetMock,
 }));
@@ -103,6 +106,7 @@ describe("upload registration runtime", () => {
     createWorkspaceNoteFileMock.mockReset();
     getFileAssetByContentHashMock.mockReset();
     getFileAssetByStorageKeyMock.mockReset();
+    getFileAssetByUploadSessionIdMock.mockReset();
     hasSuccessfulIngestionForFileMock.mockReset();
     publishFilesInvalidationEventMock.mockReset();
     publishWorkspaceStreamEventMock.mockReset();
@@ -262,6 +266,37 @@ describe("upload registration runtime", () => {
 
     expect(registerFileAssetMock).not.toHaveBeenCalled();
     expect(deleteStorageFilesMock).toHaveBeenCalledWith(["binary-key"]);
+  });
+
+  it("replays registration durably after a crash between DB insert and session result save", async () => {
+    process.env.UPLOADTHING_TOKEN = "token";
+    const existing = {
+      id: "file-from-first-attempt",
+      folderId: "folder-1",
+      mimeType: "application/pdf",
+      storageKey: "first-provider-key",
+    };
+    getFileAssetByUploadSessionIdMock.mockResolvedValue(existing);
+    hasSuccessfulIngestionForFileMock.mockResolvedValue(true);
+
+    const result = await registerWorkspaceUploadedFile({
+      folderId: "folder-1",
+      mimeType: "application/pdf",
+      name: "guide.pdf",
+      sizeBytes: 42,
+      storageKey: "retry-provider-key",
+      storageUrl: "https://utfs.io/f/retry-provider-key",
+      uploadSessionId: "session-1",
+      userId: "user-1",
+      workspaceUuid: "workspace-1",
+    });
+
+    expect(result).toMatchObject({
+      status: "deduplicated",
+      file: { id: "file-from-first-attempt" },
+    });
+    expect(registerFileAssetMock).not.toHaveBeenCalled();
+    expect(deleteStorageFilesMock).toHaveBeenCalledWith(["retry-provider-key"]);
   });
 
   it("keeps upload registration split between typed barrel exports, pure normalization helpers, and side-effect runtime work", () => {

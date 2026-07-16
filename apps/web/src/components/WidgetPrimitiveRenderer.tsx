@@ -28,6 +28,7 @@ import {
   TableRow,
 } from "@avenire/ui/components/table";
 import createDOMPurify from "dompurify";
+import type { CSSProperties } from "react";
 import { cn } from "@/lib/utils";
 
 const {
@@ -54,21 +55,31 @@ const gapClass = {
   xl: "gap-6",
 };
 
+type WidgetGridStyle = CSSProperties & {
+  "--widget-columns": string;
+};
+
+function getWidgetGridStyle(columns: number): WidgetGridStyle {
+  return {
+    "--widget-columns": `repeat(${columns}, minmax(0, 1fr))`,
+  };
+}
+
 const toneTextClass = {
   default: "text-foreground",
   muted: "text-muted-foreground",
-  info: "text-blue-600 dark:text-blue-400",
-  success: "text-emerald-600 dark:text-emerald-400",
-  warning: "text-amber-600 dark:text-amber-400",
+  info: "text-info",
+  success: "text-success",
+  warning: "text-warning",
   danger: "text-destructive",
 };
 
 const toneSurfaceClass = {
   default: "border-border/45 bg-card",
   muted: "border-border/35 bg-muted/25",
-  info: "border-blue-500/20 bg-blue-500/5",
-  success: "border-emerald-500/20 bg-emerald-500/5",
-  warning: "border-amber-500/25 bg-amber-500/5",
+  info: "border-info/20 bg-info/5",
+  success: "border-success/20 bg-success/5",
+  warning: "border-warning/25 bg-warning/5",
   danger: "border-destructive/20 bg-destructive/5",
 };
 
@@ -356,11 +367,12 @@ function renderNode(node: WidgetSpecNode, key: string) {
     case "grid":
       return (
         <div
-          className={cn("grid", gapClass[node.gap ?? "md"])}
+          className={cn(
+            "grid grid-cols-1 md:[grid-template-columns:var(--widget-columns)]",
+            gapClass[node.gap ?? "md"]
+          )}
           key={key}
-          style={{
-            gridTemplateColumns: `repeat(${node.columns ?? 2}, minmax(0, 1fr))`,
-          }}
+          style={getWidgetGridStyle(node.columns ?? 2)}
         >
           {renderChildren(node.children, key)}
         </div>
@@ -488,7 +500,7 @@ function renderNode(node: WidgetSpecNode, key: string) {
       return (
         <div
           className={cn(
-            "rounded-2xl border p-3",
+            "rounded-lg border p-3",
             toneSurfaceClass[node.tone ?? "muted"]
           )}
           key={key}
@@ -611,7 +623,7 @@ function PrimitiveChart({
   const config = node.series.reduce<ChartConfig>((acc, series, index) => {
     acc[series.dataKey] = {
       label: series.label ?? series.dataKey,
-      color: series.color ?? chartColors[index % chartColors.length],
+      color: chartColors[index % chartColors.length],
     };
     return acc;
   }, {});
@@ -645,65 +657,61 @@ function PrimitiveChart({
   );
 
   return (
-    <Card>
+    <section className="space-y-3">
       {node.title ? (
-        <CardHeader>
-          <CardTitle>{node.title}</CardTitle>
-        </CardHeader>
+        <h3 className="font-medium text-sm">{node.title}</h3>
       ) : null}
-      <CardContent>
-        <ChartContainer className="h-[260px] w-full" config={config}>
-          {chartType === "bar" ? (
-            <BarChart accessibilityLayer data={data}>
-              {common}
-              {node.series.map((series, index) => (
-                <Bar
-                  dataKey={series.dataKey}
-                  fill={`var(--color-${series.dataKey})`}
-                  key={series.dataKey}
-                  radius={index === 0 ? [4, 4, 0, 0] : 4}
-                />
-              ))}
-            </BarChart>
-          ) : chartType === "area" ? (
-            <AreaChart accessibilityLayer data={data}>
-              {common}
-              {node.series.map((series) => (
-                <Area
-                  dataKey={series.dataKey}
-                  fill={`var(--color-${series.dataKey})`}
-                  fillOpacity={0.18}
-                  key={series.dataKey}
-                  stroke={`var(--color-${series.dataKey})`}
-                  strokeWidth={2}
-                  type="monotone"
-                />
-              ))}
-            </AreaChart>
-          ) : (
-            <LineChart accessibilityLayer data={data}>
-              {common}
-              {node.series.map((series) => (
-                <Line
-                  dataKey={series.dataKey}
-                  dot={false}
-                  key={series.dataKey}
-                  stroke={`var(--color-${series.dataKey})`}
-                  strokeWidth={2}
-                  type="monotone"
-                />
-              ))}
-            </LineChart>
-          )}
-        </ChartContainer>
-      </CardContent>
-    </Card>
+      <ChartContainer className="h-[260px] w-full" config={config}>
+        {chartType === "bar" ? (
+          <BarChart accessibilityLayer data={data}>
+            {common}
+            {node.series.map((series, index) => (
+              <Bar
+                dataKey={series.dataKey}
+                fill={`var(--color-${series.dataKey})`}
+                key={series.dataKey}
+                radius={index === 0 ? [4, 4, 0, 0] : 4}
+              />
+            ))}
+          </BarChart>
+        ) : chartType === "area" ? (
+          <AreaChart accessibilityLayer data={data}>
+            {common}
+            {node.series.map((series) => (
+              <Area
+                dataKey={series.dataKey}
+                fill={`var(--color-${series.dataKey})`}
+                fillOpacity={0.18}
+                key={series.dataKey}
+                stroke={`var(--color-${series.dataKey})`}
+                strokeWidth={2}
+                type="monotone"
+              />
+            ))}
+          </AreaChart>
+        ) : (
+          <LineChart accessibilityLayer data={data}>
+            {common}
+            {node.series.map((series) => (
+              <Line
+                dataKey={series.dataKey}
+                dot={false}
+                key={series.dataKey}
+                stroke={`var(--color-${series.dataKey})`}
+                strokeWidth={2}
+                type="monotone"
+              />
+            ))}
+          </LineChart>
+        )}
+      </ChartContainer>
+    </section>
   );
 }
 
 export function WidgetPrimitiveRenderer({ spec }: PrimitiveRendererProps) {
   return (
-    <div className="w-full rounded-lg bg-card p-3 text-card-foreground">
+    <div className="w-full space-y-4 p-3 text-card-foreground">
       {(spec.title || spec.description) && (
         <div className="mb-4 space-y-1">
           <h1 className="font-medium text-lg tracking-tight">{spec.title}</h1>

@@ -1,5 +1,6 @@
+import { Schema } from "effect-v4";
 import { NextResponse } from "next/server";
-import { z } from "zod";
+import { parseJsonRequest } from "@/lib/api-request";
 import { invalidateWorkspaceReadCaches } from "@/lib/domain-cache";
 import {
   getFileAssetById,
@@ -19,20 +20,20 @@ import {
   WORKSPACE_BULK_OPERATION_ERROR,
 } from "./workspace-items-bulk-route-model";
 
-const itemSchema = z.object({
-  id: z.string().uuid(),
-  kind: z.enum(["file", "folder"]),
+const itemSchema = Schema.Struct({
+  id: Schema.String.check(Schema.isUUID()),
+  kind: Schema.Literals(["file", "folder"]),
 });
 
-const requestSchema = z.discriminatedUnion("operation", [
-  z.object({
-    operation: z.literal("delete"),
-    items: z.array(itemSchema).min(1).max(500),
+const requestSchema = Schema.Union([
+  Schema.Struct({
+    operation: Schema.Literal("delete"),
+    items: Schema.Array(itemSchema).check(Schema.isLengthBetween(1, 500)),
   }),
-  z.object({
-    operation: z.literal("move"),
-    targetFolderId: z.string().uuid(),
-    items: z.array(itemSchema).min(1).max(500),
+  Schema.Struct({
+    operation: Schema.Literal("move"),
+    targetFolderId: Schema.String.check(Schema.isUUID()),
+    items: Schema.Array(itemSchema).check(Schema.isLengthBetween(1, 500)),
   }),
 ]);
 
@@ -68,9 +69,7 @@ export async function POST(
 
     const { workspaceUuid } = await context.params;
 
-    const parsed = requestSchema.safeParse(
-      await request.json().catch(() => ({}))
-    );
+    const parsed = await parseJsonRequest(request, requestSchema);
     if (!parsed.success) {
       return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
     }
@@ -300,24 +299,26 @@ export async function POST(
 
     const succeeded = results.filter((entry) => entry.status === "ok").length;
     if (succeeded > 0) {
-      const specificInvalidations = results
-        .filter((entry) => entry.status === "ok")
-        .map((entry) =>
-          publishFilesInvalidationEvent({
-            workspaceUuid,
-            reason:
-              payload.operation === "delete"
-                ? entry.kind === "file"
-                  ? "file.deleted"
-                  : "folder.deleted"
-                : entry.kind === "file"
-                  ? "file.updated"
-                  : "folder.updated",
-            ...(entry.kind === "file"
-              ? { fileId: entry.id }
-              : { folderId: entry.id }),
-          })
-        );
+      const specificInvalidations = results.flatMap((entry) =>
+        entry.status === "ok"
+          ? [
+              publishFilesInvalidationEvent({
+                workspaceUuid,
+                reason:
+                  payload.operation === "delete"
+                    ? entry.kind === "file"
+                      ? "file.deleted"
+                      : "folder.deleted"
+                    : entry.kind === "file"
+                      ? "file.updated"
+                      : "folder.updated",
+                ...(entry.kind === "file"
+                  ? { fileId: entry.id }
+                  : { folderId: entry.id }),
+              }),
+            ]
+          : []
+      );
 
       await Promise.all([
         invalidateWorkspaceReadCaches(workspaceUuid),

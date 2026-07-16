@@ -4,6 +4,10 @@ import {
   normalizeFrontmatterProperties,
   type PageMetadataState,
 } from "@/lib/frontmatter";
+import {
+  inferFileMimeTypeFromName,
+  resolveFileMimeType,
+} from "@avenire/ingestion/file-contract";
 
 const SHA256_HEX_REGEX = /^[a-f0-9]{64}$/;
 
@@ -19,122 +23,21 @@ export function normalizeSha256(value: string | null | undefined) {
 }
 
 export function inferMimeTypeFromName(name: string): string | null {
-  const normalizedName = name.trim().toLowerCase();
-  if (!normalizedName) {
-    return null;
-  }
-
-  if (normalizedName.endsWith(".pdf")) {
-    return "application/pdf";
-  }
-  if (normalizedName.endsWith(".md")) {
-    return "text/markdown";
-  }
-  if (normalizedName.endsWith(".txt")) {
-    return "text/plain";
-  }
-  if (normalizedName.endsWith(".url")) {
-    return "application/url";
-  }
-  if (normalizedName.endsWith(".docx")) {
-    return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
-  }
-  if (normalizedName.endsWith(".doc")) {
-    return "application/msword";
-  }
-  if (normalizedName.endsWith(".pptx")) {
-    return "application/vnd.openxmlformats-officedocument.presentationml.presentation";
-  }
-  if (normalizedName.endsWith(".ppt")) {
-    return "application/vnd.ms-powerpoint";
-  }
-  if (normalizedName.endsWith(".xlsx")) {
-    return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
-  }
-  if (normalizedName.endsWith(".xls")) {
-    return "application/vnd.ms-excel";
-  }
-  if (normalizedName.endsWith(".csv")) {
-    return "text/csv";
-  }
-  if (normalizedName.endsWith(".odt")) {
-    return "application/vnd.oasis.opendocument.text";
-  }
-  if (normalizedName.endsWith(".ott")) {
-    return "application/vnd.oasis.opendocument.text-template";
-  }
-  if (normalizedName.endsWith(".odm")) {
-    return "application/vnd.oasis.opendocument.text-master";
-  }
-  if (normalizedName.endsWith(".odp")) {
-    return "application/vnd.oasis.opendocument.presentation";
-  }
-  if (normalizedName.endsWith(".otp")) {
-    return "application/vnd.oasis.opendocument.presentation-template";
-  }
-  if (normalizedName.endsWith(".ods")) {
-    return "application/vnd.oasis.opendocument.spreadsheet";
-  }
-  if (normalizedName.endsWith(".ots")) {
-    return "application/vnd.oasis.opendocument.spreadsheet-template";
-  }
-  if (normalizedName.endsWith(".odg")) {
-    return "application/vnd.oasis.opendocument.graphics";
-  }
-  if (normalizedName.endsWith(".otg")) {
-    return "application/vnd.oasis.opendocument.graphics-template";
-  }
-  if (normalizedName.endsWith(".odf")) {
-    return "application/vnd.oasis.opendocument.formula";
-  }
-  if (normalizedName.endsWith(".odb")) {
-    return "application/vnd.oasis.opendocument.database";
-  }
-  if (normalizedName.endsWith(".rtf")) {
-    return "application/rtf";
-  }
-
-  if (
-    [".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".avif", ".heic"].some(
-      (extension) => normalizedName.endsWith(extension)
-    )
-  ) {
-    return "image/*";
-  }
-
-  if (
-    [".mp4", ".mov", ".m4v", ".webm", ".avi", ".mkv"].some((extension) =>
-      normalizedName.endsWith(extension)
-    )
-  ) {
-    return "video/*";
-  }
-
-  if (
-    [".mp3", ".wav", ".m4a", ".aac", ".ogg", ".flac"].some((extension) =>
-      normalizedName.endsWith(extension)
-    )
-  ) {
-    return "audio/*";
-  }
-
-  return null;
+  return inferFileMimeTypeFromName(name);
 }
 
 export function resolveMimeType(input: {
   mimeType?: string | null;
   name: string;
 }) {
-  const normalizedMime = input.mimeType?.trim().toLowerCase() ?? "";
-  if (
-    normalizedMime &&
-    normalizedMime !== "application/octet-stream" &&
-    normalizedMime !== "unknown"
-  ) {
-    return normalizedMime;
+  const rawMime = input.mimeType?.trim().toLowerCase() ?? "";
+  if (rawMime === "application/octet-stream" || rawMime === "unknown") {
+    return inferFileMimeTypeFromName(input.name);
   }
-
-  return inferMimeTypeFromName(input.name) ?? input.mimeType ?? null;
+  return resolveFileMimeType({
+    declaredMimeType: input.mimeType,
+    name: input.name,
+  });
 }
 
 export function isMarkdownUpload(input: {

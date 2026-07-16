@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
+import { Exit, Schema } from "effect-v4";
 import {
   buildUploadSessionPartUploadUrl,
   isUploadSessionExpired,
@@ -19,16 +20,8 @@ describe("upload session parts model", () => {
   });
 
   it("validates multipart part-number requests", () => {
-    expect(
-      uploadSessionPartsSchema.safeParse({
-        partNumbers: [1, 2, 3],
-      }).success
-    ).toBe(true);
-    expect(
-      uploadSessionPartsSchema.safeParse({
-        partNumbers: [],
-      }).success
-    ).toBe(false);
+    expect(Exit.isSuccess(Schema.decodeUnknownExit(uploadSessionPartsSchema)({ partNumbers: [1, 2, 3] }))).toBe(true);
+    expect(Exit.isSuccess(Schema.decodeUnknownExit(uploadSessionPartsSchema)({ partNumbers: [] }))).toBe(false);
   });
 
   it("resolves max part bytes from env with a stable fallback", () => {

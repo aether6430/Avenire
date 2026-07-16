@@ -21,6 +21,7 @@ import {
   ingestionJobEvent,
   ingestionResource,
   noteContent,
+  workspace,
 } from "./schema";
 
 export type IngestionJobStatus = "queued" | "running" | "succeeded" | "failed";
@@ -433,6 +434,14 @@ export async function markIngestionJobSucceeded(input: {
       },
       createdAt: now,
     });
+
+    await tx
+      .update(workspace)
+      .set({
+        ingestionRevision: sql`${workspace.ingestionRevision} + 1`,
+        updatedAt: now,
+      })
+      .where(eq(workspace.id, input.workspaceId));
   });
 }
 
@@ -542,13 +551,13 @@ export async function listIngestionEventsForWorkspace(input: {
 export async function getWorkspaceCorpusFingerprintMarker(workspaceId: string) {
   const [row] = await db
     .select({
-      corpusFingerprint: sql<string>`md5(coalesce(string_agg(concat('id=', ${ingestionResource.id}, '|file=', coalesce(${ingestionResource.fileId}::text, ''), '|sourceType=', ${ingestionResource.sourceType}, '|source=', ${ingestionResource.source}, '|provider=', coalesce(${ingestionResource.provider}, ''), '|title=', coalesce(${ingestionResource.title}, ''), '|updatedAt=', ${ingestionResource.updatedAt}), '||' order by ${ingestionResource.id}), ''))`,
-      resourceCount: sql<number>`count(*)`,
+      ingestionRevision: workspace.ingestionRevision,
     })
-    .from(ingestionResource)
-    .where(eq(ingestionResource.workspaceId, workspaceId));
+    .from(workspace)
+    .where(eq(workspace.id, workspaceId))
+    .limit(1);
 
-  return Number(row?.resourceCount ?? 0) > 0 ? row?.corpusFingerprint ?? null : null;
+  return row ? String(row.ingestionRevision) : null;
 }
 
 export async function getFileForIngestion(workspaceId: string, fileId: string) {
@@ -584,6 +593,25 @@ export async function getFileForIngestion(workspaceId: string, fileId: string) {
     isNote,
     content: row.note_content?.content ?? null,
   };
+}
+
+export async function findReusableIngestionResource(input: {
+  source: string;
+  sourceType: string;
+}) {
+  const [row] = await db
+    .select({ metadata: ingestionResource.metadata })
+    .from(ingestionResource)
+    .where(
+      and(
+        eq(ingestionResource.sourceType, input.sourceType),
+        eq(ingestionResource.source, input.source)
+      )
+    )
+    .orderBy(desc(ingestionResource.updatedAt))
+    .limit(1);
+
+  return row ? { metadata: row.metadata } : null;
 }
 
 export async function upsertIngestionResource(input: {
@@ -895,6 +923,14 @@ export async function deleteIngestionDataForFile(
           eq(ingestionResource.fileId, fileId)
         )
       );
+
+    await tx
+      .update(workspace)
+      .set({
+        ingestionRevision: sql`${workspace.ingestionRevision} + 1`,
+        updatedAt: new Date(),
+      })
+      .where(eq(workspace.id, workspaceId));
   });
 }
 

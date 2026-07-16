@@ -1,7 +1,6 @@
 {
   "extends": "@avenire/typescript-config/nextjs.json",
   "compilerOptions": {
-    "baseUrl": ".",
     "paths": {
       "@/content/*": ["./content/*"],
       "@/*": ["./src/*", "./*"],

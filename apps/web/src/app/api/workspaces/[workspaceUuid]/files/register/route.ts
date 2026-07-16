@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { parseJsonRequest } from "@/lib/api-request";
 import {
   isSharedFilesVirtualFolderId,
   userCanEditFolder,
@@ -9,10 +10,9 @@ import {
   isWorkspaceFileRegisterNotePayload,
   resolveWorkspaceFileRegisterRouteError,
   WORKSPACE_FILE_REGISTER_ERROR,
-  type WorkspaceFileRegisterBody,
+  WorkspaceFileRegisterRequest,
 } from "./workspace-file-register-model";
 import { registerWorkspaceNoteFromContent } from "./workspace-file-register-note";
-import { registerWorkspaceStoredUpload } from "./workspace-file-register-upload";
 
 export async function POST(
   request: Request,
@@ -35,9 +35,20 @@ export async function POST(
 
     const { workspaceUuid } = await context.params;
 
-    const body = (await request
-      .json()
-      .catch(() => ({}))) as WorkspaceFileRegisterBody;
+    const parsed = await parseJsonRequest(
+      request,
+      WorkspaceFileRegisterRequest
+    );
+    if (!parsed.success) {
+      void apiLogger.requestFailed(400, "Missing file metadata", {
+        workspaceUuid,
+      });
+      return NextResponse.json(
+        { error: "Missing file metadata" },
+        { status: 400 }
+      );
+    }
+    const body = parsed.data;
 
     if (!body.folderId) {
       void apiLogger.requestFailed(400, "Missing file metadata", {
@@ -77,12 +88,13 @@ export async function POST(
       });
     }
 
-    return await registerWorkspaceStoredUpload({
-      apiLogger,
-      body,
-      userId: user.id,
+    void apiLogger.requestFailed(410, "Upload session required", {
       workspaceUuid,
     });
+    return NextResponse.json(
+      { error: "Binary uploads require an upload session" },
+      { status: 410 }
+    );
   } catch (error) {
     void apiLogger.requestFailed(500, error);
     return NextResponse.json(

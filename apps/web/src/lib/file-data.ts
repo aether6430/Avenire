@@ -27,6 +27,7 @@ export {
   getFileAssetByContentHash,
   getFileAssetById,
   getFileAssetByStorageKey,
+  getFileAssetByUploadSessionId,
   getFolderWithAncestors,
   getNoteContent,
   getWorkspaceIdForFile,

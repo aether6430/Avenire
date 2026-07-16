@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { parseJsonRequest } from "@/lib/api-request";
 import { getSessionUser } from "@/lib/workspace";
 import {
   resolveWorkspaceFileRegisterBulkRouteError,
@@ -19,8 +20,9 @@ export async function POST(
 
     const { workspaceUuid } = await context.params;
 
-    const parsed = workspaceFileRegisterBulkRequestSchema.safeParse(
-      await request.json().catch(() => ({}))
+    const parsed = await parseJsonRequest(
+      request,
+      workspaceFileRegisterBulkRequestSchema
     );
     if (!parsed.success) {
       return NextResponse.json({ error: "Invalid payload" }, { status: 400 });

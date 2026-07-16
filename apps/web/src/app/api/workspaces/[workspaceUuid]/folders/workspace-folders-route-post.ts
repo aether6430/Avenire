@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { parseJsonRequest } from "@/lib/api-request";
 import { invalidateWorkspaceReadCaches } from "@/lib/domain-cache";
 import {
   createFolder,
@@ -9,10 +10,11 @@ import {
 import { publishFilesInvalidationEvent } from "@/lib/files-realtime-publisher";
 import {
   buildWorkspaceFolderCreateResponse,
+  normalizeWorkspaceFolderCreatePayload,
   normalizeWorkspaceFoldersRouteWorkspaceId,
-  parseWorkspaceFolderCreatePayload,
   resolveWorkspaceFolderCreateRouteError,
   WORKSPACE_FOLDER_CREATE_ERROR,
+  workspaceFolderCreatePayloadSchema,
 } from "./workspace-folders-route-model";
 
 export async function handleWorkspaceFoldersPost(input: {
@@ -24,8 +26,14 @@ export async function handleWorkspaceFoldersPost(input: {
     input.workspaceUuid
   );
   try {
-    const payload = await input.request.json().catch(() => ({}));
-    const parsed = parseWorkspaceFolderCreatePayload(payload);
+    const requestBody = await parseJsonRequest(
+      input.request,
+      workspaceFolderCreatePayloadSchema
+    );
+    if (!requestBody.success) {
+      return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
+    }
+    const parsed = normalizeWorkspaceFolderCreatePayload(requestBody.data);
 
     if (!parsed.success) {
       return NextResponse.json({ error: parsed.error }, { status: 400 });

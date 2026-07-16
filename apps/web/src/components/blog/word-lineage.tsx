@@ -52,9 +52,9 @@ export function WordLineage() {
         {/* Step-through lineage */}
         <div>
           <div className="mb-4 flex gap-1.5">
-            {LINEAGE.map((_, i) => (
-              <button
-                key={i}
+            {LINEAGE.map((item, i) => (
+              <button type="button"
+                key={item.word}
                 onClick={() => setStep(i)}
                 aria-current={i === step ? "step" : undefined}
                 aria-label={`Go to step ${i + 1}`}
@@ -86,7 +86,7 @@ export function WordLineage() {
           </AnimatePresence>
 
           <div className="mt-4 flex items-center justify-between">
-            <button
+            <button type="button"
               onClick={() => setStep((s) => Math.max(0, s - 1))}
               disabled={step === 0}
               className="text-xs text-white/40 transition-colors hover:text-white disabled:opacity-20"
@@ -96,7 +96,7 @@ export function WordLineage() {
             <span className="text-xs font-mono text-white/30">
               {step + 1} / {LINEAGE.length}
             </span>
-            <button
+            <button type="button"
               onClick={() => setStep((s) => Math.min(LINEAGE.length - 1, s + 1))}
               disabled={step === LINEAGE.length - 1}
               className="text-xs text-white/40 transition-colors hover:text-white disabled:opacity-20"

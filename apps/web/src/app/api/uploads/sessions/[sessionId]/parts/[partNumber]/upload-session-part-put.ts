@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { createApiLogger } from "@/lib/observability";
-import { writeMultipartPart } from "@/lib/upload-multipart-write";
+import {
+  MultipartUploadLimitError,
+  writeMultipartPart,
+} from "@/lib/upload-multipart-write";
 import { getUploadSession } from "@/lib/upload-session-store";
 import { verifyUploadSessionPartToken } from "@/lib/upload-session-token";
 import {
@@ -30,10 +33,28 @@ export async function handleUploadSessionPartPut(input: {
   if (isUploadSessionExpired(session.expiresAt)) {
     return NextResponse.json({ error: "Session expired" }, { status: 410 });
   }
+  if (
+    session.status &&
+    session.status !== "created" &&
+    session.status !== "uploading"
+  ) {
+    return NextResponse.json(
+      { error: "Upload session is no longer writable" },
+      { status: 409 }
+    );
+  }
 
   const partNumber = parseUploadSessionPartNumber(input.partNumberRaw);
   if (!partNumber) {
     return NextResponse.json({ error: "Invalid part number" }, { status: 400 });
+  }
+  const maxPartBytes = resolveUploadSessionMaxPartBytes();
+  const maxPartCount = Math.max(1, Math.ceil(session.sizeBytes / maxPartBytes));
+  if (partNumber > maxPartCount) {
+    return NextResponse.json(
+      { error: "Part number exceeds upload budget", maxPartCount },
+      { status: 413 }
+    );
   }
 
   const url = new URL(input.request.url);
@@ -44,6 +65,7 @@ export async function handleUploadSessionPartPut(input: {
 
   const verification = verifyUploadSessionPartToken(token, {
     sessionId: input.sessionId,
+    userId: session.userId,
     workspaceUuid: session.workspaceUuid,
     partNumber,
   });
@@ -63,24 +85,31 @@ export async function handleUploadSessionPartPut(input: {
     result = await writeMultipartPart({
       sessionId: input.sessionId,
       partNumber,
-      maxBytes: resolveUploadSessionMaxPartBytes(),
+      maxBytes: maxPartBytes,
+      maxPartCount,
+      maxTotalBytes: session.sizeBytes,
       stream: input.request.body,
     });
   } catch (error) {
     if (
-      (error as { code?: string } | null | undefined)?.code ===
-      "UPLOAD_PART_TOO_LARGE"
+      error instanceof MultipartUploadLimitError ||
+      (error instanceof Error &&
+        "code" in error &&
+        (error.code === "UPLOAD_PART_TOO_LARGE" ||
+          error.code === "UPLOAD_TOTAL_TOO_LARGE" ||
+          error.code === "UPLOAD_TOO_MANY_PARTS"))
     ) {
       void apiLogger.warn("upload.session.part.too_large", {
         durationMs: Date.now() - requestStartedAt,
-        maxPartBytes: resolveUploadSessionMaxPartBytes(),
+        maxPartBytes,
         partNumber,
         sessionId: input.sessionId,
       });
       return NextResponse.json(
         {
           error: "Part too large",
-          maxPartBytes: resolveUploadSessionMaxPartBytes(),
+          maxPartBytes,
+          reason: error.code,
         },
         { status: 413 }
       );

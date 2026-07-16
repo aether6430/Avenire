@@ -1,60 +1,61 @@
+import { Schema } from "effect-v4";
 import { resolveApiErrorMessage } from "@/lib/api-error-message";
 
-import { z } from "zod";
+const workspaceFileRegisterBulkBaseFileFields = {
+  clientUploadId: Schema.String.check(Schema.isLengthBetween(1, 120)),
+  folderId: Schema.String.check(Schema.isUUID()),
+  name: Schema.String.check(Schema.isMinLength(1)),
+  mimeType: Schema.optional(Schema.NullOr(Schema.String)),
+  sizeBytes: Schema.optional(
+    Schema.Number.check(Schema.isInt(), Schema.isGreaterThanOrEqualTo(0))
+  ),
+  metadata: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
+  contentHashSha256: Schema.optional(
+    Schema.String.check(Schema.isPattern(/^[a-fA-F0-9]{64}$/))
+  ),
+  hashComputedBy: Schema.optional(Schema.Literals(["client", "server"])),
+};
 
-const workspaceFileRegisterBulkBaseFileSchema = z.object({
-  clientUploadId: z.string().min(1).max(120),
-  folderId: z.string().uuid(),
-  name: z.string().min(1),
-  mimeType: z.string().nullable().optional(),
-  sizeBytes: z.number().int().nonnegative().optional(),
-  metadata: z.record(z.string(), z.unknown()).optional(),
-  contentHashSha256: z
-    .string()
-    .regex(/^[a-fA-F0-9]{64}$/)
-    .optional(),
-  hashComputedBy: z.enum(["client", "server"]).optional(),
+const workspaceFileRegisterBulkUploadedFileSchema = Schema.Struct({
+  ...workspaceFileRegisterBulkBaseFileFields,
+  content: Schema.optional(Schema.Undefined),
+  sizeBytes: Schema.Number.check(
+    Schema.isInt(),
+    Schema.isGreaterThanOrEqualTo(0)
+  ),
+  storageKey: Schema.String.check(Schema.isMinLength(1)),
+  storageUrl: Schema.String.check(Schema.isPattern(/^https?:\/\//)),
 });
 
-const workspaceFileRegisterBulkUploadedFileSchema =
-  workspaceFileRegisterBulkBaseFileSchema.extend({
-    content: z.undefined().optional(),
-    sizeBytes: z.number().int().nonnegative(),
-    storageKey: z.string().min(1),
-    storageUrl: z.string().url(),
-  });
+const workspaceFileRegisterBulkNoteFileSchema = Schema.Struct({
+  ...workspaceFileRegisterBulkBaseFileFields,
+  content: Schema.String,
+  storageKey: Schema.optional(Schema.Undefined),
+  storageUrl: Schema.optional(Schema.Undefined),
+});
 
-const workspaceFileRegisterBulkNoteFileSchema =
-  workspaceFileRegisterBulkBaseFileSchema.extend({
-    content: z.string(),
-    storageKey: z.undefined().optional(),
-    storageUrl: z.undefined().optional(),
-  });
-
-export const workspaceFileRegisterBulkFileSchema = z.union([
+export const workspaceFileRegisterBulkFileSchema = Schema.Union([
   workspaceFileRegisterBulkUploadedFileSchema,
   workspaceFileRegisterBulkNoteFileSchema,
 ]);
 
-export const workspaceFileRegisterBulkRequestSchema = z.object({
-  dedupeMode: z.enum(["allow", "skip"]).optional(),
-  files: z.array(workspaceFileRegisterBulkFileSchema).min(1).max(200),
+export const workspaceFileRegisterBulkRequestSchema = Schema.Struct({
+  dedupeMode: Schema.optional(Schema.Literals(["allow", "skip"])),
+  files: Schema.Array(workspaceFileRegisterBulkFileSchema).check(
+    Schema.isLengthBetween(1, 200)
+  ),
 });
 
 export const WORKSPACE_FILE_REGISTER_BULK_ERROR = "Bulk registration failed";
 
-export type WorkspaceFileRegisterBulkFile = z.infer<
-  typeof workspaceFileRegisterBulkFileSchema
->;
-export type WorkspaceFileRegisterBulkRequest = z.infer<
-  typeof workspaceFileRegisterBulkRequestSchema
->;
-export type WorkspaceFileRegisterBulkNoteFile = z.infer<
-  typeof workspaceFileRegisterBulkNoteFileSchema
->;
-export type WorkspaceFileRegisterBulkUploadedFile = z.infer<
-  typeof workspaceFileRegisterBulkUploadedFileSchema
->;
+export type WorkspaceFileRegisterBulkFile =
+  typeof workspaceFileRegisterBulkFileSchema.Type;
+export type WorkspaceFileRegisterBulkRequest =
+  typeof workspaceFileRegisterBulkRequestSchema.Type;
+export type WorkspaceFileRegisterBulkNoteFile =
+  typeof workspaceFileRegisterBulkNoteFileSchema.Type;
+export type WorkspaceFileRegisterBulkUploadedFile =
+  typeof workspaceFileRegisterBulkUploadedFileSchema.Type;
 
 export interface WorkspaceFileRegisterBulkResult {
   clientUploadId: string;

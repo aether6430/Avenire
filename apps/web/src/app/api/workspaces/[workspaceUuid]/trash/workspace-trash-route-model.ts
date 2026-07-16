@@ -1,17 +1,27 @@
+import { Schema } from "effect-v4";
 import { resolveApiErrorMessage } from "@/lib/api-error-message";
 
-export interface WorkspaceTrashMutationItem {
-  id: string;
-  kind: "file" | "folder";
-}
+const workspaceTrashMutationItemSchema = Schema.Struct({
+  id: Schema.String.check(Schema.isMinLength(1)),
+  kind: Schema.Literals(["file", "folder"]),
+});
+
+export class WorkspaceTrashMutationRequest extends Schema.Class<WorkspaceTrashMutationRequest>(
+  "WorkspaceTrashMutationRequest"
+)({
+  items: Schema.optional(
+    Schema.Array(workspaceTrashMutationItemSchema).check(Schema.isMinLength(1))
+  ),
+  operation: Schema.optional(Schema.Literals(["restore", "delete"])),
+}) {}
+
+export type WorkspaceTrashMutationItem =
+  typeof workspaceTrashMutationItemSchema.Type;
 
 export const WORKSPACE_TRASH_LOAD_ERROR = "Unable to load trash.";
 export const WORKSPACE_TRASH_MUTATION_ERROR = "Unable to update trash.";
 
-export interface WorkspaceTrashMutationBody {
-  items?: WorkspaceTrashMutationItem[];
-  operation?: "restore" | "delete";
-}
+export type WorkspaceTrashMutationBody = WorkspaceTrashMutationRequest;
 
 export function isValidWorkspaceTrashRestorePayload(
   body: WorkspaceTrashMutationBody

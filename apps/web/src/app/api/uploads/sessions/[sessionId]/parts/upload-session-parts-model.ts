@@ -1,13 +1,13 @@
 import { resolveApiErrorMessage } from "@/lib/api-error-message";
-
-import { z } from "zod";
+import { Schema } from "effect-v4";
 
 export { resolveUploadSessionMaxPartBytes } from "../../upload-session-route-model";
-
 export const UPLOAD_SESSION_PART_UPLOAD_ERROR = "Unable to upload part.";
 
-export const uploadSessionPartsSchema = z.object({
-  partNumbers: z.array(z.number().int().positive()).min(1).max(10_000),
+export const uploadSessionPartsSchema = Schema.Struct({
+  partNumbers: Schema.Array(
+    Schema.Number.check(Schema.isInt(), Schema.isGreaterThan(0))
+  ).check(Schema.isLengthBetween(1, 10_000)),
 });
 
 export function isUploadSessionExpired(expiresAt: string, nowMs = Date.now()) {
@@ -16,29 +16,15 @@ export function isUploadSessionExpired(expiresAt: string, nowMs = Date.now()) {
 
 export function parseUploadSessionPartNumber(partNumberRaw: string) {
   const partNumber = Number.parseInt(partNumberRaw, 10);
-  if (!Number.isFinite(partNumber) || partNumber <= 0) {
-    return null;
-  }
-  return partNumber;
+  return Number.isFinite(partNumber) && partNumber > 0 ? partNumber : null;
 }
 
-export function buildUploadSessionPartUploadUrl(input: {
-  origin: string;
-  partNumber: number;
-  sessionId: string;
-  token: string;
-}) {
-  const uploadUrl = new URL(
-    `/api/uploads/sessions/${input.sessionId}/parts/${input.partNumber}`,
-    input.origin
-  );
+export function buildUploadSessionPartUploadUrl(input: { origin: string; partNumber: number; sessionId: string; token: string }) {
+  const uploadUrl = new URL(`/api/uploads/sessions/${input.sessionId}/parts/${input.partNumber}`, input.origin);
   uploadUrl.searchParams.set("token", input.token);
   return uploadUrl.toString();
 }
 
-export function resolveUploadSessionPartRouteError(
-  error: unknown,
-  fallback: string
-) {
+export function resolveUploadSessionPartRouteError(error: unknown, fallback: string) {
   return resolveApiErrorMessage(error, fallback);
 }

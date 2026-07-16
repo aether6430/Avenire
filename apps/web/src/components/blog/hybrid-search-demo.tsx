@@ -65,8 +65,8 @@ export function HybridSearchDemo() {
       {/* Scenario tabs */}
       <div className="mb-4 flex gap-2">
         {SCENARIOS.map((sc, i) => (
-          <button
-            key={i}
+          <button type="button"
+            key={sc.label}
             onClick={() => { setScenario(i); setTab("vector"); }}
             className={`rounded-lg border px-3 py-1.5 text-sm font-mono transition-all duration-150 ${
               scenario === i
@@ -87,7 +87,7 @@ export function HybridSearchDemo() {
       {/* Method tabs */}
       <div className="mb-4 flex gap-1">
         {(["vector", "bm25", "hybrid"] as const).map((t) => (
-          <button
+          <button type="button"
             key={t}
             onClick={() => setTab(t)}
             className={`rounded-lg border px-3 py-1 text-xs font-mono transition-all duration-150 ${
@@ -106,7 +106,7 @@ export function HybridSearchDemo() {
         <AnimatePresence mode="wait">
           {results.map((r, i) => (
             <motion.div
-              key={`${tab}-${i}`}
+              key={`${tab}-${r.chunk.slice(0, 30)}`}
               initial={{ opacity: 0, y: 4 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -4 }}

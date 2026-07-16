@@ -1,19 +1,9 @@
 import { NextResponse } from "next/server";
-import { z } from "zod";
+import { parseJsonRequest } from "@/lib/api-request";
 import { createApiLogger } from "@/lib/observability";
+import { retrievalQueryRequestSchema } from "@/lib/retrieval-http-contract";
 import { retrieveWorkspaceChunksShared } from "@/lib/retrieval-service";
 import { ensureWorkspaceAccessForUser, getSessionUser } from "@/lib/workspace";
-
-const querySchema = z.object({
-  workspaceUuid: z.string().uuid(),
-  query: z.string().min(1),
-  limit: z.number().int().positive().max(50).optional(),
-  mode: z.enum(["auto", "fast", "full"]).optional(),
-  sourceType: z
-    .enum(["pdf", "image", "video", "audio", "document", "markdown", "link"])
-    .optional(),
-  provider: z.string().optional(),
-});
 
 export async function POST(request: Request) {
   const apiLogger = createApiLogger({
@@ -31,11 +21,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const parsed = querySchema.safeParse(
-      await request.json().catch(() => ({}))
-    );
+    const parsed = await parseJsonRequest(request, retrievalQueryRequestSchema);
     if (!parsed.success) {
-      await apiLogger.requestFailed(400, "Invalid payload");
+      await apiLogger.requestFailed(400, "Invalid payload", {
+        reason: parsed.reason,
+      });
       return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
     }
 

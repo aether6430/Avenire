@@ -1,4 +1,12 @@
+import { Schema } from "effect-v4";
 import { resolveApiErrorMessage } from "@/lib/api-error-message";
+
+export class SudoRouteRequest extends Schema.Class<SudoRouteRequest>(
+  "SudoRouteRequest"
+)({
+  action: Schema.optional(Schema.Unknown),
+  code: Schema.optional(Schema.Unknown),
+}) {}
 
 export const SUDO_REQUEST_COOLDOWN_MS = 45_000;
 export const SUDO_ROUTE_STATUS_ERROR = "Unable to load sudo status.";

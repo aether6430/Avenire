@@ -4,10 +4,7 @@ import {
   isSharedFilesVirtualFolderId,
   userCanEditFolder,
 } from "@/lib/file-data";
-import {
-  registerWorkspaceMarkdownNote,
-  registerWorkspaceUploadedFile,
-} from "@/lib/upload-registration";
+import { registerWorkspaceMarkdownNote } from "@/lib/upload-registration";
 import { scheduleAsyncVideoDeliveryOptimization } from "@/lib/video-delivery-optimization-runtime";
 import {
   buildWorkspaceFileRegisterBulkSummary,
@@ -40,12 +37,11 @@ export async function postWorkspaceFileRegisterBulk(input: {
     const canEditByFolderId = new Map<string, boolean>();
     const folderIds = [
       ...new Set(
-        input.body.files
-          .map((file) => file.folderId)
-          .filter(
-            (folderId) =>
-              !isSharedFilesVirtualFolderId(folderId, input.workspaceUuid)
-          )
+        input.body.files.flatMap((file) =>
+          isSharedFilesVirtualFolderId(file.folderId, input.workspaceUuid)
+            ? []
+            : [file.folderId]
+        )
       ),
     ];
 
@@ -85,32 +81,25 @@ export async function postWorkspaceFileRegisterBulk(input: {
           continue;
         }
 
-        const registrationResult = isWorkspaceFileRegisterBulkNotePayload(
-          fileInput
-        )
-          ? await registerWorkspaceMarkdownNote({
-              content: fileInput.content,
-              dedupeMode,
-              folderId: fileInput.folderId,
-              metadata: fileInput.metadata,
-              name: fileInput.name,
-              userId: input.userId,
-              workspaceUuid: input.workspaceUuid,
+        if (!isWorkspaceFileRegisterBulkNotePayload(fileInput)) {
+          results.push(
+            buildWorkspaceFileRegisterBulkFailedResult({
+              clientUploadId: fileInput.clientUploadId,
+              error: "Binary uploads require an upload session",
             })
-          : await registerWorkspaceUploadedFile({
-              workspaceUuid: input.workspaceUuid,
-              userId: input.userId,
-              folderId: fileInput.folderId,
-              storageKey: fileInput.storageKey,
-              storageUrl: fileInput.storageUrl,
-              name: fileInput.name,
-              mimeType: fileInput.mimeType,
-              sizeBytes: fileInput.sizeBytes,
-              metadata: fileInput.metadata,
-              contentHashSha256: fileInput.contentHashSha256,
-              hashComputedBy: fileInput.hashComputedBy,
-              dedupeMode,
-            });
+          );
+          continue;
+        }
+
+        const registrationResult = await registerWorkspaceMarkdownNote({
+          content: fileInput.content,
+          dedupeMode,
+          folderId: fileInput.folderId,
+          metadata: fileInput.metadata,
+          name: fileInput.name,
+          userId: input.userId,
+          workspaceUuid: input.workspaceUuid,
+        });
 
         results.push({
           clientUploadId: fileInput.clientUploadId,
@@ -136,7 +125,9 @@ export async function postWorkspaceFileRegisterBulk(input: {
         results.push(
           buildWorkspaceFileRegisterBulkFailedResult({
             clientUploadId: fileInput.clientUploadId,
-            error: isStorageLimit ? "Storage limit reached" : "Registration failed",
+            error: isStorageLimit
+              ? "Storage limit reached"
+              : "Registration failed",
           })
         );
       }

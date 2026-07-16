@@ -41,9 +41,9 @@ export async function duplicateSharedFileIntoWorkspace(input: {
   }
 
   const workspaceFiles = await listWorkspaceFiles(input.targetWorkspaceId);
-  const siblingNames = workspaceFiles
-    .filter((file) => file.folderId === input.targetFolderId)
-    .map((file) => file.name);
+  const siblingNames = workspaceFiles.flatMap((file) =>
+    file.folderId === input.targetFolderId ? [file.name] : []
+  );
   const duplicateName = resolveSharedDuplicateName(siblingNames, source.name);
 
   if (isMarkdownFileRecord(source)) {

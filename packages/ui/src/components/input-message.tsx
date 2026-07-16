@@ -712,6 +712,8 @@ const InputMessage = forwardRef<HTMLDivElement, InputMessageProps>(
 
     return (
       <div
+        role="region"
+        aria-label="Message input area"
         ref={ref}
         onMouseDown={handleContainerMouseDown}
         onDragOver={handleDragOver}
@@ -872,13 +874,17 @@ const InputMessage = forwardRef<HTMLDivElement, InputMessageProps>(
                     initial={
                       reduceMotion
                         ? { opacity: 0 }
-                        : { opacity: 0, scale: 0.6 }
+                        : { opacity: 0, scale: 0.94 }
                     }
                     animate={{ opacity: 1, scale: 1 }}
                     exit={
                       reduceMotion
                         ? { opacity: 0 }
-                        : { opacity: 0, scale: 0.6, transition: { duration: 0.06 } }
+                        : {
+                            opacity: 0,
+                            scale: 0.94,
+                            transition: { duration: 0.06 },
+                          }
                     }
                     transition={springs.fast}
                     className="flex items-center justify-center leading-none"

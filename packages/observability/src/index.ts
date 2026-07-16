@@ -4,6 +4,7 @@ import { NodeSDK } from "@opentelemetry/sdk-node";
 import { PostHogSpanProcessor } from "@posthog/ai/otel";
 import { registerTelemetry } from "ai";
 import { PostHog } from "posthog-node";
+import { createResilientPostHogFetch } from "./posthog-transport";
 
 const service = process.env.OBSERVABILITY_SERVICE ?? "web";
 const posthogKey =
@@ -13,11 +14,50 @@ const posthogHost =
   process.env.NEXT_PUBLIC_POSTHOG_HOST ??
   "https://us.i.posthog.com";
 
+function readBoundedMilliseconds(
+  envName: string,
+  fallback: number,
+  minimum: number,
+  maximum: number
+) {
+  const value = Number.parseInt(process.env[envName] ?? "", 10);
+  if (!Number.isFinite(value)) {
+    return fallback;
+  }
+  return Math.min(maximum, Math.max(minimum, value));
+}
+
+const posthogRequestTimeoutMs = readBoundedMilliseconds(
+  "OBSERVABILITY_POSTHOG_TIMEOUT_MS",
+  2000,
+  250,
+  10_000
+);
+const posthogCooldownMs = readBoundedMilliseconds(
+  "OBSERVABILITY_POSTHOG_COOLDOWN_MS",
+  60_000,
+  1000,
+  15 * 60_000
+);
+const posthogFetch = createResilientPostHogFetch({
+  cooldownMs: posthogCooldownMs,
+  onUnavailable(retryAfterMs) {
+    console.warn("[posthog-unavailable] telemetry delivery paused", {
+      retryAfterMs,
+    });
+  },
+});
+
 const posthog =
   posthogKey && shouldEnableObservability()
     ? new PostHog(posthogKey, {
         host: posthogHost,
+        disableRemoteConfig: true,
         enableExceptionAutocapture: true,
+        fetch: posthogFetch,
+        fetchRetryCount: 0,
+        preloadFeatureFlags: false,
+        requestTimeout: posthogRequestTimeoutMs,
       })
     : null;
 
@@ -406,17 +446,11 @@ async function captureExceptionEvent(input: CaptureErrorInput) {
     return;
   }
 
-  try {
-    await posthog.captureExceptionImmediate(
-      toError(input.error),
-      getDistinctId(errorContext),
-      properties
-    );
-  } catch (error) {
-    if (process.env.NODE_ENV !== "production") {
-      console.error("[posthog-error-capture-failed]", safeError(error));
-    }
-  }
+  posthog.captureException(
+    toError(input.error),
+    getDistinctId(errorContext),
+    properties
+  );
 }
 
 export function scopedLogger(context: ObservabilityContext) {
@@ -478,14 +512,12 @@ export async function flushObservability() {
     return;
   }
 
-  try {
-    await posthog.flush();
-  } catch (error) {
-    if (process.env.NODE_ENV === "production") {
-      throw error;
-    }
-  }
+  await posthog.flush().catch(() => {
+    // Telemetry is best-effort and must never fail an application request.
+  });
 }
+
+export { createResilientPostHogFetch } from "./posthog-transport";
 
 function shouldFlushOnShutdown() {
   return process.env.OBSERVABILITY_FLUSH_ON_SHUTDOWN === "true";

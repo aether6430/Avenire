@@ -59,13 +59,17 @@ export async function POST(request: Request) {
     });
 
     return NextResponse.json({
-      segments: (transcript.segments ?? [])
-        .map((segment) => ({
-          endMs: Math.floor((segment.endSecond ?? 0) * 1000),
-          startMs: Math.floor((segment.startSecond ?? 0) * 1000),
-          text: segment.text,
-        }))
-        .filter((segment) => segment.text.trim().length > 0),
+      segments: (transcript.segments ?? []).flatMap((segment) =>
+        segment.text.trim().length > 0
+          ? [
+              {
+                endMs: Math.floor((segment.endSecond ?? 0) * 1000),
+                startMs: Math.floor((segment.startSecond ?? 0) * 1000),
+                text: segment.text,
+              },
+            ]
+          : []
+      ),
       text: transcript.text?.trim() ?? "",
     });
   } catch (error) {

@@ -1,4 +1,10 @@
+import { Schema } from "effect-v4";
 import { resolveApiErrorMessage } from "@/lib/api-error-message";
+
+export const workspaceFileShareGrantSchema = Schema.Struct({
+  email: Schema.optional(Schema.String),
+  permission: Schema.optional(Schema.Literals(["viewer", "editor"])),
+});
 
 export function buildWorkspaceFileShareUrl(baseUrl: string, token: string) {
   return `${baseUrl}/share/${token}`;

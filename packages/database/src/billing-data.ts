@@ -1,9 +1,10 @@
 import { randomUUID } from "node:crypto";
-import { and, count, eq, sql } from "drizzle-orm";
+import { and, count, eq, inArray, sql } from "drizzle-orm";
 import { db } from "./client";
 import {
   billingCustomer,
   billingSubscription,
+  billingUsageEvent,
   fileAsset,
   usageMeter,
 } from "./schema";
@@ -93,7 +94,17 @@ const BILLING_TABLE_NAMES = [
   "billing_subscription",
   "billing_customer",
   "usage_meter",
+  "billing_usage_event",
 ];
+
+function isPolarCreditsEmissionEnabled() {
+  const mode = process.env.POLAR_CREDITS_MODE?.trim().toLowerCase();
+  return (
+    mode === "shadow" ||
+    mode === "cutover" ||
+    (mode === undefined && process.env.POLAR_CREDITS_SHADOW_MODE === "true")
+  );
+}
 
 function hasBillingTableName(input: string) {
   return BILLING_TABLE_NAMES.some((tableName) => input.includes(tableName));
@@ -109,6 +120,29 @@ function hasMissingRelationMessage(input: string) {
 
 function hasFailedBillingTableQuery(input: string) {
   return input.includes("Failed query:") && hasBillingTableName(input);
+}
+
+function errorReferencesTable(error: unknown, tableName: string) {
+  const seen = new Set<unknown>();
+  const stack: unknown[] = [error];
+  while (stack.length > 0) {
+    const current = stack.pop();
+    if (!current || seen.has(current)) {
+      continue;
+    }
+    seen.add(current);
+    if (typeof current !== "object") {
+      continue;
+    }
+    const record = current as Record<string, unknown>;
+    for (const key of ["message", "detail", "stack"]) {
+      if (typeof record[key] === "string" && record[key].includes(tableName)) {
+        return true;
+      }
+    }
+    stack.push(record.cause);
+  }
+  return false;
 }
 
 function isMissingBillingTableError(error: unknown): boolean {
@@ -306,8 +340,50 @@ export async function consumeUsageUnits(input: {
 
   try {
     return await db.transaction(async (tx) => {
-      const plan = await getUserPlan(input.userId);
+      const [subscription] = await tx
+        .select({
+          status: billingSubscription.status,
+          plan: billingSubscription.plan,
+        })
+        .from(billingSubscription)
+        .where(eq(billingSubscription.userId, input.userId))
+        .limit(1);
+      const plan =
+        subscription && ACTIVE_SUBSCRIPTION_STATUSES.has(subscription.status)
+          ? toPlan(subscription.plan)
+          : "access";
       const entitlement = PLAN_ENTITLEMENTS[plan][input.meter];
+
+      await tx
+        .insert(usageMeter)
+        .values({
+          id: randomUUID(),
+          userId: input.userId,
+          meter: input.meter,
+          fourHourCapacity: entitlement.fourHourCapacity,
+          fourHourBalance: entitlement.fourHourCapacity,
+          fourHourRefillAt: new Date(now.getTime() + FOUR_HOUR_MS),
+          overageCapacity: entitlement.overageCapacity,
+          overageBalance: entitlement.overageCapacity,
+          createdAt: now,
+          updatedAt: now,
+        })
+        .onConflictDoNothing({
+          target: [usageMeter.userId, usageMeter.meter],
+        });
+
+      // PostgreSQL holds this row lock until the surrounding transaction ends,
+      // making the subsequent balance read/compute/write one admission unit.
+      const lockedRows = await tx.execute(sql`
+        select id
+        from ${usageMeter}
+        where ${usageMeter.userId} = ${input.userId}
+          and ${usageMeter.meter} = ${input.meter}
+        for update
+      `);
+      if (lockedRows.rowCount !== 1) {
+        throw new Error("usage meter row missing after create-or-lock");
+      }
 
       const [existing] = await tx
         .select()
@@ -320,18 +396,10 @@ export async function consumeUsageUnits(input: {
         )
         .limit(1);
 
-      const base = existing ?? {
-        id: randomUUID(),
-        userId: input.userId,
-        meter: input.meter,
-        fourHourCapacity: entitlement.fourHourCapacity,
-        fourHourBalance: entitlement.fourHourCapacity,
-        fourHourRefillAt: new Date(now.getTime() + FOUR_HOUR_MS),
-        overageCapacity: entitlement.overageCapacity,
-        overageBalance: entitlement.overageCapacity,
-        createdAt: now,
-        updatedAt: now,
-      };
+      if (!existing) {
+        throw new Error("usage meter row missing after create-or-lock");
+      }
+      const base = existing;
 
       const baselineFourHourBalance = recomputeRemainingFromConsumed({
         previousBalance: base.fourHourBalance,
@@ -357,14 +425,7 @@ export async function consumeUsageUnits(input: {
       const spendOverage = Math.min(nextOverageBalance, remaining);
 
       if (spendFourHour + spendOverage < units) {
-        if (!existing) {
-          await tx.insert(usageMeter).values({
-            ...base,
-            fourHourBalance: nextFourHourBalance,
-            fourHourRefillAt: reset.fourHourRefillAt,
-            overageBalance: nextOverageBalance,
-          });
-        } else if (
+        if (
           reset.changed ||
           base.fourHourCapacity !== entitlement.fourHourCapacity ||
           base.overageCapacity !== entitlement.overageCapacity
@@ -393,26 +454,30 @@ export async function consumeUsageUnits(input: {
       nextFourHourBalance -= spendFourHour;
       nextOverageBalance -= spendOverage;
 
-      if (existing) {
-        await tx
-          .update(usageMeter)
-          .set({
-            fourHourCapacity: entitlement.fourHourCapacity,
-            fourHourBalance: nextFourHourBalance,
-            fourHourRefillAt: reset.fourHourRefillAt,
-            overageCapacity: entitlement.overageCapacity,
-            overageBalance: nextOverageBalance,
-            updatedAt: now,
-          })
-          .where(eq(usageMeter.id, base.id));
-      } else {
-        await tx.insert(usageMeter).values({
-          ...base,
+      await tx
+        .update(usageMeter)
+        .set({
           fourHourCapacity: entitlement.fourHourCapacity,
           fourHourBalance: nextFourHourBalance,
           fourHourRefillAt: reset.fourHourRefillAt,
           overageCapacity: entitlement.overageCapacity,
           overageBalance: nextOverageBalance,
+          updatedAt: now,
+        })
+        .where(eq(usageMeter.id, base.id));
+
+      if (isPolarCreditsEmissionEnabled()) {
+        const eventId = randomUUID();
+        await tx.insert(billingUsageEvent).values({
+          id: eventId,
+          userId: input.userId,
+          meter: input.meter,
+          units,
+          idempotencyKey: `usage:${eventId}`,
+          occurredAt: now,
+          nextAttemptAt: now,
+          createdAt: now,
+          updatedAt: now,
         });
       }
 
@@ -424,6 +489,12 @@ export async function consumeUsageUnits(input: {
       };
     });
   } catch (error) {
+    if (
+      isPolarCreditsEmissionEnabled() &&
+      errorReferencesTable(error, "billing_usage_event")
+    ) {
+      throw error;
+    }
     if (!isMissingBillingTableError(error)) {
       throw error;
     }
@@ -437,11 +508,112 @@ export async function consumeUsageUnits(input: {
   }
 }
 
+export async function claimPendingBillingUsageEvents(input?: {
+  limit?: number;
+  now?: Date;
+}) {
+  const limit = Math.max(1, Math.min(100, Math.floor(input?.limit ?? 50)));
+  const now = input?.now ?? new Date();
+
+  return db.transaction(async (tx) => {
+    const rows = await tx.execute<{
+      id: string;
+      user_id: string;
+      meter: string;
+      units: number;
+      idempotency_key: string;
+      occurred_at: Date;
+      attempts: number;
+    }>(sql`
+      select id, user_id, meter, units, idempotency_key, occurred_at, attempts
+      from ${billingUsageEvent}
+      where ${billingUsageEvent.deliveredAt} is null
+        and ${billingUsageEvent.attempts} < 20
+        and ${billingUsageEvent.nextAttemptAt} <= ${now}
+      order by ${billingUsageEvent.createdAt} asc
+      limit ${limit}
+      for update skip locked
+    `);
+
+    const claimedIds = rows.rows.map((row) => row.id);
+    if (claimedIds.length > 0) {
+      await tx
+        .update(billingUsageEvent)
+        .set({
+          nextAttemptAt: new Date(now.getTime() + 5 * 60 * 1000),
+          updatedAt: now,
+        })
+        .where(inArray(billingUsageEvent.id, claimedIds));
+    }
+
+    return rows.rows.map((row) => ({
+      id: row.id,
+      userId: row.user_id,
+      meter: row.meter,
+      units: row.units,
+      idempotencyKey: row.idempotency_key,
+      occurredAt: new Date(row.occurred_at),
+      attempts: row.attempts,
+    }));
+  });
+}
+
+export async function markBillingUsageEventDelivered(
+  id: string,
+  now = new Date()
+) {
+  await db
+    .update(billingUsageEvent)
+    .set({ deliveredAt: now, lastError: null, updatedAt: now })
+    .where(eq(billingUsageEvent.id, id));
+}
+
+export async function markBillingUsageEventFailed(input: {
+  id: string;
+  attempts: number;
+  error: string;
+  now?: Date;
+}) {
+  const now = input.now ?? new Date();
+  const attempts = input.attempts + 1;
+  const delayMs = Math.min(60 * 60 * 1000, 1000 * 2 ** Math.min(attempts, 12));
+  await db
+    .update(billingUsageEvent)
+    .set({
+      attempts,
+      lastError: input.error.slice(0, 2000),
+      nextAttemptAt:
+        attempts >= 20 ? now : new Date(now.getTime() + delayMs),
+      updatedAt: now,
+    })
+    .where(eq(billingUsageEvent.id, input.id));
+}
+
+export async function getLocalDeliveredUsageTotal(input: {
+  userId: string;
+  meter: UsageMeterType;
+}) {
+  const [row] = await db
+    .select({
+      units: sql<number>`coalesce(sum(${billingUsageEvent.units}), 0)`,
+    })
+    .from(billingUsageEvent)
+    .where(
+      and(
+        eq(billingUsageEvent.userId, input.userId),
+        eq(billingUsageEvent.meter, input.meter),
+        sql`${billingUsageEvent.deliveredAt} is not null`
+      )
+    );
+  return Number(row?.units ?? 0);
+}
+
 export async function restoreUsageUnits(input: {
   userId: string;
   meter: UsageMeterType;
   fourHourUnits?: number;
   overageUnits?: number;
+  idempotencyKey: string;
 }) {
   const fourHourUnits = Math.max(0, Math.floor(input.fourHourUnits ?? 0));
   const overageUnits = Math.max(0, Math.floor(input.overageUnits ?? 0));
@@ -453,8 +625,30 @@ export async function restoreUsageUnits(input: {
 
   try {
     await db.transaction(async (tx) => {
-      const plan = await getUserPlan(input.userId);
+      const [subscription] = await tx
+        .select({
+          status: billingSubscription.status,
+          plan: billingSubscription.plan,
+        })
+        .from(billingSubscription)
+        .where(eq(billingSubscription.userId, input.userId))
+        .limit(1);
+      const plan =
+        subscription && ACTIVE_SUBSCRIPTION_STATUSES.has(subscription.status)
+          ? toPlan(subscription.plan)
+          : "access";
       const entitlement = PLAN_ENTITLEMENTS[plan][input.meter];
+
+      const lockedRows = await tx.execute(sql`
+        select id
+        from ${usageMeter}
+        where ${usageMeter.userId} = ${input.userId}
+          and ${usageMeter.meter} = ${input.meter}
+        for update
+      `);
+      if (lockedRows.rowCount === 0) {
+        return;
+      }
 
       const [existing] = await tx
         .select()
@@ -469,6 +663,33 @@ export async function restoreUsageUnits(input: {
 
       if (!existing) {
         return;
+      }
+
+      if (isPolarCreditsEmissionEnabled()) {
+        const eventId = randomUUID();
+        const insertedEvents = await tx
+          .insert(billingUsageEvent)
+          .values({
+            id: eventId,
+            userId: input.userId,
+            meter: input.meter,
+            units: -(fourHourUnits + overageUnits),
+            idempotencyKey: input.idempotencyKey,
+            occurredAt: now,
+            nextAttemptAt: now,
+            createdAt: now,
+            updatedAt: now,
+          })
+          .onConflictDoNothing({
+            target: billingUsageEvent.idempotencyKey,
+          })
+          .returning({ id: billingUsageEvent.id });
+
+        // The immutable refund event doubles as the durable idempotency guard.
+        // A retried completion must not restore the local balance twice.
+        if (insertedEvents.length === 0) {
+          return;
+        }
       }
 
       const baselineFourHourBalance = recomputeRemainingFromConsumed({
@@ -568,9 +789,7 @@ export async function getUsageOverview(userId: string) {
     rows = await db
       .select()
       .from(usageMeter)
-      .where(
-        and(eq(usageMeter.userId, userId), eq(usageMeter.meter, "chat"))
-      );
+      .where(and(eq(usageMeter.userId, userId), eq(usageMeter.meter, "chat")));
   } catch (error) {
     if (!isMissingBillingTableError(error)) {
       throw error;

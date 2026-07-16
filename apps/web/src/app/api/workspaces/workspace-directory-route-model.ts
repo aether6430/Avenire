@@ -1,9 +1,14 @@
+import { Schema } from "effect-v4";
 import { resolveApiRouteError } from "@/lib/api-error-message";
+
+export const workspaceInvitationActionSchema = Schema.Struct({
+  action: Schema.String,
+});
 
 export const WORKSPACE_INVITATION_INVALID_PAYLOAD_ERROR = "Invalid payload";
 
 export function parseWorkspaceInvitationAction(
-  payload: { action?: unknown },
+  payload: typeof workspaceInvitationActionSchema.Type,
   invitationId: string
 ):
   | {

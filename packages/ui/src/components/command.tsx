@@ -54,7 +54,9 @@ function CommandDialog({
         <DialogDescription>{description}</DialogDescription>
       </DialogHeader>
       <DialogContent
+        animate={false}
         className={cn(
+          // Keyboard-first surface: no open/close zoom/fade (Raycast-style instant).
           "top-1/3 translate-y-0 overflow-hidden rounded-xl! p-0",
           className
         )}

@@ -1,10 +1,16 @@
 import { NextResponse } from "next/server";
+import {
+  isFileMimeTypeConsistent,
+  resolveFileMimeType,
+} from "@avenire/ingestion/file-contract";
 import { canStoreBytes } from "@/lib/billing";
 import { userCanEditFolder } from "@/lib/file-data";
 import { createApiLogger } from "@/lib/observability";
 import { normalizeSha256 } from "@/lib/upload-registration";
+import { sweepAbandonedUploadArtifacts } from "@/lib/upload-cleanup";
 import { createUploadSession } from "@/lib/upload-session-store";
 import { ensureWorkspaceAccessForUser } from "@/lib/workspace";
+import { parseJsonRequest } from "@/lib/api-request";
 import {
   createUploadSessionSchema,
   resolveUploadSessionMaxPartBytes,
@@ -23,14 +29,33 @@ export async function handleUploadSessionsPost(input: {
     userId: input.userId,
   });
   apiLogger.requestStarted();
+  void sweepAbandonedUploadArtifacts().catch((error) => {
+    void apiLogger.warn("upload.cleanup.sweep_failed", { error });
+  });
 
-  const parsed = createUploadSessionSchema.safeParse(
-    await input.request.json().catch(() => ({}))
-  );
+  const parsed = await parseJsonRequest(input.request, createUploadSessionSchema);
   if (!parsed.success) {
     apiLogger.requestFailed(400, "Invalid payload");
     return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
   }
+
+  if (
+    !isFileMimeTypeConsistent({
+      declaredMimeType: parsed.data.mimeType,
+      name: parsed.data.name,
+    })
+  ) {
+    apiLogger.requestFailed(415, "Unsupported or inconsistent MIME type");
+    return NextResponse.json(
+      { error: "Unsupported or inconsistent MIME type" },
+      { status: 415 }
+    );
+  }
+
+  const mimeType = resolveFileMimeType({
+    declaredMimeType: parsed.data.mimeType,
+    name: parsed.data.name,
+  });
 
   try {
     const canAccess = await ensureWorkspaceAccessForUser(
@@ -78,7 +103,7 @@ export async function handleUploadSessionsPost(input: {
       workspaceUuid: parsed.data.workspaceUuid,
       folderId: parsed.data.folderId,
       name: parsed.data.name.trim(),
-      mimeType: parsed.data.mimeType ?? null,
+      mimeType,
       sizeBytes: parsed.data.sizeBytes,
       checksumSha256: normalizeSha256(parsed.data.checksumSha256),
     });

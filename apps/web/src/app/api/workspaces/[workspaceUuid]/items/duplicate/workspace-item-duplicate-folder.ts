@@ -81,9 +81,9 @@ export async function handleDuplicateWorkspaceFolder(input: {
     }
   }
 
-  const siblingNames = workspaceFolders
-    .filter((folder) => folder.parentId === targetParentId)
-    .map((folder) => folder.name);
+  const siblingNames = workspaceFolders.flatMap((folder) =>
+    folder.parentId === targetParentId ? [folder.name] : []
+  );
   const duplicateRootName = resolveDuplicateName(
     siblingNames,
     sourceFolder.name
@@ -116,9 +116,9 @@ export async function handleDuplicateWorkspaceFolder(input: {
       continue;
     }
 
-    const folderSiblingNames = workspaceFolders
-      .filter((candidate) => candidate.parentId === clonedParentId)
-      .map((candidate) => candidate.name);
+    const folderSiblingNames = workspaceFolders.flatMap((candidate) =>
+      candidate.parentId === clonedParentId ? [candidate.name] : []
+    );
     const createdFolder = await createFolder(
       input.workspaceUuid,
       clonedParentId,
@@ -143,9 +143,9 @@ export async function handleDuplicateWorkspaceFolder(input: {
       continue;
     }
 
-    const siblingFileNames = workspaceFiles
-      .filter((entry) => entry.folderId === clonedFolderId)
-      .map((entry) => entry.name);
+    const siblingFileNames = workspaceFiles.flatMap((entry) =>
+      entry.folderId === clonedFolderId ? [entry.name] : []
+    );
 
     if (isMarkdownFileRecord(file)) {
       const content = await loadDuplicateNoteContent({

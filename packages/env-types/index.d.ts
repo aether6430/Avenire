@@ -18,6 +18,7 @@ declare namespace NodeJS {
     BETTER_AUTH_SECRET?: string;
     BETTER_AUTH_TRUSTED_ORIGINS?: string;
     BETTER_AUTH_URL?: string;
+    BILLING_SYNC_SECRET?: string;
     CHAT_CONTEXT_MAX_CHARS?: string;
     CHAT_PROFILE_LOGS?: string;
     CHAT_TITLE_MODEL?: string;
@@ -38,6 +39,7 @@ declare namespace NodeJS {
     COHERE_TEST_TPM_TARGET_RATIO?: string;
     COHERE_TOKEN_ESTIMATE_SAFETY_FACTOR?: string;
     COHERE_TPM_LIMIT?: string;
+    CRON_SECRET?: string;
     DATABASE_URL?: string;
     DURABLE_STREAMS_BIN_DIR?: string;
     DURABLE_STREAMS_CADDYFILE?: string;
@@ -54,6 +56,8 @@ declare namespace NodeJS {
     EMAIL_FROM?: string;
     EMBEDDING_DIMENSIONS?: string;
     ENABLE_ASYNC_MEDIA_OPTIMIZATION?: string;
+    FIRECRAWL_API_KEY?: string;
+    FIRECRAWL_API_URL?: string;
     FIREWORKS_API_KEY?: string;
     GEMINI_API_KEY?: string;
     GROQ_API_KEY?: string;
@@ -103,6 +107,8 @@ declare namespace NodeJS {
     OBSERVABILITY_AI_RECORD_OUTPUTS?: string;
     OBSERVABILITY_ENABLED?: string;
     OBSERVABILITY_FLUSH_ON_SHUTDOWN?: string;
+    OBSERVABILITY_POSTHOG_COOLDOWN_MS?: string;
+    OBSERVABILITY_POSTHOG_TIMEOUT_MS?: string;
     OBSERVABILITY_SAMPLE_RATE?: string;
     OBSERVABILITY_SERVICE?: string;
     OLLAMA_API_KEY?: string;
@@ -110,6 +116,11 @@ declare namespace NodeJS {
     OPENROUTER_API_KEY?: string;
     PG_POOL_MAX?: string;
     POLAR_ACCESS_TOKEN?: string;
+    POLAR_CREDITS_DIVERGENCE_THRESHOLD_RATIO?: string;
+    POLAR_CREDITS_EVENT_NAME?: string;
+    POLAR_CREDITS_METER_ID?: string;
+    POLAR_CREDITS_MODE?: string;
+    POLAR_CREDITS_SHADOW_MODE?: string;
     POLAR_ORGANIZATION_ID?: string;
     POLAR_PRODUCT_ID_CORE_MONTHLY?: string;
     POLAR_PRODUCT_ID_CORE_YEARLY?: string;
@@ -144,12 +155,12 @@ declare namespace NodeJS {
     RETRIEVAL_WARMUP_QUERY_LIMIT?: string;
     RETRIEVAL_WARMUP_SUMMARY_LIMIT?: string;
     SSE_TOKEN_SECRET?: string;
-    TAVILY_API_KEY?: string;
     TOOL_APPROVAL_SECRET?: string;
     TRUSTED_STORAGE_HOSTS?: string;
     TURBO_MODEL_CREDIT_MULTIPLIER?: string;
     UPLOADTHING_CALLBACK_URL?: string;
     UPLOADTHING_TOKEN?: string;
+    UPLOAD_SESSION_CLEANUP_TTL_SECONDS?: string;
     UPLOAD_SESSION_MAX_PART_BYTES?: string;
     UPLOAD_SESSION_PARTS_DIR?: string;
     UPLOAD_SESSION_TOKEN_SECRET?: string;

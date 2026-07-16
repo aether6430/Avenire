@@ -1,6 +1,8 @@
 import { requestWaitlistEntry } from "@avenire/database";
 import { Emailer, renderWaitlistWelcomeEmail } from "@avenire/emailer";
+import { Schema } from "effect-v4";
 import { NextResponse } from "next/server";
+import { parseJsonRequest } from "@/lib/api-request";
 import { resolveAppBaseUrl } from "@/lib/app-base-url";
 
 const emailer = new Emailer();
@@ -13,7 +15,14 @@ function resolvePublicEmailBaseUrl(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const body = (await request.json().catch(() => ({}))) as { email?: string };
+  const parsed = await parseJsonRequest(
+    request,
+    Schema.Struct({ email: Schema.optional(Schema.String) })
+  );
+  if (!parsed.success) {
+    return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
+  }
+  const body = parsed.data;
   const email = body.email?.trim() ?? "";
 
   if (!email) {

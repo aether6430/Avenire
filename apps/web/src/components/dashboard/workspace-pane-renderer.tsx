@@ -424,6 +424,9 @@ function WorkspacePaneSurface({
         route={pane.route}
       >
         <div
+          role="region"
+          aria-label="Workspace pane"
+          tabIndex={0}
           className={cn(
             "relative flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-background transition-[opacity,box-shadow] duration-150",
             isMultiPane && "border-border/70 border-r",
@@ -434,6 +437,7 @@ function WorkspacePaneSurface({
             isOver && !isDragging && "bg-primary/[0.025]"
           )}
           onClick={onFocus}
+          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") onFocus(); }}
         >
           {dropIndicator ? (
             <div

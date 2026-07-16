@@ -470,7 +470,7 @@ export function FilesSidebarPanel({
     }
 
     const nextExpanded = new Set(
-      folderTree.filter((folder) => !folder.parentId).map((folder) => folder.id)
+      folderTree.flatMap((folder) => (folder.parentId ? [] : [folder.id]))
     );
 
     setExpandedTreePaths((previous) => {
@@ -870,8 +870,9 @@ export function FilesSidebarPanel({
     }
     const fuzzyMatches = folderFuse
       .search(fileSearchNeedle)
-      .filter((result) => (result.score ?? 1) <= SIDEBAR_SEARCH_SCORE_MAX)
-      .map((result) => result.item);
+      .flatMap((result) =>
+        (result.score ?? 1) <= SIDEBAR_SEARCH_SCORE_MAX ? [result.item] : []
+      );
     const unique = new Map<string, SidebarFolderNode>();
     for (const match of exactMatches) {
       unique.set(match.id, match);
@@ -893,8 +894,9 @@ export function FilesSidebarPanel({
     }
     const fuzzyMatches = fileFuse
       .search(fileSearchNeedle)
-      .filter((result) => (result.score ?? 1) <= SIDEBAR_SEARCH_SCORE_MAX)
-      .map((result) => result.item);
+      .flatMap((result) =>
+        (result.score ?? 1) <= SIDEBAR_SEARCH_SCORE_MAX ? [result.item] : []
+      );
     const unique = new Map<string, SidebarFileNode>();
     for (const match of exactMatches) {
       unique.set(match.id, match);

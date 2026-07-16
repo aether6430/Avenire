@@ -47,22 +47,36 @@ function DialogContent({
   children,
   largeWidth = false,
   showCloseButton = true,
+  /** When false, open/close is instant (keyboard-first surfaces like command palette). */
+  animate = true,
   ...props
 }: DialogPrimitive.Popup.Props & {
   largeWidth?: boolean;
   showCloseButton?: boolean;
+  animate?: boolean;
 }) {
   const surface = clampSurface(useSurface() + 4);
 
   return (
     <DialogPortal>
-      <DialogOverlay />
+      <DialogOverlay
+        className={
+          animate
+            ? undefined
+            : "duration-0 data-open:animate-none data-closed:animate-none"
+        }
+      />
       <DialogPrimitive.Popup
         data-slot="dialog-content"
         className={cn(
-          "data-open:animate-in data-closed:animate-out data-closed:fade-out-0 data-open:fade-in-0 data-closed:zoom-out-95 data-open:zoom-in-95 ring-foreground/10 grid max-w-[calc(100%-2rem)] gap-4 rounded-xl p-4 text-xs/relaxed ring-1 duration-100 fixed top-1/2 left-1/2 z-50 w-full -translate-x-1/2 -translate-y-1/2 outline-none",
+          "ring-foreground/10 grid max-w-[calc(100%-2rem)] gap-4 rounded-xl p-4 text-xs/relaxed ring-1 fixed top-1/2 left-1/2 z-50 w-full -translate-x-1/2 -translate-y-1/2 outline-none",
+          animate
+            ? "data-open:animate-in data-closed:animate-out data-closed:fade-out-0 data-open:fade-in-0 data-closed:zoom-out-95 data-open:zoom-in-95 duration-100"
+            : "duration-0 data-open:animate-none data-closed:animate-none",
           surfaceClasses(surface, 6),
-          largeWidth ? "sm:max-w-4xl lg:max-w-5xl" : "sm:max-w-sm",
+          // No thin default max-width — callers set width via className when needed.
+          // largeWidth remains a convenience cap for wide product dialogs.
+          largeWidth && "sm:max-w-4xl lg:max-w-5xl",
           className
         )}
         {...props}

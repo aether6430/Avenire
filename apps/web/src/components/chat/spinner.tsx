@@ -48,16 +48,16 @@ function RotatingMessage({
         <motion.span
           animate={{
             opacity: 1,
-            transition: { duration: 0.24, ease: [0.4, 0, 0.2, 1] },
-            y: 0,
+            transform: "translateY(0%)",
+            transition: { duration: 0.2, ease: [0.23, 1, 0.32, 1] },
           }}
           className="col-start-1 row-start-1"
           exit={{
             opacity: 0,
-            transition: { duration: 0.16, ease: [0.4, 0, 0.2, 1] },
-            y: "-80%",
+            transform: "translateY(-80%)",
+            transition: { duration: 0.14, ease: [0.23, 1, 0.32, 1] },
           }}
-          initial={{ opacity: 0, y: "80%" }}
+          initial={{ opacity: 0, transform: "translateY(80%)" }}
           key={messages[index]}
         >
           <Shimmer as="span" className="text-[13px]">

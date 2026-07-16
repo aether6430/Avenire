@@ -3,19 +3,14 @@ import {
   listExtensionDestinationPresets,
 } from "@avenire/database";
 import { NextResponse } from "next/server";
-import { z } from "zod";
+import { parseJsonRequest } from "@/lib/api-request";
 import {
   listWorkspaceFolders,
   listWorkspacesForUser,
   userCanEditFolder,
 } from "@/lib/file-data";
 import { getSessionUser } from "@/lib/workspace";
-
-const createPresetSchema = z.object({
-  folderId: z.string().uuid(),
-  label: z.string().trim().max(80).optional(),
-  workspaceId: z.string().uuid(),
-});
+import { extensionDestinationRequestSchema } from "../extension-route-contracts";
 
 export async function GET() {
   const user = await getSessionUser();
@@ -39,9 +34,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const parsed = createPresetSchema.safeParse(
-    await request.json().catch(() => ({}))
-  );
+  const parsed = await parseJsonRequest(request, extensionDestinationRequestSchema);
   if (!parsed.success) {
     return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
   }

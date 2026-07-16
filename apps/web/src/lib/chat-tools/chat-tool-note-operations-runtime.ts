@@ -132,8 +132,10 @@ export async function executeReadNote(
   ctx: NoteOperationContext,
   input: ReadNoteInput
 ) {
-  const maps = await buildWorkspacePathMaps(ctx.workspaceId, ctx.userId);
-  const file = await getFileAssetById(ctx.workspaceId, input.fileId);
+  const [maps, file] = await Promise.all([
+    buildWorkspacePathMaps(ctx.workspaceId, ctx.userId),
+    getFileAssetById(ctx.workspaceId, input.fileId),
+  ]);
 
   if (!file) {
     throw new Error(`Note not found: ${input.fileId}`);
@@ -166,8 +168,10 @@ export async function executeUpdateNote(
   ctx: NoteOperationContext,
   input: UpdateNoteInput
 ) {
-  const maps = await buildWorkspacePathMaps(ctx.workspaceId, ctx.userId);
-  const file = await getFileAssetById(ctx.workspaceId, input.fileId);
+  const [maps, file] = await Promise.all([
+    buildWorkspacePathMaps(ctx.workspaceId, ctx.userId),
+    getFileAssetById(ctx.workspaceId, input.fileId),
+  ]);
 
   if (!file) {
     throw new Error(`Note not found: ${input.fileId}`);
@@ -237,8 +241,10 @@ export async function executeListNotes(
   ctx: NoteOperationContext,
   input: ListNotesInput
 ) {
-  const maps = await buildWorkspacePathMaps(ctx.workspaceId, ctx.userId);
-  const allFiles = await listWorkspaceFiles(ctx.workspaceId, ctx.userId);
+  const [maps, allFiles] = await Promise.all([
+    buildWorkspacePathMaps(ctx.workspaceId, ctx.userId),
+    listWorkspaceFiles(ctx.workspaceId, ctx.userId),
+  ]);
   const noteFiles = allFiles.filter(isMarkdownFile);
   const maxNotes = input.maxNotes ?? 20;
 
@@ -277,8 +283,10 @@ export async function executeUpdateNoteTags(
   ctx: NoteOperationContext,
   input: UpdateNoteTagsInput
 ) {
-  const maps = await buildWorkspacePathMaps(ctx.workspaceId, ctx.userId);
-  const file = await getFileAssetById(ctx.workspaceId, input.fileId);
+  const [maps, file] = await Promise.all([
+    buildWorkspacePathMaps(ctx.workspaceId, ctx.userId),
+    getFileAssetById(ctx.workspaceId, input.fileId),
+  ]);
 
   if (!file) {
     throw new Error(`Note not found: ${input.fileId}`);

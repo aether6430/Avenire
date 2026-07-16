@@ -1,4 +1,9 @@
 import { resolveApiErrorMessage } from "@/lib/api-error-message";
+import { Schema } from "effect-v4";
+
+export const workspaceLogoPatchSchema = Schema.Struct({
+  logo: Schema.optional(Schema.NullOr(Schema.String)),
+});
 
 export function normalizeWorkspaceLogoInput(value: unknown) {
   return typeof value === "string" ? value.trim() || null : null;

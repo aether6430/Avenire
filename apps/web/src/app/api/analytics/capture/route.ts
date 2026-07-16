@@ -1,9 +1,24 @@
 import { logInfo, reportError } from "@avenire/observability";
+import { Schema } from "effect-v4";
 import { NextResponse } from "next/server";
+import { parseJsonRequest } from "@/lib/api-request";
+
+const analyticsCaptureSchema = Schema.Struct({
+  distinctId: Schema.optional(Schema.String),
+  event: Schema.optional(Schema.String),
+  properties: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
+});
+
+const analyticsErrorSchema = Schema.Struct({
+  error: Schema.optional(Schema.String),
+  path: Schema.optional(Schema.String),
+});
 
 const ALLOWED_EVENTS = new Set([
   "web.pageview",
   "web.session.end",
+  "web.performance.import",
+  "web.performance.interaction",
   "onboarding.started",
   "onboarding.completed",
 ]);
@@ -13,11 +28,11 @@ function safeString(value: unknown, fallback = "") {
 }
 
 export async function POST(request: Request) {
-  const body = (await request.json().catch(() => ({}))) as {
-    distinctId?: string;
-    event?: string;
-    properties?: Record<string, unknown>;
-  };
+  const parsed = await parseJsonRequest(request, analyticsCaptureSchema);
+  if (!parsed.success) {
+    return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
+  }
+  const body = parsed.data;
 
   const eventName = safeString(body.event);
   if (!ALLOWED_EVENTS.has(eventName)) {
@@ -44,6 +59,16 @@ export async function POST(request: Request) {
         typeof properties.durationMs === "number"
           ? Math.max(0, Math.round(properties.durationMs))
           : undefined,
+      cached:
+        typeof properties.cached === "boolean" ? properties.cached : undefined,
+      initiatorType: safeString(properties.initiatorType),
+      interactionType: safeString(properties.interactionType),
+      resourcePath: safeString(properties.resourcePath),
+      surface: safeString(properties.surface),
+      transferSize:
+        typeof properties.transferSize === "number"
+          ? Math.max(0, Math.round(properties.transferSize))
+          : undefined,
       viewport:
         typeof properties.viewport === "object" && properties.viewport
           ? properties.viewport
@@ -55,10 +80,11 @@ export async function POST(request: Request) {
 }
 
 export async function PUT(request: Request) {
-  const body = (await request.json().catch(() => ({}))) as {
-    error?: string;
-    path?: string;
-  };
+  const parsed = await parseJsonRequest(request, analyticsErrorSchema);
+  if (!parsed.success) {
+    return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
+  }
+  const body = parsed.data;
 
   await reportError({
     error: new Error(safeString(body.error, "Client error")),

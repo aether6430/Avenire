@@ -105,7 +105,6 @@ import { renderMermaidSVG } from "beautiful-mermaid";
 import { common, createLowlight } from "lowlight";
 import {
   type ComponentType,
-  type CSSProperties,
   type KeyboardEvent,
   memo,
   type ReactNode,
@@ -119,6 +118,10 @@ import {
 } from "react";
 import { NoteWidgetExtension } from "@/components/editor/note-widget-extension";
 import { PropertiesTable } from "@/components/editor/properties-table";
+import {
+  PreviewRail,
+  type PreviewRailItem,
+} from "@/components/ui/preview-rail";
 import "../editor.css";
 import type {
   FrontmatterProperties,
@@ -2093,6 +2096,7 @@ function HighlightedTextarea({
         {highlightLatex(value)}
       </pre>
       <textarea
+        aria-label="Editor content"
         className={cn(
           "absolute inset-0 resize-none overflow-auto bg-transparent px-3 py-2 font-mono text-[13px] text-transparent leading-6 caret-foreground outline-none selection:bg-accent/80 selection:text-transparent",
           compact ? "min-h-10 whitespace-nowrap" : "min-h-32"
@@ -2541,70 +2545,49 @@ function EditorTableOfContentsRail({
 }: {
   items: TableOfContentDataItem[];
 }) {
-  const visibleItems = items.filter(
-    (item) =>
-      item.textContent.trim().length > 0 &&
-      item.originalLevel >= 1 &&
-      item.originalLevel <= 3
+  const visibleItems = useMemo(
+    () =>
+      items.filter(
+        (item) =>
+          item.textContent.trim().length > 0 &&
+          item.originalLevel >= 1 &&
+          item.originalLevel <= 3
+      ),
+    [items]
   );
-  const activeIndex = visibleItems.findIndex((item) => item.isActive);
-  const getMarkerWidth = (item: TableOfContentDataItem, itemIndex: number) => {
-    if (activeIndex < 0) {
-      return Math.max(8, 14 - Math.max(0, item.originalLevel - 1) * 3);
-    }
-
-    const distance = Math.abs(itemIndex - activeIndex);
-    const levelInset = Math.max(0, item.originalLevel - 1) * 3;
-    const width = 34 - distance * 10 - levelInset;
-
-    return Math.max(8, Math.min(34, width));
-  };
+  const railItems = useMemo<PreviewRailItem[]>(
+    () =>
+      visibleItems.map((item) => ({
+        id: item.id,
+        label: item.textContent,
+        level: item.originalLevel,
+      })),
+    [visibleItems]
+  );
+  const itemsById = useMemo(
+    () => new Map(visibleItems.map((item) => [item.id, item])),
+    [visibleItems]
+  );
+  const handleSelect = useCallback(
+    (id: string) => {
+      itemsById.get(id)?.dom.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    },
+    [itemsById]
+  );
 
   if (visibleItems.length === 0) {
     return null;
   }
 
   return (
-    <aside className="editor-toc-rail pointer-events-none">
-      <div className="pointer-events-auto">
-        <div className="editor-toc-rail__inner">
-          <nav
-            aria-label="Table of contents"
-            className="editor-toc-rail__panel"
-          >
-            <ol className="editor-toc-rail__list">
-              {visibleItems.map((item, itemIndex) => (
-                <li key={item.id}>
-                  <button
-                    className={`editor-toc-rail__item ${
-                      item.isActive ? "is-active" : ""
-                    }`}
-                    onClick={() => {
-                      item.dom.scrollIntoView({
-                        behavior: "smooth",
-                        block: "start",
-                      });
-                    }}
-                    style={
-                      {
-                        "--toc-tick-width": `${getMarkerWidth(item, itemIndex)}px`,
-                        "--toc-label-offset": `${Math.max(0, item.originalLevel - 1) * 8}px`,
-                      } as CSSProperties
-                    }
-                    type="button"
-                  >
-                    <span aria-hidden className="editor-toc-rail__tick" />
-                    <span className="editor-toc-rail__label">
-                      {item.textContent}
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ol>
-          </nav>
-        </div>
-      </div>
-    </aside>
+    <PreviewRail
+      activeId={visibleItems.find((item) => item.isActive)?.id}
+      items={railItems}
+      onSelect={handleSelect}
+    />
   );
 }
 

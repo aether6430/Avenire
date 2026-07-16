@@ -45,9 +45,9 @@ export async function duplicateSharedFolderIntoWorkspace(input: {
     );
   }
 
-  const siblingNames = targetFolders
-    .filter((folder) => folder.parentId === input.targetRootFolderId)
-    .map((folder) => folder.name);
+  const siblingNames = targetFolders.flatMap((folder) =>
+    folder.parentId === input.targetRootFolderId ? [folder.name] : []
+  );
   const rootFolder = await createFolder(
     input.targetWorkspaceId,
     input.targetRootFolderId,
@@ -76,9 +76,9 @@ export async function duplicateSharedFolderIntoWorkspace(input: {
       continue;
     }
 
-    const targetSiblingNames = targetFolders
-      .filter((candidate) => candidate.parentId === clonedParentId)
-      .map((candidate) => candidate.name);
+    const targetSiblingNames = targetFolders.flatMap((candidate) =>
+      candidate.parentId === clonedParentId ? [candidate.name] : []
+    );
     const createdFolder = await createFolder(
       input.targetWorkspaceId,
       clonedParentId,

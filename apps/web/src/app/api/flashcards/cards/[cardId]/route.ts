@@ -1,5 +1,6 @@
 import { assertFlashcardTaxonomy } from "@avenire/database";
 import { NextResponse } from "next/server";
+import { parseJsonRequest } from "@/lib/api-request";
 import { invalidateFlashcardReadCaches } from "@/lib/domain-cache";
 import {
   archiveFlashcardCardForUser,
@@ -18,9 +19,7 @@ export async function PATCH(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const parsed = flashcardCardUpdateSchema.safeParse(
-    await request.json().catch(() => ({}))
-  );
+  const parsed = await parseJsonRequest(request, flashcardCardUpdateSchema);
   if (!parsed.success) {
     return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
   }
@@ -50,7 +49,7 @@ export async function PATCH(
     frontMarkdown: body.frontMarkdown,
     notesMarkdown: body.notesMarkdown,
     source,
-    tags: body.tags,
+    tags: body.tags ? Array.from(body.tags) : undefined,
     userId: ctx.user.id,
     workspaceId: ctx.workspace.workspaceId,
   });

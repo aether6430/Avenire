@@ -1,10 +1,10 @@
 import { resolveApiErrorMessage } from "@/lib/api-error-message";
 
 import { randomUUID } from "node:crypto";
-import { z } from "zod";
+import { Schema } from "effect-v4";
 
-export const sharedResourceDuplicateSchema = z.object({
-  workspaceId: z.string().min(1),
+export const sharedResourceDuplicateSchema = Schema.Struct({
+  workspaceId: Schema.String.check(Schema.isMinLength(1)),
 });
 export const SHARED_RESOURCE_DUPLICATE_ERROR =
   "Unable to duplicate shared resource.";

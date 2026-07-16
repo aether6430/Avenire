@@ -10,10 +10,16 @@ function getSingleValue(value: string | null) {
   return value ?? undefined;
 }
 
+function safeCallbackURL(url: string | null | undefined): string {
+  if (!url) return "/onboarding";
+  // Only allow same-origin relative paths to prevent open redirects
+  if (url.startsWith("/") && !url.startsWith("//")) return url;
+  return "/onboarding";
+}
+
 export function RegisterPageClient() {
   const searchParams = useSearchParams();
-  const callbackURL =
-    getSingleValue(searchParams.get("callbackURL")) ?? "/onboarding";
+  const callbackURL = safeCallbackURL(searchParams.get("callbackURL"));
 
   return (
     <AuthShell>

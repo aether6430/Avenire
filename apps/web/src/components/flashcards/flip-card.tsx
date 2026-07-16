@@ -2,6 +2,7 @@
 
 import { cn } from "@avenire/ui/lib/utils";
 import type { ReactNode } from "react";
+import { useEffect, useState } from "react";
 
 interface FlashcardFlipCardProps {
   back: ReactNode;
@@ -16,6 +17,18 @@ interface FlashcardFlipCardProps {
   surfaceClassName?: string;
 }
 
+function usePrefersReducedMotion() {
+  const [reduced, setReduced] = useState(false);
+  useEffect(() => {
+    const media = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const update = () => setReduced(media.matches);
+    update();
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
+  return reduced;
+}
+
 export function FlashcardFlipCard({
   back,
   backBodyClassName,
@@ -28,6 +41,8 @@ export function FlashcardFlipCard({
   onFlippedChange,
   surfaceClassName,
 }: FlashcardFlipCardProps) {
+  const reduceMotion = usePrefersReducedMotion();
+
   return (
     <div className={cn("[perspective:1600px]", className)}>
       <button
@@ -39,17 +54,38 @@ export function FlashcardFlipCard({
       >
         <div
           className={cn(
-            "relative h-full min-h-[22rem] rounded-xl border border-border/70 bg-card/95 transition-transform duration-500 [transform-style:preserve-3d]",
+            "relative h-full min-h-[22rem] rounded-xl border border-border/70 bg-card/95 [transform-style:preserve-3d]",
+            reduceMotion
+              ? "transition-opacity duration-150 ease-[var(--ease-out)]"
+              : "transition-transform duration-[350ms] ease-[var(--ease-in-out)]",
             surfaceClassName,
-            flipped && "[transform:rotateY(180deg)]"
+            flipped && !reduceMotion && "[transform:rotateY(180deg)]",
+            // Under reduced motion, hide the inactive face via opacity on faces below.
+            reduceMotion && flipped && "opacity-100"
           )}
         >
-          <CardFace bodyClassName={frontBodyClassName} meta={frontMeta}>
+          <CardFace
+            bodyClassName={frontBodyClassName}
+            className={
+              reduceMotion
+                ? flipped
+                  ? "pointer-events-none opacity-0"
+                  : "opacity-100"
+                : undefined
+            }
+            meta={frontMeta}
+          >
             {front}
           </CardFace>
           <CardFace
             bodyClassName={backBodyClassName}
-            className="[transform:rotateY(180deg)]"
+            className={cn(
+              "[transform:rotateY(180deg)]",
+              reduceMotion &&
+                (flipped
+                  ? "pointer-events-auto opacity-100 [transform:none]"
+                  : "pointer-events-none opacity-0 [transform:none]")
+            )}
             meta={backMeta}
             reverse
           >

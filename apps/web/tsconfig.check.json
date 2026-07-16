@@ -1,7 +1,6 @@
 {
   "extends": "@avenire/typescript-config/react-library.json",
   "compilerOptions": {
-    "baseUrl": ".",
     "paths": {
       "@/content/*": ["./content/*"],
       "@/*": ["./src/*"],

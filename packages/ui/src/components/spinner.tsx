@@ -45,6 +45,7 @@ export const SpinnerGlyph = forwardRef<SVGSVGElement, SpinnerGlyphProps>(
           animate={{
             d: [circleA, infinityPath, circleB, infinityPath, circleA],
           }}
+          d={circleA}
           transition={{
             d: {
               duration: 6,

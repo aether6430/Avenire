@@ -84,7 +84,7 @@ export const HowItWorks = () => {
         <div className="border-divide divide-divide mt-16 hidden w-full grid-cols-2 divide-x border-t lg:grid">
           <div className="divide-divide divide-y">
             {tabs.map((tab, index) => (
-              <button
+              <button type="button"
                 key={tab.title}
                 className="group relative flex w-full flex-col items-start overflow-hidden px-12 py-8 hover:bg-gray-100 dark:hover:bg-neutral-800"
                 onClick={() => setActiveTab(tab)}

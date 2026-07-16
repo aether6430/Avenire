@@ -17,6 +17,7 @@ vi.mock("@/lib/observability", () => ({
 }));
 
 vi.mock("@/lib/upload-multipart-write", () => ({
+  MultipartUploadLimitError: class MultipartUploadLimitError extends Error {},
   writeMultipartPart: writeMultipartPartMock,
 }));
 
@@ -45,6 +46,7 @@ function createSession() {
     workspaceUuid: "workspace-1",
     createdAt: new Date(Date.now() - 5000).toISOString(),
     expiresAt: new Date(Date.now() + 60_000).toISOString(),
+    sizeBytes: 1_000_000_000,
   };
 }
 
@@ -192,6 +194,7 @@ describe("/api/uploads/sessions/[sessionId]/parts/[partNumber] route", () => {
     await expect(response.json()).resolves.toEqual({
       error: "Part too large",
       maxPartBytes: 16 * 1024 * 1024,
+      reason: "UPLOAD_PART_TOO_LARGE",
     });
   });
 
@@ -266,6 +269,7 @@ describe("/api/uploads/sessions/[sessionId]/parts/[partNumber] route", () => {
     });
     expect(verifyUploadSessionPartTokenMock).toHaveBeenCalledWith("token-4", {
       sessionId: "session-1",
+      userId: "user-1",
       workspaceUuid: "workspace-1",
       partNumber: 4,
     });
@@ -273,6 +277,8 @@ describe("/api/uploads/sessions/[sessionId]/parts/[partNumber] route", () => {
       sessionId: "session-1",
       partNumber: 4,
       maxBytes: 16 * 1024 * 1024,
+      maxPartCount: 60,
+      maxTotalBytes: 1_000_000_000,
       stream: expect.any(ReadableStream),
     });
   });

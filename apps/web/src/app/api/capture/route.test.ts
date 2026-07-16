@@ -95,4 +95,15 @@ describe("/api/capture route", () => {
     expect(createTaskForUserMock).not.toHaveBeenCalled();
     expect(invalidateTaskListCacheMock).not.toHaveBeenCalled();
   });
+
+  it("returns the stable validation error for malformed JSON", async () => {
+    const response = await POST(new Request("http://localhost:3003/api/capture", {
+      body: "{",
+      method: "POST",
+    }));
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({ error: "Invalid request" });
+    expect(createTaskForUserMock).not.toHaveBeenCalled();
+  });
 });

@@ -1,14 +1,13 @@
+import { Schema } from "effect-v4";
 import { resolveApiErrorMessage } from "@/lib/api-error-message";
 
-import { z } from "zod";
-
-export const workspaceShareInviteSchema = z.object({
-  email: z.string().trim().min(1),
-  role: z.enum(["admin", "member"]).optional(),
+export const workspaceShareInviteSchema = Schema.Struct({
+  email: Schema.Trim.check(Schema.isMinLength(1)),
+  role: Schema.optional(Schema.Literals(["admin", "member"])),
 });
 
-export const workspaceShareRemoveSchema = z.object({
-  memberIdOrEmail: z.string().trim().min(1),
+export const workspaceShareRemoveSchema = Schema.Struct({
+  memberIdOrEmail: Schema.Trim.check(Schema.isMinLength(1)),
 });
 
 export const WORKSPACE_SHARE_MEMBERS_LIST_ERROR =

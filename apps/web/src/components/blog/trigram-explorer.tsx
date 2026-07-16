@@ -42,7 +42,7 @@ export function TrigramExplorer({
         <div className="flex flex-wrap gap-1.5">
           {trigrams.map((tri, i) => (
             <motion.span
-              key={`${tri}-${i}`}
+              key={tri}
               initial={{ opacity: 0, scale: 0.85 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: i * 0.008, duration: 0.1 }}

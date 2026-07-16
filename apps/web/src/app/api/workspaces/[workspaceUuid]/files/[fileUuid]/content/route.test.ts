@@ -1,13 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { getSessionUserMock, handleWorkspaceFileContentPatchMock } = vi.hoisted(
-  () => ({
-    getSessionUserMock: vi.fn(),
-    handleWorkspaceFileContentPatchMock: vi.fn(),
-  })
-);
+const {
+  ensureWorkspaceAccessForUserMock,
+  getSessionUserMock,
+  handleWorkspaceFileContentPatchMock,
+} = vi.hoisted(() => ({
+  ensureWorkspaceAccessForUserMock: vi.fn(),
+  getSessionUserMock: vi.fn(),
+  handleWorkspaceFileContentPatchMock: vi.fn(),
+}));
 
 vi.mock("@/lib/workspace", () => ({
+  ensureWorkspaceAccessForUser: ensureWorkspaceAccessForUserMock,
   getSessionUser: getSessionUserMock,
 }));
 
@@ -53,10 +57,22 @@ const patchFileContentRaw = (body: string) =>
 
 describe("/api/workspaces/[workspaceUuid]/files/[fileUuid]/content route", () => {
   beforeEach(() => {
+    ensureWorkspaceAccessForUserMock.mockReset();
     getSessionUserMock.mockReset();
     handleWorkspaceFileContentPatchMock.mockReset();
 
     getSessionUserMock.mockResolvedValue({ id: "user-1" });
+    ensureWorkspaceAccessForUserMock.mockResolvedValue(true);
+  });
+
+  it("rejects users without workspace access before parsing content", async () => {
+    ensureWorkspaceAccessForUserMock.mockResolvedValue(false);
+
+    const response = await patchFileContent({ content: "replacement" });
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toEqual({ error: "Forbidden" });
+    expect(handleWorkspaceFileContentPatchMock).not.toHaveBeenCalled();
   });
 
   it("rejects malformed content replacement metadata before mutating content", async () => {

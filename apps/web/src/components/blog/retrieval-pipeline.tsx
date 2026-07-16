@@ -67,7 +67,7 @@ export function RetrievalPipeline() {
       {/* Step tabs */}
       <div className="mb-5 flex flex-wrap gap-1.5">
         {STEPS.map((s, i) => (
-          <button
+          <button type="button"
             key={s.id}
             onClick={() => setActive(i)}
             className={`rounded-lg border px-2.5 py-1.5 text-xs font-mono transition-all duration-150 ${
@@ -87,7 +87,8 @@ export function RetrievalPipeline() {
       <div className="mb-5 h-0.5 w-full rounded-full bg-white/10">
         <motion.div
           className="h-full rounded-full bg-brand"
-          animate={{ width: `${((active + 1) / STEPS.length) * 100}%` }}
+          animate={{ scaleX: (active + 1) / STEPS.length }}
+          style={{ transformOrigin: "left" }}
           transition={{ duration: 0.25 }}
         />
       </div>
@@ -116,7 +117,7 @@ export function RetrievalPipeline() {
 
       {/* Navigation */}
       <div className="mt-5 flex items-center justify-between border-divide border-t pt-4">
-        <button
+        <button type="button"
           onClick={() => setActive((s) => Math.max(0, s - 1))}
           disabled={active === 0}
           className="text-xs text-white/40 transition-colors hover:text-white disabled:opacity-20"
@@ -126,7 +127,7 @@ export function RetrievalPipeline() {
         <span className="text-xs text-white/40 font-mono">
           {active + 1} / {STEPS.length}
         </span>
-        <button
+        <button type="button"
           onClick={() => setActive((s) => Math.min(STEPS.length - 1, s + 1))}
           disabled={active === STEPS.length - 1}
           className="text-xs text-white/40 transition-colors hover:text-white disabled:opacity-20"

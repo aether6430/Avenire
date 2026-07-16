@@ -3,6 +3,7 @@
     "preamble",
     "modules",
     "core-design-system",
+    "streaming-runtime",
     "when-nothing-fits",
     "svg-setup",
     "mathematical-svg-reference",
@@ -12,34 +13,41 @@
     "preamble",
     "modules",
     "core-design-system",
+    "streaming-runtime",
     "when-nothing-fits",
     "first-class-primitives",
     "ui-components",
-    "color-palette"
+    "color-palette",
+    "dashboard"
   ],
   "interactive": [
     "preamble",
     "modules",
     "core-design-system",
+    "streaming-runtime",
     "when-nothing-fits",
     "first-class-primitives",
     "ui-components",
-    "color-palette"
+    "color-palette",
+    "interactive-chart"
   ],
   "chart": [
     "preamble",
     "modules",
     "core-design-system",
+    "streaming-runtime",
     "when-nothing-fits",
     "first-class-primitives",
     "ui-components",
     "color-palette",
-    "charts-chart-js"
+    "charts-chart-js",
+    "interactive-chart"
   ],
   "diagram": [
     "preamble",
     "modules",
     "core-design-system",
+    "streaming-runtime",
     "when-nothing-fits",
     "color-palette",
     "svg-setup",
@@ -50,6 +58,7 @@
     "preamble",
     "modules",
     "core-design-system",
+    "streaming-runtime",
     "when-nothing-fits",
     "phys-sim"
   ]

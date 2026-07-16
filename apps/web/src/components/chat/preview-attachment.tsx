@@ -1006,6 +1006,8 @@ export function PreviewAttachment({
             className="h-[75vh] w-full rounded-md border"
             src={previewUrl}
             title={name ?? "PDF preview"}
+            sandbox="allow-scripts"
+            referrerPolicy="no-referrer"
           />
         );
       }

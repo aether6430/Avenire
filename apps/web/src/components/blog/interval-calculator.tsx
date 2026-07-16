@@ -85,7 +85,7 @@ export function IntervalCalculator() {
           </div>
           <div className="flex gap-1.5">
             {(["again", "hard", "good", "easy"] as const).map((r) => (
-              <button
+              <button type="button"
                 key={r}
                 onClick={() => setFirstRating(r)}
                 className={`rounded-lg border px-3 py-1.5 text-xs tracking-wider capitalize font-mono transition-all ${
@@ -156,7 +156,7 @@ export function IntervalCalculator() {
           </thead>
           <tbody>
             {rows.map((row, i) => (
-              <tr key={i} className={i % 2 === 0 ? "" : "bg-white/[0.02]"}>
+              <tr key={row.review} className={i % 2 === 0 ? "" : "bg-white/[0.02]"}>
                 <td className="p-2 border-b border-white/5">
                   <span
                     className="font-semibold"

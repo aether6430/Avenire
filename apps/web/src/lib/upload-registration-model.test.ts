@@ -20,19 +20,14 @@ describe("upload registration model", () => {
 
   it("infers and resolves mime types from file names when needed", () => {
     expect(inferMimeTypeFromName("lecture.pdf")).toBe("application/pdf");
-    expect(inferMimeTypeFromName("clip.mp4")).toBe("video/*");
+    expect(inferMimeTypeFromName("clip.mp4")).toBe("video/mp4");
     expect(
       resolveMimeType({
         mimeType: "application/octet-stream",
         name: "lecture.md",
       })
     ).toBe("text/markdown");
-    expect(
-      resolveMimeType({
-        mimeType: "video/mp4",
-        name: "clip.bin",
-      })
-    ).toBe("video/mp4");
+    expect(resolveMimeType({ mimeType: "video/*", name: "clip.mp4" })).toBeNull();
   });
 
   it("detects markdown uploads and normalizes uploadthing urls", () => {

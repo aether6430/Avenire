@@ -15,6 +15,8 @@ import {
   normalizePageMetadataState,
 } from "@/lib/frontmatter";
 import { getSessionUser } from "@/lib/workspace";
+import { parseJsonRequest } from "@/lib/api-request";
+import { noteUpdateSchema } from "../note-route-model";
 
 const NOTE_REINDEX_DEBOUNCE_MS = 3000;
 
@@ -50,14 +52,11 @@ export async function PATCH(
     return NextResponse.json({ error: "Not a markdown file" }, { status: 400 });
   }
 
-  const body = (await request.json().catch(() => ({}))) as {
-    content?: string;
-    page?: {
-      bannerUrl?: string | null;
-      icon?: string | null;
-      properties?: Record<string, unknown>;
-    };
-  };
+  const parsed = await parseJsonRequest(request, noteUpdateSchema);
+  if (!parsed.success) {
+    return NextResponse.json({ error: "Invalid note update" }, { status: 400 });
+  }
+  const body = parsed.data;
   const hasContent = typeof body.content === "string";
   const hasPage = body.page !== undefined;
 

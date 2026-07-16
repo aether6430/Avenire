@@ -1,82 +1,41 @@
-## Core Design System
+## Core visual contract
 
-These rules apply to ALL use cases.
+Create a visual when it materially improves understanding or decision-making. Lead with the visual signal, use only relevant controls, and avoid invented scores, duplicate legends, decorative panels, and card grids that do not explain the data.
 
-### Philosophy
-- **Seamless**: Users shouldn't notice where claude.ai ends and your widget begins.
-- **Primitive-first**: For canvas-style artifacts, use `show_widget` with `widget: { type: "spec", spec: ... }` first-class primitives. They render with Avenire's shadcn UI components and are the default for cards, metrics, tables, sections, charts, callouts, and structured reports.
-- **Raw-code escape hatch**: Use `show_widget` with `widget: { type: "code", code: ... }` raw HTML/SVG only when the widget needs custom drawing, custom interaction, canvas animation, imperative JS, mermaid, or third-party libraries.
-- **Compact but complete**: Inline widgets should stay compact. Canvas artifacts may include concise headings, labels, callouts, and tables inside the widget when that content is part of the artifact.
-- **No duplicated prose**: Full explanations belong in the chat response. The widget may contain short artifact text that helps the visual stand alone.
-- **Use the system as-is**: do not invent your own styling language for primitive widgets. Reuse the provided primitive nodes and theme tokens. Treat them as a contract, not inspiration.
+### Output choice
 
-### Streaming
-Output streams token-by-token. Structure code so useful content appears early.
-- **HTML**: `<style>` (short) → content HTML → `<script>` last.
-- **SVG**: `<defs>` (markers) → visual elements immediately.
-- Prefer inline `style="..."` over `<style>` blocks — inputs/controls must look correct mid-stream.
-- Keep `<style>` under ~15 lines. Interactive widgets with inputs and sliders need more style rules — that's fine, but don't bloat with decorative CSS.
-- Gradients, shadows, and blur flash during streaming DOM diffs. Use solid flat fills instead.
+- Use `show_widget` with `type: "spec"` when the artifact clearly fits sections, cards, stats, tables, progress, callouts, or simple bar/line/area charts.
+- Use `type: "code"` for custom SVG/canvas, maps, simulations, controls, animation, or chart behavior that primitives cannot express.
+- Do not force the schema path. Visual clarity and required interaction take priority; `spec` is an optional convenience, not the visual language.
+- Keep explanations outside the widget. Put only necessary labels, values, legends, and accessible text inside it.
 
-### Rules
-- No `<!-- comments -->` or `/* comments */` (waste tokens, break streaming)
-- No font-size below 11px
-- No emoji — use CSS shapes or SVG paths
-- No gradients, drop shadows, blur, glow, or neon effects
-- **No hand-authored UI colors.** Do not pick colors for primitive widgets. Use `tone` and built-in chart defaults. Raw SVG/canvas may use CSS variables and documented SVG classes; only use hardcoded colors for domain-specific physical illustrations where the color carries meaning.
-- **Classes first.** If a provided classname solves the problem, use the classname. Do not recreate the same look with inline color/fill/stroke declarations.
-- **Do not restyle core components from scratch.** Inputs, buttons, sliders, cards, pills, metric blocks, and diagram nodes should follow the prescribed structure. If a primitive exists, use it instead of recreating it in HTML.
-- **Layout styles are allowed; appearance styles are not.** Use inline CSS for positioning, spacing, sizing, and grid/flex layout. Do not use inline CSS to invent new visual design for components.
-- No dark/colored backgrounds on outer containers (transparent only — host provides the bg)
-- **Typography**: The default font is var(--font-sans). For the rare editorial/blockquote moment, use `font-family: var(--font-serif)`.
-- **Headings**: h1 = 22px, h2 = 18px, h3 = 16px — all `font-weight: 500`. Heading color is pre-set to `var(--color-text-primary)` — don't override it. Body text = 16px, weight 400, `line-height: 1.7`. **Two weights only: 400 regular, 500 bold.** Never use 600 or 700 — they look heavy against the host UI.
-- **Sentence case** always. Never Title Case, never ALL CAPS. This applies everywhere including SVG text labels and diagram headings.
-- **No mid-sentence bolding**, including in your response text around the tool call. Entity names, class names, function names go in `code style` not **bold**. Bold is for headings and labels only.
-- The widget container is `display: block; width: 100%`. Your HTML fills it naturally — no wrapper div needed. Just start with your content directly. If you want vertical breathing room, add `padding: 1rem 0` on your first element.
-- Never use `position: fixed` — the iframe viewport sizes itself to your in-flow content height, so fixed-positioned elements (modals, overlays, tooltips) collapse it to `min-height: 100px`. For modal/overlay mockups: wrap everything in a normal-flow `<div style="min-height: 400px; background: rgba(0,0,0,0.45); display: flex; align-items: center; justify-content: center;">` and put the modal inside — it's a faux viewport that actually contributes layout height.
-- No DOCTYPE, `<html>`, `<head>`, or `<body>` — just content fragments.
-- When placing text on a colored background (badges, pills, cards, tags), use the darkest shade from that same color family for the text — never plain black or generic gray.
-- **Corners**: use `border-radius: var(--border-radius-md)` (or `-lg` for cards) in HTML. In SVG, `rx="4"` is the default — larger values make pills, use only when you mean a pill.
-- **No rounded corners on single-sided borders** — if using `border-left` or `border-top` accents, set `border-radius: 0`. Rounded corners only work with full borders on all sides.
-- **Titles and concise artifact text are allowed in spec widgets**. For raw SVG diagrams, keep prose outside the tool unless the text is a direct label in the diagram.
-- **Icon sizing**: When using emoji or inline SVG icons, explicitly set `font-size: 16px` for emoji or `width: 16px; height: 16px` for SVG icons. Never let icons inherit the container's font size — they will render too large. For larger decorative icons, use 24px max.
-- No tabs, carousels, or `display: none` sections during streaming — hidden content streams invisibly. Show all content stacked vertically. (Post-streaming JS-driven steppers are fine — see Illustrative/Interactive sections.)
-- No nested scrolling — auto-fit height.
-- Scripts execute after streaming — load libraries via `<script src="https://cdnjs.cloudflare.com/ajax/libs/...">` (UMD globals), then use the global in a plain `<script>` that follows.
-- **CDN allowlist (CSP-enforced)**: external resources may ONLY load from `cdnjs.cloudflare.com`, `esm.sh`, `cdn.jsdelivr.net`, `unpkg.com`. All other origins are blocked by the sandbox — the request silently fails.
+### Composition
 
-### Quality gate
-Before calling `show_widget`, run this mental review. If any item fails, revise the widget first.
+- Start with the plot, map, diagram, or dominant visual. Put values and takeaways on marks, axes, annotations, or one compact selected-state detail.
+- Use `.card` only for a necessary bounded summary or selected-item detail. Never nest cards or wrap the whole visualization in card chrome.
+- Use `.viz-stat` for a label, value, and at most one short delta; use `.viz-grid` only for 2–3 peer metrics or choices.
+- Use `.viz-row` for wrapping related values/actions and `.viz-controls` for controls affecting the same visual.
+- Use `.viz-badge` for display-only accents, never as a button.
+- Keep presentation-only state local. For deliberate drill-down, use `window.openai.sendFollowUpMessage({ prompt, title })` with selected values.
 
-- **Contrast:** every text label, axis label, stroke, dot, and control readout must be readable in both light and dark mode. Do not draw near-black marks on a near-black canvas or near-white marks on a white canvas. Use `--color-text-primary`, `--color-text-secondary`, `--color-border-secondary`, semantic tokens, or the canvas theme variables instead.
-- **Ink density:** the main visual should have enough visible structure to be understood at a glance. Avoid tiny sparse dots, hairline strokes, and unlabeled marks as the only signal. Primary marks should normally be at least 2px strokes or 5px dots in CSS pixels; secondary guides can be lighter but still visible.
-- **Native controls:** buttons, sliders, inputs, and readouts must look like the host UI. Use bare form tags or the documented component recipes. Do not make bright custom-filled buttons unless the host component already provides that treatment.
-- **Alignment:** controls must sit in clear rows with labels, inputs, and values aligned. Avoid loose labels floating beside sliders or values detached from the variable they describe.
-- **Responsive fit:** no text should overlap, clip, or depend on one fixed canvas size. Use `ResizeObserver`, CSS grid with `minmax(0, 1fr)`, and measured canvas layout.
-- **Self-check labels:** if a user cannot tell what the x-axis, y-axis, markers, and current state mean without reading the chat response, add short in-widget labels.
-- **No dim placeholders:** a widget must not look like a loading skeleton after it has rendered. Avoid low-opacity whole-widget styling, under-contrasted canvases, or empty panels with only faint marks.
+### Accessibility and responsiveness
 
-### CSS Variables
-**Backgrounds**: `--color-background-primary` (white), `-secondary` (surfaces), `-tertiary` (page bg), `-info`, `-danger`, `-success`, `-warning`
-**Text**: `--color-text-primary` (black), `-secondary` (muted), `-tertiary` (hints), `-info`, `-danger`, `-success`, `-warning`
-**Borders**: `--color-border-tertiary` (0.15α, default), `-secondary` (0.3α, hover), `-primary` (0.4α), semantic `-info/-danger/-success/-warning`
-**Typography**: `--font-sans`, `--font-serif`, `--font-mono`
-**Layout**: `--border-radius-md` (8px), `--border-radius-lg` (12px — preferred for most components), `--border-radius-xl` (16px)
-All auto-adapt to light/dark mode. These are the only allowed theme primitives. Do not invent additional color values.
+- Use semantic HTML, native tab order, keyboard-accessible controls, concise labels, and browser focus styles. Never add `tabindex` or override focus styles.
+- Give every chart, SVG, canvas, and widget an accessible name or description using a role, `<title>`, `<desc>`, fallback text, or `.sr-only`.
+- Pair color with labels, shape, position, or line style. Meaning must not depend on color alone.
+- Design for 736px down to 320px. Reflow by wrapping or stacking; reserve space for the longest label.
+- Avoid fixed outer widths, horizontal overflow, internal scrolling, `position: fixed`, and viewport-height layouts. The host sizes the frame to in-flow content.
+- Keep text, marks, controls, cards, and dynamic content free of clipping and overlap.
+- Use `.text-small` only for secondary annotations and `.text-muted` only for non-essential context. Never go below 11px.
 
-The shared UI theme also exposes palette families through:
-- `--color-text-default|gray|brown|orange|yellow|green|blue|purple|pink|red`
-- `--color-bg-default|gray|brown|orange|yellow|green|blue|purple|pink|red`
-- `--color-pill-default|gray|brown|orange|yellow|green|blue|purple|pink|red`
+### Motion
 
-**Dark mode is mandatory** — every color must work in both modes:
-- In SVG: use the pre-built color classes (`c-default`, `c-gray`, `c-brown`, `c-orange`, `c-yellow`, `c-green`, `c-blue`, `c-purple`, `c-pink`, `c-red`, plus aliases `c-teal`, `c-amber`, `c-coral`) for colored nodes — they handle light/dark mode automatically. Never write `<style>` blocks for colors.
-- In SVG: every `<text>` element needs a class (`t`, `ts`, `th`) — never omit fill or use `fill="inherit"`. Inside a `c-{color}` parent, text classes auto-adjust to the ramp.
-- In HTML: use the provided component styles and theme tokens only. Never hardcode colors like `#333`, and do not invent your own palette choices.
-- Mental test: if the background were near-black, would every text element still be readable?
+- Animate transitions between data states, not initial appearance. Never loop decorative motion and honor `prefers-reduced-motion`.
+- Keep motion local to the changing visual; do not animate layout properties or unrelated chat chrome.
 
-### sendPrompt(text)
-A global function that sends a message to chat as if the user typed it. Use it when the user's next step benefits from Claude thinking. Handle filtering, sorting, toggling, and calculations in JS instead.
+### Final check
 
-### Links
-`<a href="https://...">` just works — clicks are intercepted and open the host's link-confirmation dialog. Or call `openLink(url)` directly.
+- Is the main signal visible without explanatory prose?
+- Are controls necessary, native, labeled, and keyboard accessible?
+- Does it fit from 736px to 320px without clipping or scrolling?
+- Does it remain correct during streaming, theme changes, resize, and reduced motion?

@@ -64,7 +64,7 @@ export function ContextSwitchCost() {
           {TOOLS.map((tool) => {
             const isActive = activeTools.includes(tool.id);
             return (
-              <button
+              <button type="button"
                 key={tool.id}
                 onClick={() => toggle(tool.id)}
                 className={`rounded-lg border px-2.5 py-1.5 text-xs transition-all ${

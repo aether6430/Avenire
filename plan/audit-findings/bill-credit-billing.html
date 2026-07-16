@@ -1,0 +1,313 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BILL-01/02 — Credit &amp; Billing</title>
+  <meta name="description" content="Atomic credit admission with row-level locking, then Polar native credits migration. Eliminates undercounting and removes ~400 lines of refill/debit/refund logic.">
+  <script>
+    (function() {
+      var stored = localStorage.getItem('theme');
+      var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      if (stored === 'dark' || (!stored && prefersDark)) {
+        document.documentElement.classList.add('dark');
+      }
+    })();
+  </script>
+  <style>
+    :root {
+      --background: #fcfcfc; --foreground: #141414f0;
+      --surface-2: #f8f8f8; --surface-3: #f3f3f3;
+      --border: #14141414; --input: #1414141f;
+      --hover: #1414140a; --primary: #abc4ff;
+      --muted: #1414148a; --muted-foreground: #141414bd; --success: #0f7b6c;
+      --warning: #9a6b00; --danger: #b42347;
+      --radius: 6px; --content: 820px;
+    }
+
+    .dark {
+      --background: #141414;
+      --foreground: #e4e4e4eb;
+      --surface-2: #181818;
+      --surface-3: #1d1d1d;
+      --border: #e4e4e414;
+      --input: #e4e4e41f;
+      --hover: #e4e4e40a;
+      --primary: #abc4ff;
+      --muted: #e4e4e45e;
+      --muted-foreground: #e4e4e4bd;
+      --success: #4dab9a;
+      --warning: #ffdc49;
+      --danger: #fc6b83;
+      --radius: 8px;
+      --content: 820px;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body { margin: 0; background: var(--background); color: var(--foreground); font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 15px; line-height: 1.6; }
+    a { color: inherit; }
+    code { border-radius: 4px; background: var(--surface-3); padding: 0.12rem 0.3rem; font-family: "SFMono-Regular", Consolas, monospace; font-size: 0.88em; }
+    .topbar { position: sticky; z-index: 20; top: 0; border-bottom: 1px solid var(--border); background: color-mix(in srgb, var(--background) 94%, transparent); backdrop-filter: blur(10px); }
+    .topbar-inner { display: flex; min-height: 56px; max-width: var(--content); align-items: center; gap: 16px; margin: 0 auto; padding: 8px 24px; }
+    .topbar-title { min-width: 0; flex: 1; }
+    .topbar-title strong { display: block; }
+    .topbar-title span { display: block; color: var(--muted); font-size: 12px; }
+
+    .theme-button { display: flex; align-items: center; justify-content: center; min-width: 36px; min-height: 36px; border: 1px solid var(--input); border-radius: var(--radius); background: var(--background); color: var(--foreground); padding: 0; cursor: pointer; transition: color 140ms, background-color 140ms, border-color 140ms; }
+    .theme-button:hover { background: var(--hover); }
+    .dark .theme-button { background: var(--surface-2); border-color: var(--hover); }
+    .theme-button svg { display: block; }
+    .theme-button .theme-icon-dark { display: none; }
+    .dark .theme-button .theme-icon-light { display: none; }
+    .dark .theme-button .theme-icon-dark { display: inline; }
+    .layout { max-width: var(--content); margin: 0 auto; padding: 40px 24px 96px; }
+
+    .doc-header { border-bottom: 1px solid var(--border); padding-bottom: 32px; }
+    .status { margin: 0 0 8px; color: var(--warning); font-size: 13px; font-weight: 650; text-transform: uppercase; }
+    h1 { margin: 0; font-size: 34px; line-height: 1.16; letter-spacing: -0.015em; }
+    .summary { max-width: 700px; margin: 14px 0 0; color: var(--muted-foreground); font-size: 17px; line-height: 1.7; }
+    .metadata { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin: 24px 0 0; }
+    .metadata dt { color: var(--muted); font-size: 12px; }
+    .metadata dd { margin: 2px 0 0; font-weight: 500; }
+
+    .section { scroll-margin-top: 80px; border-bottom: 1px solid var(--border); padding: 36px 0; }
+    .section:last-child { border-bottom: 0; }
+    .section-heading { display: grid; grid-template-columns: 28px 1fr; gap: 8px; align-items: baseline; margin-bottom: 16px; }
+    .section-number { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+    h2 { margin: 0; font-size: 21px; line-height: 1.3; }
+    h3 { margin: 24px 0 8px; font-size: 15px; line-height: 1.4; }
+    p { max-width: 720px; margin: 0 0 12px; }
+    ul, ol { max-width: 730px; margin: 8px 0 16px; padding-left: 22px; }
+    li { margin: 5px 0; }
+    .callout { max-width: 740px; margin: 16px 0; border-left: 3px solid var(--primary); background: var(--surface-2); padding: 12px 16px; font-size: 14px; }
+    .callout strong { display: block; margin-bottom: 2px; }
+    .callout.warning { border-left-color: var(--warning); }
+    .callout.danger { border-left-color: var(--danger); }
+    .callout.success { border-left-color: var(--success); }
+    .table-wrap { overflow-x: auto; margin: 16px 0 22px; border: 1px solid var(--border); border-radius: var(--radius); }
+    table { width: 100%; min-width: 500px; border-collapse: collapse; background: var(--background); font-size: 13px; line-height: 1.45; }
+    th, td { border-bottom: 1px solid var(--border); padding: 10px 12px; text-align: left; vertical-align: top; }
+    th { background: var(--surface-2); color: var(--muted); font-size: 11px; font-weight: 650; text-transform: uppercase; }
+    tr:last-child td { border-bottom: 0; }
+
+    .benefit-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin: 16px 0; }
+    .benefit { border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; }
+    .benefit strong { display: block; font-size: 14px; }
+    .benefit span { display: block; margin-top: 4px; color: var(--muted); font-size: 12px; line-height: 1.5; }
+
+    .flow { display: flex; gap: 8px; flex-wrap: wrap; margin: 16px 0; align-items: center; }
+    .flow-step { border: 1px solid var(--border); border-radius: var(--radius); padding: 8px 12px; background: var(--surface-2); font-size: 13px; }
+    .flow-arrow { color: var(--muted); font-size: 16px; }
+
+    .footnote { margin-top: 20px; color: var(--muted); font-size: 12px; }
+
+    @media (max-width: 560px) {
+      .topbar-inner, .layout { padding-right: 16px; padding-left: 16px; }
+      h1 { font-size: 28px; }
+      .metadata { grid-template-columns: 1fr; gap: 8px; }
+      .benefit-grid { grid-template-columns: 1fr; }
+      .flow { flex-direction: column; align-items: flex-start; }
+      .flow-arrow { transform: rotate(90deg); }
+    }
+    @media print {
+      @page { margin: 16mm 14mm; }
+      body { background: #fff; color: #111; font-size: 11pt; }
+      .topbar { display: none; }
+      .layout { max-width: none; padding: 0; }
+      .section { break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="topbar-title">
+        <strong>BILL-01/02 — Credit &amp; Billing</strong>
+        <span>Plan document · 10 July 2026</span>
+      </div>
+
+      <button class="theme-button" id="theme-toggle" type="button" aria-label="Toggle theme" title="Toggle theme [D]">
+        <span class="theme-icon-light"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg></span>
+        <span class="theme-icon-dark"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></span>
+      </button>
+    </div>
+  </header>
+
+  <div class="layout">
+    <header class="doc-header">
+      <p class="status">Priority P1 · Effort M–L · 7–12 days</p>
+      <h1>Credit &amp; Billing</h1>
+      <p class="summary">Two billing findings: credit admission uses a non-locking read/compute/write pattern so concurrent chats can undercount usage (BILL-01); and Polar native credits can replace the custom refill ledger, deleting roughly 400 lines of manual debit/refund logic while still requiring local admission and durable event delivery (BILL-02).</p>
+      <dl class="metadata">
+        <div><dt>Owner</dt><dd>Avenire engineering</dd></div>
+        <div><dt>Audience</dt><dd>Engineering, Product</dd></div>
+        <div><dt>Date</dt><dd>10 July 2026</dd></div>
+      </dl>
+    </header>
+
+    <section class="section" id="problem">
+      <div class="section-heading"><span class="section-number">01</span><h2>Problem</h2></div>
+
+      <h3>BILL-01 — Non-atomic credit admission</h3>
+      <p>The current credit check at <code>billing-data.ts:307</code> follows a read-balance → compute-remaining → write-new-balance pattern without a locking invariant. Under concurrent requests — which is normal for a chat application — two requests can read the same balance, both compute that they have enough remaining, and both write back, leaving a balance that reflects only one deduction. Credits are systematically undercounted.</p>
+
+      <h3>BILL-02 — Custom refill ledger duplicates Polar</h3>
+      <p>The codebase maintains its own refill/debit/restore ledger in <code>billing-data.ts:254</code> and <code>schema.ts:795</code>. Polar natively supports credits-only meters, subscription-cycle grants, event ingestion, and customer meter balances. However, Polar explicitly does <em>not</em> block usage at zero balance (credit enforcement is the caller's responsibility), and Polar events are immutable. So Avenire must keep local admission enforcement and idempotent delivery — but the custom ledger itself can be replaced.</p>
+    </section>
+
+    <section class="section" id="plan">
+      <div class="section-heading"><span class="section-number">02</span><h2>Execution plan</h2></div>
+
+      <h3>Phase 1 — Fix credit atomicity (3–4 days)</h3>
+      <p>Introduce row-level locking on the balance read to prevent concurrent undercounting.</p>
+      <ul>
+        <li>Add <code>SELECT ... FOR UPDATE</code> (or the database equivalent — e.g. <code>pg_advisory_xact_lock</code> or a pessimistic lock on the balance row) before computing remaining credit.</li>
+        <li>Keep the read and write in the <strong>same database transaction</strong> under the same lock.</li>
+        <li>Alternatively, use an atomic <code>UPDATE ... SET balance = balance - ? WHERE balance >= ?</code> and check affected rows. This is simpler and works for the debit case if no other state needs to be read under lock.</li>
+        <li>Add a concurrency stress test that proves the fix: 50 simultaneous requests against a balance of 25 credits should produce at most 25 successful admissions.</li>
+      </ul>
+
+      <div class="callout success">
+        <strong>This phase is worthwhile independently</strong>
+        Even without the Polar migration, atomic credit admission closes a correctness bug that directly costs revenue.
+      </div>
+
+      <h3>Phase 2 — Polar credits migration (4–8 days)</h3>
+      <p>Replace the custom refill ledger with Polar-managed credits. The target flow:</p>
+
+      <div class="flow">
+        <span class="flow-step">1. Local atomic reservation</span><span class="flow-arrow">→</span>
+        <span class="flow-step">2. Durable outbox event</span><span class="flow-arrow">→</span>
+        <span class="flow-step">3. Worker sends to Polar</span><span class="flow-arrow">→</span>
+        <span class="flow-step">4. Reconciliation</span>
+      </div>
+
+      <h4>Step-by-step</h4>
+      <ul>
+        <li><strong>Reservation:</strong> The admission check from Phase 1 now reserves against a locally mirrored balance (still atomically). The mirrored balance is updated optimistically — the source of truth remains the Polar grant + local events until delivery.</li>
+        <li><strong>Outbox:</strong> A durable usage-event outbox table records each consumption event with a stable idempotency key. Written in the same transaction as the reservation.</li>
+        <li><strong>Worker:</strong> An async process reads undelivered events, sends them to Polar's event ingestion API, marks them delivered, and retries on transient failure with exponential backoff.</li>
+        <li><strong>Reconciliation:</strong> Periodic comparison between local reservation totals and Polar customer-meter balances. Alerts on divergence exceeding a configurable threshold.</li>
+      </ul>
+
+      <h4>What gets deleted</h4>
+      <ul>
+        <li>Custom refill schedule logic (grant scheduling, subscription-cycle alignment).</li>
+        <li>Manual debit and refund functions — Polar's event ingestion handles credits as immutable events.</li>
+        <li>Entitlement checks that duplicate Polar's customer-meter state.</li>
+        <li>The <code>usage_meter</code> table if Polar completely replaces it (confirm dashboard needs first).</li>
+      </ul>
+
+      <p>The audit found that the test suite has <strong>no billing characterization coverage</strong> and does not emulate Polar retries, concurrent credit admission, or balance divergence. New tests are essential for this migration even under a strict "no new tests" constraint.</p>
+    </section>
+
+    <section class="section" id="benefits">
+      <div class="section-heading"><span class="section-number">03</span><h2>Benefits &amp; estimated improvement</h2></div>
+
+      <div class="benefit-grid">
+        <div class="benefit">
+          <strong>Accurate credit accounting</strong>
+          <span>Atomic admission eliminates concurrent undercounting. Every chat session deducts exactly once.</span>
+        </div>
+        <div class="benefit">
+          <strong>~400 lines deleted</strong>
+          <span>Custom refill, debit, and refund logic replaced by Polar credits. The local surface shrinks to reservation + outbox + reconciliation only.</span>
+        </div>
+        <div class="benefit">
+          <strong>Polar-managed grants</strong>
+          <span>Subscription-cycle credit grants, meter accumulation, and customer balance are handled by Polar. No more manual grant scheduling.</span>
+        </div>
+        <div class="benefit">
+          <strong>Resilient admission</strong>
+          <span>Admission stays local and synchronous (no network call to Polar on the chat hot path). A Polar outage does not block usage — it only delays event delivery.</span>
+        </div>
+      </div>
+
+      <p><strong>Estimated codebase impact:</strong></p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Change</th><th>Added</th><th>Deleted</th><th>Net</th></tr></thead>
+          <tbody>
+            <tr><td>Atomic credit admission (Phase 1)</td><td>20–40</td><td>10–20</td><td>+10 to +20</td></tr>
+            <tr><td>Outbox table + delivery worker</td><td>200–300</td><td>—</td><td>+200 to +300</td></tr>
+            <tr><td>Reconciliation logic</td><td>80–120</td><td>—</td><td>+80 to +120</td></tr>
+            <tr><td>Polar SDK integration</td><td>50–80</td><td>—</td><td>+50 to +80</td></tr>
+            <tr><td>Delete custom refill/debit/refund</td><td>—</td><td>400–600</td><td>−400 to −600</td></tr>
+            <tr><td>Delete usage_meter (if applicable)</td><td>—</td><td>200–400</td><td>−200 to −400</td></tr>
+            <tr><td><strong>Total</strong></td><td><strong>350–540</strong></td><td><strong>650–1,020</strong></td><td><strong>−300 to −480</strong></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p><strong>Codebase readability impact:</strong> High. The billing module currently mixes several concerns — grant scheduling, debit, refund, entitlement checks, and manual Polar calls — across overlapping functions and a dedicated schema table. After the migration, billing becomes three clearly separated layers: (1) a thin local admission layer (atomic reservation), (2) a durable outbox for event delivery, and (3) reconciliation. The Polar SDK handles grant lifecycle, which removes 400+ lines of custom scheduling and arithmetic that had to be tested, audited, and maintained. Developers reading the billing module will see a linear flow — reserve → emit → send → reconcile — instead of a web of cross-cutting debit/refund/restore logic.</p>
+
+      <p><strong>Operational improvement:</strong> Polar's dashboard becomes the UI for customer credit balances and grant schedules. No more internal admin tools needed to manually adjust balances or inspect the refill ledger.</p>
+    </section>
+
+    <section class="section" id="risks">
+      <div class="section-heading"><span class="section-number">04</span><h2>Risks &amp; stop conditions</h2></div>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Risk</th><th>Response</th></tr></thead>
+          <tbody>
+            <tr><td>Unexplained balance divergence between local and Polar</td><td>Remain in shadow mode. Reconcile before any source-of-truth cutover. Alert on divergence > 1% or $X.</td></tr>
+            <tr><td>Duplicate usage events delivered to Polar</td><td>Idempotency key on each event. Polar event ingestion is idempotent per key. Test with retry scenarios.</td></tr>
+            <tr><td>Synchronous Polar dependency on chat hot path</td><td>Keep admission local. The outbox worker runs async. No chat request waits for Polar.</td></tr>
+            <tr><td>No billing tests in existing suite</td><td>Write minimum characterization tests before changing production code: concurrent admission, Polar retry, balance reconciliation.</td></tr>
+            <tr><td>Polar dashboard configuration unknown</td><td>Confirm installed Polar SDK support and external Polar dashboard configuration before implementation. Do not assume defaults.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout danger">
+        <strong>Cutover gate</strong>
+        Do not replace the refill ledger until shadow balances agree across renewal, refund, concurrent admission, retry, and outage scenarios. Confirm installed SDK support and external Polar dashboard configuration first.
+      </div>
+    </section>
+
+    <section class="section" id="validation">
+      <div class="section-heading"><span class="section-number">05</span><h2>Validation</h2></div>
+      <ul>
+        <li><strong>Phase 1:</strong> Concurrent admission stress test — 50 simultaneous requests against 25 credits produce ≤ 25 successful admissions, and the final balance is exactly 0.</li>
+        <li><strong>Phase 2:</strong> Outbox delivers events to Polar under normal operation, retry, and Polar API failure. Idempotency key prevents duplicate entries.</li>
+        <li>Reconciliation detects injected divergence (simulated local/Polar mismatch) and alerts.</li>
+        <li>Shadow mode: run old and new billing paths side-by-side. Compare balances daily for one week before cutover.</li>
+        <li>Performance: confirm zero network calls to Polar on the chat hot path (admission is local-only).</li>
+        <li>Refund and renewal scenarios behave identically before and after migration.</li>
+      </ul>
+      <p class="footnote">Estimated code delta: +350 to +540 added, −650 to −1,020 deleted. 7–12 days engineering time.</p>
+    </section>
+  </div>
+  <script>
+    (function() {
+      var html = document.documentElement;
+      var btn = document.getElementById('theme-toggle');
+      function setTheme(theme) {
+        if (theme === 'dark') { html.classList.add('dark'); }
+        else { html.classList.remove('dark'); }
+        localStorage.setItem('theme', theme);
+      }
+      function toggleTheme() {
+        setTheme(html.classList.contains('dark') ? 'light' : 'dark');
+      }
+      if (btn) { btn.addEventListener('click', toggleTheme); }
+      document.addEventListener('keydown', function(e) {
+        if (e.key === 'd' || e.key === 'D') {
+          var tag = e.target.tagName;
+          if (tag !== 'INPUT' && tag !== 'TEXTAREA' && tag !== 'SELECT') {
+            e.preventDefault();
+            toggleTheme();
+          }
+        }
+      });
+      window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function(e) {
+        if (!localStorage.getItem('theme')) {
+          setTheme(e.matches ? 'dark' : 'light');
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

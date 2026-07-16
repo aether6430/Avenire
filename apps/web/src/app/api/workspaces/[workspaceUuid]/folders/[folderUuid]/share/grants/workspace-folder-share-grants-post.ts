@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { parseJsonRequest } from "@/lib/api-request";
 import { resolveAppBaseUrl } from "@/lib/app-base-url";
 import {
   createResourceShareLink,
@@ -8,6 +9,7 @@ import type { WorkspaceFolderShareRouteContext } from "../workspace-folder-share
 import {
   buildWorkspaceFolderShareUrl,
   parseWorkspaceFolderShareGrantBody,
+  workspaceFolderShareGrantSchema,
 } from "../workspace-folder-share-route-model";
 
 export async function handleWorkspaceFolderShareGrantsPost(
@@ -15,11 +17,14 @@ export async function handleWorkspaceFolderShareGrantsPost(
     request: Request;
   } & WorkspaceFolderShareRouteContext
 ) {
-  const body = (await input.request.json().catch(() => ({}))) as {
-    email?: unknown;
-    permission?: unknown;
-  };
-  const parsedBody = parseWorkspaceFolderShareGrantBody(body);
+  const requestBody = await parseJsonRequest(
+    input.request,
+    workspaceFolderShareGrantSchema
+  );
+  if (!requestBody.success) {
+    return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
+  }
+  const parsedBody = parseWorkspaceFolderShareGrantBody(requestBody.data);
 
   if (!parsedBody.email) {
     void input.apiLogger.requestFailed(400, "Missing email", {

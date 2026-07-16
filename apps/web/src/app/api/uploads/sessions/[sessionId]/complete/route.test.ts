@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+process.env.UPLOADTHING_TOKEN = "test-uploadthing-token";
+
 const {
   assembleMultipartPartsToFileMock,
   clearMultipartPartsMock,
@@ -34,6 +36,19 @@ vi.mock("node:fs", () => ({
   openAsBlob: openAsBlobMock,
 }));
 
+vi.mock("node:fs/promises", () => ({
+  open: vi.fn(async () => ({
+    close: vi.fn(),
+    read: vi.fn(),
+  })),
+  writeFile: vi.fn(),
+}));
+
+vi.mock("@avenire/ingestion/file-contract", () => ({
+  fileMagicBytesMatchMimeType: vi.fn(() => true),
+  normalizeFileMimeType: vi.fn(() => "application/pdf"),
+}));
+
 vi.mock("@avenire/storage", () => ({
   deleteStorageFiles: deleteStorageFilesMock,
   uploadStorageFile: uploadStorageFileMock,
@@ -60,6 +75,9 @@ vi.mock("@/lib/upload-registration", () => ({
 vi.mock("@/lib/upload-session-store", () => ({
   getUploadSession: getUploadSessionMock,
   saveUploadSession: saveUploadSessionMock,
+  withUploadSessionCompletionLock: vi.fn(
+    async (_sessionId: string, run: () => Promise<unknown>) => run()
+  ),
 }));
 
 vi.mock("@/lib/video-delivery-optimization-runtime", () => ({
@@ -120,6 +138,18 @@ describe("/api/uploads/sessions/[sessionId]/complete route", () => {
     normalizeSha256Mock.mockImplementation(
       (value: string | null | undefined) => value ?? null
     );
+    assembleMultipartPartsToFileMock.mockResolvedValue({
+      checksumSha256: "abc123",
+      path: "/tmp/assembled.upload",
+      partNumbers: [1],
+      partCount: 1,
+      totalSizeBytes: 42,
+    });
+    openAsBlobMock.mockResolvedValue(new Blob());
+    uploadStorageFileMock.mockResolvedValue({
+      key: "server-key-1",
+      url: "https://utfs.io/f/server-key-1",
+    });
   });
 
   it("returns unauthorized when there is no signed-in user", async () => {
@@ -241,23 +271,24 @@ describe("/api/uploads/sessions/[sessionId]/complete route", () => {
     });
   });
 
-  it("returns checksum mismatch when client metadata does not match the session checksum", async () => {
+  it("returns checksum mismatch when assembled bytes do not match the session checksum", async () => {
     getSessionUserMock.mockResolvedValue({ id: "user-1" });
     getUploadSessionMock.mockResolvedValue(createSession());
     userCanEditFolderMock.mockResolvedValue(true);
+    assembleMultipartPartsToFileMock.mockResolvedValueOnce({
+      checksumSha256: "different",
+      path: "/tmp/assembled.upload",
+      partNumbers: [1],
+      partCount: 1,
+      totalSizeBytes: 42,
+    });
 
     const response = await POST(
       new Request(
         "http://localhost:3003/api/uploads/sessions/session-1/complete",
         {
           method: "POST",
-          body: JSON.stringify({
-            storageKey: "key-1",
-            storageUrl: "https://example.com/file",
-            sizeBytes: 42,
-            checksumSha256: "different",
-            mimeType: "application/pdf",
-          }),
+          body: JSON.stringify({ multipart: { partNumbers: [1] } }),
         }
       ),
       { params: Promise.resolve({ sessionId: "session-1" }) }
@@ -317,13 +348,7 @@ describe("/api/uploads/sessions/[sessionId]/complete route", () => {
         "http://localhost:3003/api/uploads/sessions/session-1/complete",
         {
           method: "POST",
-          body: JSON.stringify({
-            storageKey: "key-1",
-            storageUrl: "https://example.com/file",
-            sizeBytes: 42,
-            checksumSha256: "abc123",
-            mimeType: "application/pdf",
-          }),
+          body: JSON.stringify({ multipart: { partNumbers: [1] } }),
         }
       ),
       { params: Promise.resolve({ sessionId: "session-1" }) }

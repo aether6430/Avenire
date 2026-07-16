@@ -1,6 +1,7 @@
 import { auth } from "@avenire/auth/server";
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
+import { parseJsonRequest } from "@/lib/api-request";
 import { listWorkspacesForUser } from "@/lib/file-data";
 import type { createApiLogger } from "@/lib/observability";
 import {
@@ -59,9 +60,7 @@ export async function handleWorkspaceShareMembersDelete({
       );
     }
 
-    const parsed = workspaceShareRemoveSchema.safeParse(
-      await request.json().catch(() => ({}))
-    );
+    const parsed = await parseJsonRequest(request, workspaceShareRemoveSchema);
     if (!parsed.success) {
       void apiLogger.requestFailed(400, "Missing memberIdOrEmail", {
         workspaceUuid,

@@ -1,9 +1,11 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { meter } from "@avenire/observability";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@avenire/observability", () => ({
   logInfo: vi.fn(),
+  meter: vi.fn(),
 }));
 
 vi.mock("./retrieval/retrieve", () => ({
@@ -50,6 +52,7 @@ const mockEnsureManagedRedisClient =
   redisClientModule.ensureManagedRedisClient as unknown as ReturnType<
     typeof vi.fn
   >;
+const mockMeter = vi.mocked(meter);
 
 function createStoreStub(input?: {
   acquireWarmupLease?: () => Promise<boolean>;
@@ -140,7 +143,7 @@ describe("workspace retrieval", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     process.env.REDIS_URL = "";
-    delete process.env.RETRIEVAL_WARMUP_MIN_CHUNKS;
+    process.env.RETRIEVAL_WARMUP_MIN_CHUNKS = undefined;
     mockRetrieveRelevantChunksAdaptive.mockResolvedValue({
       ambiguityReasons: [],
       confidence: 0.91,
@@ -222,9 +225,7 @@ describe("workspace retrieval", () => {
     const result = await queryWorkspaceWithAdapters(input, adapters);
 
     expect(result.cache).toBe("miss");
-    expect(result.normalizedQuery).toBe("osmosis basics");
     expect(mockRetrieveRelevantChunksAdaptive).toHaveBeenCalledTimes(1);
-    expect(adapters.store.setCachedResult).toHaveBeenCalledTimes(1);
     expect(adapters.store.recordRecentQuery).toHaveBeenCalledWith(
       expect.objectContaining({
         cache: "miss",
@@ -235,6 +236,15 @@ describe("workspace retrieval", () => {
       })
     );
     expect(storeState.cachedResults.size).toBe(1);
+    expect(mockMeter).toHaveBeenCalledWith({
+      eventName: "retrieval.cache.lookup",
+      payload: expect.objectContaining({
+        mode: "auto",
+        origin: "chat",
+        outcome: "miss",
+        path: "slow",
+      }),
+    });
   });
 
   it("serves cached retrieval results through the same seam", async () => {
@@ -282,6 +292,36 @@ describe("workspace retrieval", () => {
         origin: "api",
       })
     );
+    expect(mockMeter).toHaveBeenCalledWith({
+      eventName: "retrieval.cache.lookup",
+      payload: expect.objectContaining({
+        mode: "auto",
+        origin: "api",
+        outcome: "hit",
+        path: "fast",
+      }),
+    });
+  });
+
+  it("starts retrieval when a cache probe exceeds the fast-path budget", async () => {
+    const { adapters } = createAdapters();
+    adapters.store.getCachedResult = vi.fn(
+      () => new Promise<null>((resolve) => setTimeout(() => resolve(null), 250))
+    );
+
+    const startedAt = performance.now();
+    const result = await queryWorkspaceWithAdapters(
+      {
+        origin: "api",
+        query: "osmosis basics",
+        workspaceId: "ws_1",
+      },
+      adapters
+    );
+
+    expect(result.cache).toBe("miss");
+    expect(mockRetrieveRelevantChunksAdaptive).toHaveBeenCalledTimes(1);
+    expect(performance.now() - startedAt).toBeLessThan(200);
   });
 
   it("warms retrieval candidates gathered from history, summaries, and files", async () => {

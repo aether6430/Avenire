@@ -21,6 +21,26 @@ interface WidgetRendererProps {
   runScripts?: boolean;
 }
 
+export const CANVAS_WIDGET_SANDBOX = "allow-scripts";
+export const CANVAS_WIDGET_ALLOWED_SCRIPT_ORIGINS: readonly string[] = [
+  "https://cdn.jsdelivr.net",
+  "https://cdnjs.cloudflare.com",
+  "https://esm.sh",
+];
+export const CANVAS_WIDGET_CSP = [
+  "default-src 'none'",
+  `script-src 'unsafe-inline' ${CANVAS_WIDGET_ALLOWED_SCRIPT_ORIGINS.join(" ")}`,
+  "style-src 'unsafe-inline'",
+  "img-src data: blob: https:",
+  "font-src data: https:",
+  "media-src data: blob: https:",
+  "connect-src 'none'",
+  "object-src 'none'",
+  "frame-src 'none'",
+  "base-uri 'none'",
+  "form-action 'none'",
+].join("; ");
+
 // ---------------------------------------------------------------------------
 // CSS variable extraction
 // ---------------------------------------------------------------------------
@@ -284,12 +304,16 @@ svg .box > .ts { fill: var(--foreground) !important; }
 // Base HTML shell injected into the iframe
 // ---------------------------------------------------------------------------
 
-function buildIframeDocument(cssVarBlock: string, isDark: boolean): string {
+export function buildCanvasWidgetDocument(
+  cssVarBlock: string,
+  isDark: boolean
+): string {
   return `<!DOCTYPE html>
 <html lang="en" class="${isDark ? "dark" : ""}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="${CANVAS_WIDGET_CSP}">
 <style>
 /* ── Base reset ── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -390,15 +414,41 @@ button {
   padding: 6px 14px;
   font-size: 13px;
   font-family: var(--font-sans, sans-serif);
-  background: var(--primary) !important;
-  color: var(--primary-foreground) !important;
-  border: 1px solid color-mix(in oklch, var(--primary), var(--border) 40%) !important;
+  background: var(--secondary) !important;
+  color: var(--foreground) !important;
+  border: 1px solid color-mix(in oklch, var(--foreground), transparent 82%) !important;
   cursor: pointer;
   transition: opacity .15s, background .15s, transform .1s;
 }
 button:active { transform: scale(.97); }
+button:hover { background: var(--input) !important; }
+button[aria-pressed="true"], button[aria-selected="true"], button[data-active="true"] {
+  background: var(--foreground) !important;
+  color: var(--background) !important;
+  border-color: var(--foreground) !important;
+}
 button:disabled { opacity: .6; cursor: not-allowed; }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 4px; }
+.btn-primary { background: var(--primary) !important; color: var(--primary-foreground) !important; border-color: var(--primary) !important; }
+.btn-ghost { background: transparent !important; border-color: transparent !important; }
 canvas { display: block; max-width: 100%; }
+
+/* ── Visualization utilities ── */
+.card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 16px 20px; }
+.viz-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
+.viz-row, .viz-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.viz-controls { align-items: end; margin-bottom: 16px; }
+.viz-stat { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 16px; }
+.viz-stat-value { color: var(--foreground); font-size: 24px; font-weight: 500; line-height: 1.2; }
+.viz-badge { display: inline-flex; align-items: center; border: 1px solid var(--border); border-radius: 6px; padding: 2px 8px; color: var(--muted-foreground); font-size: 12px; }
+.btn-block { width: 100%; }
+.form-label { display: block; color: var(--muted-foreground); font-size: 13px; margin-bottom: 4px; }
+.form-check, .form-switch { display: inline-flex; align-items: center; gap: 8px; }
+.form-control, .form-select { min-width: 0; }
+.form-range { min-width: 140px; }
+.text-small { font-size: 12px; }
+.text-muted { color: var(--muted-foreground); }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 
 /* ── SVG pre-built classes ── */
 ${SVG_CLASSES}
@@ -493,6 +543,9 @@ window._runScripts = async function() {
     }
     var parent = old.parentNode;
     if (!parent) continue;
+    if (!s.src) {
+      s.textContent = old.textContent;
+    }
     parent.replaceChild(s, old);
 
     if (s.src) {
@@ -500,8 +553,6 @@ window._runScripts = async function() {
         s.addEventListener('load', resolve, { once: true });
         s.addEventListener('error', resolve, { once: true });
       });
-    } else {
-      s.textContent = old.textContent;
     }
   }
   reportHeight();
@@ -523,7 +574,7 @@ window._readTheme = function() {
     text: rootStyle.getPropertyValue('--canvas-text').trim() || rootStyle.getPropertyValue('--foreground').trim() || '#37352f',
     muted: rootStyle.getPropertyValue('--canvas-muted').trim() || rootStyle.getPropertyValue('--muted-foreground').trim() || '#9b9a97',
     border: rootStyle.getPropertyValue('--canvas-border').trim() || rootStyle.getPropertyValue('--border').trim() || 'rgba(55, 53, 47, 0.09)',
-    primary: rootStyle.getPropertyValue('--canvas-primary').trim() || rootStyle.getPropertyValue('--primary').trim() || '#abcfff',
+    primary: rootStyle.getPropertyValue('--canvas-primary').trim() || rootStyle.getPropertyValue('--primary').trim() || '#e89a62',
     primaryForeground: rootStyle.getPropertyValue('--canvas-primary-foreground').trim() || rootStyle.getPropertyValue('--primary-foreground').trim() || '#1b2733',
     accent: rootStyle.getPropertyValue('--canvas-accent').trim() || rootStyle.getPropertyValue('--secondary').trim() || '#fafafa',
     accentForeground: rootStyle.getPropertyValue('--canvas-accent-foreground').trim() || rootStyle.getPropertyValue('--secondary-foreground').trim() || '#37352f',
@@ -639,7 +690,10 @@ export function WidgetRenderer({
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === "dark";
   const isReadyRef = useRef(false);
-  const normalizedHtml = useMemo(() => normalizeWidgetHtmlPayload(html), [html]);
+  const normalizedHtml = useMemo(
+    () => normalizeWidgetHtmlPayload(html),
+    [html]
+  );
 
   const postToIframe = useCallback((data: Record<string, unknown>) => {
     const iframe = iframeRef.current;
@@ -659,6 +713,9 @@ export function WidgetRenderer({
     (nextHtml: string, shouldRunScripts: boolean) => {
       postToIframe({
         type: "avenire:setContent",
+        // Widgets intentionally contain executable HTML. Capability isolation
+        // belongs to the opaque iframe sandbox and CSP above; mutating the
+        // payload here breaks full-document styles and interactive controls.
         html: nextHtml,
         runScripts: shouldRunScripts,
       });
@@ -675,7 +732,7 @@ export function WidgetRenderer({
 
     const vars = extractThemeVars();
     const cssVarBlock = buildCssVarBlock(vars);
-    const doc = buildIframeDocument(cssVarBlock, isDark);
+    const doc = buildCanvasWidgetDocument(cssVarBlock, isDark);
 
     // srcdoc is cleaner than document.write — no navigation events
     iframe.srcdoc = doc;
@@ -757,7 +814,7 @@ export function WidgetRenderer({
           writeContent(normalizedHtml, runScripts);
         }}
         ref={iframeRef}
-        sandbox="allow-scripts"
+        sandbox={CANVAS_WIDGET_SANDBOX}
         style={{
           width: "100%",
           height: `${autoHeightRef.current}px`,

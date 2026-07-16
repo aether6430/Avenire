@@ -110,7 +110,6 @@ const widgetToneSchema = z
 const widgetTextWeightSchema = z.enum(["regular", "medium"]).optional();
 
 const widgetChartSeriesSchema = z.object({
-  color: z.string().optional(),
   dataKey: z.string().min(1),
   label: z.string().optional(),
   type: z.enum(["bar", "line", "area"]).optional(),
@@ -215,13 +214,20 @@ export const widgetSpecSchema = z.object({
   description: z.string().optional(),
 });
 
-const widgetPayloadSchema = z.object({
-  code: z.string().min(1).optional(),
-  height: z.number().optional(),
-  spec: z.any().optional(),
-  type: z.enum(["spec", "code"]),
-  width: z.number().optional(),
-});
+const widgetPayloadSchema = z.discriminatedUnion("type", [
+  z.object({
+    code: z.string().min(1),
+    height: z.number().optional(),
+    type: z.literal("code"),
+    width: z.number().optional(),
+  }),
+  z.object({
+    height: z.number().optional(),
+    spec: z.unknown(),
+    type: z.literal("spec"),
+    width: z.number().optional(),
+  }),
+]);
 
 export type WidgetSpecNode =
   | {
@@ -280,7 +286,6 @@ export type WidgetSpecNode =
       data: Record<string, string | number>[];
       indexKey: string;
       series: Array<{
-        color?: string;
         dataKey: string;
         label?: string;
         type?: "bar" | "line" | "area";

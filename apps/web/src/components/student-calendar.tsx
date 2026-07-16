@@ -283,6 +283,7 @@ function DaySheet({
           )}
         </div>
         <button
+          aria-label="Close"
           className="flex h-6 w-6 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           onClick={onClose}
           type="button"
@@ -482,7 +483,7 @@ function MobileMonthGrid({
           isSelected={key === selectedKey}
           isToday={key === todayKey}
           items={isOtherMonth ? [] : (data[key] ?? [])}
-          key={`${key}-${idx}`}
+          key={key}
           onClick={onDayClick}
           tasks={isOtherMonth ? [] : (tasksByDay[key] ?? [])}
         />
@@ -837,7 +838,7 @@ function WeekGrid({
         {days.map((_, idx) => (
           <div
             className="py-1.5 text-center font-medium text-[11px] text-muted-foreground"
-            key={idx}
+            key={DAYS_FULL[idx]}
           >
             {DAYS_FULL[idx]}
           </div>
@@ -1107,7 +1108,7 @@ export function MobileStudentCalendar() {
         {DAYS_SHORT.map((day, idx) => (
           <div
             className="py-1 text-center font-medium text-[11px] text-muted-foreground"
-            key={idx}
+            key={day}
           >
             {day}
           </div>

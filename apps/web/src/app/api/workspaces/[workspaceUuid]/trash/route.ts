@@ -1,15 +1,16 @@
 import { NextResponse } from "next/server";
+import { parseJsonRequest } from "@/lib/api-request";
 import { ensureWorkspaceAccessForUser, getSessionUser } from "@/lib/workspace";
 import { handleWorkspaceTrashRouteGet } from "./workspace-trash-route-get";
 import {
   resolveWorkspaceTrashRouteError,
   WORKSPACE_TRASH_LOAD_ERROR,
   WORKSPACE_TRASH_MUTATION_ERROR,
+  WorkspaceTrashMutationRequest,
 } from "./workspace-trash-route-model";
 import {
   handleWorkspaceTrashRouteDelete,
   handleWorkspaceTrashRouteRestore,
-  type WorkspaceTrashMutationBody,
 } from "./workspace-trash-route-mutations";
 
 export async function GET(
@@ -64,11 +65,15 @@ export async function POST(
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const body = (await request
-      .json()
-      .catch(() => ({}))) as WorkspaceTrashMutationBody;
+    const parsed = await parseJsonRequest(
+      request,
+      WorkspaceTrashMutationRequest
+    );
+    if (!parsed.success) {
+      return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
+    }
     return await handleWorkspaceTrashRouteRestore({
-      body,
+      body: parsed.data,
       workspaceUuid,
     });
   } catch (error) {
@@ -103,11 +108,15 @@ export async function DELETE(
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const body = (await request
-      .json()
-      .catch(() => ({}))) as WorkspaceTrashMutationBody;
+    const parsed = await parseJsonRequest(
+      request,
+      WorkspaceTrashMutationRequest
+    );
+    if (!parsed.success) {
+      return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
+    }
     return await handleWorkspaceTrashRouteDelete({
-      body,
+      body: parsed.data,
       workspaceUuid,
     });
   } catch (error) {

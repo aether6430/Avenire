@@ -12,7 +12,9 @@ import {
   WORKSPACE_FOLDER_DELETE_ERROR,
   WORKSPACE_FOLDER_LOAD_ERROR,
   WORKSPACE_FOLDER_UPDATE_ERROR,
+  workspaceFolderPatchSchema,
 } from "./workspace-folder-route-model";
+import { parseJsonRequest } from "@/lib/api-request";
 import { handleWorkspaceFolderUpdate } from "./workspace-folder-route-update";
 
 export async function GET(
@@ -79,12 +81,11 @@ export async function PATCH(
       );
     }
 
-    const body = (await request.json().catch(() => ({}))) as {
-      bannerUrl?: string | null;
-      iconColor?: string | null;
-      name?: string;
-      parentId?: string | null;
-    };
+    const parsed = await parseJsonRequest(request, workspaceFolderPatchSchema);
+    if (!parsed.success) {
+      return NextResponse.json({ error: "Invalid request" }, { status: 400 });
+    }
+    const body = parsed.data;
     return await handleWorkspaceFolderUpdate({
       body,
       folderUuid,

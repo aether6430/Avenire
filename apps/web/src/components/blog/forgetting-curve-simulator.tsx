@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 
 const DECAY = -0.5;
 const FACTOR = 19 / 81;
@@ -28,8 +28,8 @@ export function ForgettingCurveSimulator() {
   const innerW = WIDTH - PAD.left - PAD.right;
   const innerH = HEIGHT - PAD.top - PAD.bottom;
 
-  const toX = (t: number) => PAD.left + (t / maxDays) * innerW;
-  const toY = (r: number) => PAD.top + (1 - r) * innerH;
+  const toX = useCallback((t: number) => PAD.left + (t / maxDays) * innerW, [maxDays, innerW]);
+  const toY = useCallback((r: number) => PAD.top + (1 - r) * innerH, [innerH]);
 
   const curve = useMemo(() => {
     const allReviews = [...reviews].sort((a, b) => a - b);
@@ -58,7 +58,7 @@ export function ForgettingCurveSimulator() {
     }
 
     return allPoints.join(" ");
-  }, [stability, reviews, maxDays]);
+  }, [stability, reviews, maxDays, toX, toY]);
 
   const retentionLine = toY(targetRetention);
   const handleAddReview = () => {
@@ -265,13 +265,13 @@ export function ForgettingCurveSimulator() {
       </div>
 
       <div className="mt-4 flex flex-wrap items-center gap-3">
-        <button
+        <button type="button"
           onClick={handleAddReview}
           className="rounded-lg border border-brand/30 bg-brand/10 px-4 py-2 text-xs uppercase tracking-widest text-brand transition-all hover:bg-brand/20 font-mono"
         >
           + Add Review
         </button>
-        <button
+        <button type="button"
           onClick={handleReset}
           className="rounded-lg border border-divide bg-neutral-900 px-4 py-2 text-xs uppercase tracking-widest text-white/50 transition-all hover:border-white/30 hover:text-white/80 font-mono"
         >

@@ -1,6 +1,12 @@
 import { openAsBlob } from "node:fs";
+import { open, writeFile } from "node:fs/promises";
 import { deleteStorageFiles, uploadStorageFile } from "@avenire/storage";
+import {
+  fileMagicBytesMatchMimeType,
+  normalizeFileMimeType,
+} from "@avenire/ingestion/file-contract";
 import { assembleMultipartPartsToFile } from "@/lib/upload-multipart-assembly";
+import { getProviderObjectMarkerPath } from "@/lib/upload-multipart-paths";
 
 export async function completeMultipartUploadSession(input: {
   expectedPartNumbers?: number[];
@@ -34,12 +40,31 @@ export async function completeMultipartUploadSession(input: {
     }
   }
 
+  const mimeType = normalizeFileMimeType(input.mimeType);
+  if (!mimeType) {
+    throw Object.assign(new Error("Unsupported upload MIME type"), {
+      code: "UPLOAD_MIME_UNSUPPORTED",
+    });
+  }
+  const file = await open(assembled.path, "r");
+  const prefix = Buffer.alloc(Math.min(8192, assembled.totalSizeBytes));
+  try {
+    await file.read(prefix, 0, prefix.byteLength, 0);
+  } finally {
+    await file.close();
+  }
+  if (!fileMagicBytesMatchMimeType({ bytes: prefix, mimeType })) {
+    throw Object.assign(new Error("Uploaded content does not match its MIME type"), {
+      code: "UPLOAD_MIME_MISMATCH",
+    });
+  }
+
   const assembledBlob = await openAsBlob(assembled.path, {
-    type: input.mimeType ?? undefined,
+    type: mimeType,
   });
   const uploaded = await uploadStorageFile({
     body: assembledBlob,
-    contentType: input.mimeType,
+    contentType: mimeType,
     name: input.name,
   });
 
@@ -48,6 +73,10 @@ export async function completeMultipartUploadSession(input: {
       "Multipart upload assembly succeeded but UploadThing upload failed."
     );
   }
+  await writeFile(getProviderObjectMarkerPath(input.sessionId), uploaded.key, {
+    encoding: "utf8",
+    mode: 0o600,
+  });
 
   return {
     checksumSha256: assembled.checksumSha256,

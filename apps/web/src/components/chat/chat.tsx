@@ -38,6 +38,7 @@ import {
   reconcileChatMessages,
   writeCachedChatMessages,
 } from "@/lib/chat-message-cache";
+import { createDurableChatSubscription } from "@/lib/durable-chat-subscription";
 import { normalizeMediaType } from "@/lib/media-type";
 import { emitPetNotification } from "@/lib/pet-preferences";
 import { useCurrentWorkspacePane } from "@/lib/workspace-panes";
@@ -231,6 +232,9 @@ export function Chat({
   const { paneId } = useCurrentWorkspacePane();
   const setPaneRoute = useWorkspacePaneStore((state) => state.setPaneRoute);
   const activeSelectedModel = turboEnabled ? "apex-turbo" : selectedModel;
+  const activeSelectedModelRef = useRef(activeSelectedModel);
+  activeSelectedModelRef.current = activeSelectedModel;
+  const mountedRef = useRef(true);
   const lastCompletedMessageIdRef = useRef<string | null>(null);
   const previousStatusRef = useRef<string | null>(null);
   const publishedStreamStatusRef = useRef<ChatStreamStatus | null>(null);
@@ -281,6 +285,9 @@ export function Chat({
 
   const handleError = useCallback(
     (error: Error) => {
+      if (!mountedRef.current) {
+        return;
+      }
       if (canRecoverChatDisconnect(error)) {
         rememberRecoverableChatDisconnect(error);
         return;
@@ -328,12 +335,12 @@ export function Chat({
     );
   }, [chatId, id, paneId, setPaneRoute]);
 
-  const transport = useMemo<ChatTransport<UIMessage>>(() => {
+  const streamSubscription = useMemo(() => {
     const durableTransport = createDurableChatTransport<UIMessage>({
       api: "/api/chat",
     });
 
-    return {
+    const baseTransport: ChatTransport<UIMessage> = {
       reconnectToStream: durableTransport.reconnectToStream,
       sendMessages: (options) => {
         const lastMessage = options.messages.at(-1);
@@ -347,13 +354,15 @@ export function Chat({
           body: {
             ...options.body,
             chatId: options.chatId,
-            selectedModel: activeSelectedModel,
+            selectedModel: activeSelectedModelRef.current,
           },
           headers,
         });
       },
     };
-  }, [activeSelectedModel]);
+    return createDurableChatSubscription(baseTransport);
+  }, []);
+  const transport = streamSubscription.transport;
 
   const {
     messages,
@@ -367,12 +376,15 @@ export function Chat({
   } = useChat<UIMessage>({
     id: chatId,
     transport,
-    resume: true,
+    resume: false,
     experimental_throttle: 100,
     messages: initialMessages,
     onError: handleError,
     sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithApprovalResponses,
     onFinish: ({ isAbort, isError }) => {
+      if (!mountedRef.current) {
+        return;
+      }
       if (isError) {
         if (recoverableStreamErrorSignatureRef.current) {
           publishChatStreamStatus("submitted");
@@ -393,6 +405,9 @@ export function Chat({
       }
     },
     onData: (dataPart) => {
+      if (!mountedRef.current) {
+        return;
+      }
       if (dataPart.type === "data-chatName") {
         const detail = dataPart.data as ChatNameUpdatedDetail;
         if (!(detail?.id && detail?.name)) {
@@ -420,6 +435,21 @@ export function Chat({
   const effectiveStatus: ChatStatus = isRecoveringFromStreamDisconnect
     ? "submitted"
     : status;
+  const stopRef = useRef(stop);
+  stopRef.current = stop;
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      streamSubscription.dispose();
+      void stopRef.current();
+    };
+  }, [streamSubscription]);
+
+  useEffect(() => {
+    streamSubscription.activate(chatId);
+  }, [chatId, streamSubscription]);
 
   const displayedMessages = useMemo(() => {
     const lastMessage = messages.at(-1);
@@ -967,43 +997,45 @@ export function Chat({
       })
     );
 
-    const localFileParts: FileUIPart[] = files
-      .filter((attachment) => attachment.source === "local")
-      .flatMap((attachment) => {
-        if (!attachment.url || attachment.url.trim().length === 0) {
-          return [];
-        }
+    const localFileParts: FileUIPart[] = files.flatMap((attachment) => {
+      if (attachment.source !== "local") {
+        return [];
+      }
+      if (!attachment.url || attachment.url.trim().length === 0) {
+        return [];
+      }
 
-        const url = attachment.url.trim();
-        if (!(url.startsWith("http://") || url.startsWith("https://"))) {
-          return [];
-        }
+      const url = attachment.url.trim();
+      if (!(url.startsWith("http://") || url.startsWith("https://"))) {
+        return [];
+      }
 
-        return [
-          {
-            type: "file",
-            mediaType: normalizeMediaType(attachment.contentType),
-            filename: attachment.name,
-            url,
-          } satisfies FileUIPart,
-        ];
-      });
+      return [
+        {
+          type: "file",
+          mediaType: normalizeMediaType(attachment.contentType),
+          filename: attachment.name,
+          url,
+        } satisfies FileUIPart,
+      ];
+    });
 
-    const workspaceFileParts: FileUIPart[] = files
-      .filter((attachment) => attachment.source === "workspace")
-      .flatMap((attachment) => {
-        if (!attachment.url || attachment.url.trim().length === 0) {
-          return [];
-        }
-        return [
-          {
-            type: "file",
-            mediaType: normalizeMediaType(attachment.contentType),
-            filename: attachment.name,
-            url: attachment.url,
-          } satisfies FileUIPart,
-        ];
-      });
+    const workspaceFileParts: FileUIPart[] = files.flatMap((attachment) => {
+      if (attachment.source !== "workspace") {
+        return [];
+      }
+      if (!attachment.url || attachment.url.trim().length === 0) {
+        return [];
+      }
+      return [
+        {
+          type: "file",
+          mediaType: normalizeMediaType(attachment.contentType),
+          filename: attachment.name,
+          url: attachment.url,
+        } satisfies FileUIPart,
+      ];
+    });
 
     try {
       if (localFileParts.length > 0 || workspaceFileParts.length > 0) {

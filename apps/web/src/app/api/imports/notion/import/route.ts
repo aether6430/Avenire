@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
-import { importNotionPages, parseNotionImportPayload } from "@/lib/imports";
+import { parseJsonRequest } from "@/lib/api-request";
+import { importNotionPages } from "@/lib/imports";
 import { getSessionUser } from "@/lib/workspace";
+import { notionImportRequestSchema } from "../../import-route-contracts";
 
 export async function POST(request: Request) {
   const user = await getSessionUser();
@@ -8,16 +10,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  let payload: { pageIds: string[] };
-  try {
-    payload = parseNotionImportPayload(await request.json().catch(() => ({})));
-  } catch {
+  const parsed = await parseJsonRequest(request, notionImportRequestSchema);
+  if (!parsed.success) {
     return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
   }
 
   try {
     const result = await importNotionPages({
-      pageIds: payload.pageIds,
+      pageIds: [...parsed.data.pageIds],
       userId: user.id,
     });
     return NextResponse.json(result, { status: 201 });

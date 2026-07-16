@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
-import {
-  importGoogleDriveFiles,
-  parseGoogleDriveImportPayload,
-} from "@/lib/imports";
+import { parseJsonRequest } from "@/lib/api-request";
+import { importGoogleDriveFiles } from "@/lib/imports";
 import { getSessionUser } from "@/lib/workspace";
+import { googleDriveImportRequestSchema } from "../../import-route-contracts";
 
 export async function POST(request: Request) {
   const user = await getSessionUser();
@@ -11,18 +10,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  let payload: { fileIds: string[] };
-  try {
-    payload = parseGoogleDriveImportPayload(
-      await request.json().catch(() => ({}))
-    );
-  } catch {
+  const parsed = await parseJsonRequest(request, googleDriveImportRequestSchema);
+  if (!parsed.success) {
     return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
   }
 
   try {
     const result = await importGoogleDriveFiles({
-      fileIds: payload.fileIds,
+      fileIds: [...parsed.data.fileIds],
       userId: user.id,
     });
     return NextResponse.json(result, { status: 201 });

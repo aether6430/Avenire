@@ -1,6 +1,8 @@
 import { auth } from "@avenire/auth/server";
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
+import { Schema } from "effect-v4";
+import { parseJsonRequest } from "@/lib/api-request";
 import { getChatBySlugForUser, isChatOwnerForUser } from "@/lib/chat-data";
 import { grantResourceToUserByEmail } from "@/lib/file-data";
 import { createApiLogger } from "@/lib/observability";
@@ -46,7 +48,15 @@ export async function POST(
     );
   }
 
-  const body = (await request.json().catch(() => ({}))) as { email?: string };
+  const parsed = await parseJsonRequest(
+    request,
+    Schema.Struct({ email: Schema.optional(Schema.String) })
+  );
+  if (!parsed.success) {
+    void apiLogger.requestFailed(400, "Invalid payload", { slug });
+    return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
+  }
+  const body = parsed.data;
   if (!body.email) {
     void apiLogger.requestFailed(400, "Missing email", { slug });
     return NextResponse.json({ error: "Missing email" }, { status: 400 });

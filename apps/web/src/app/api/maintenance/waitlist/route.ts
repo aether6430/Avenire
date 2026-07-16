@@ -5,7 +5,9 @@ import {
   normalizeEmail,
 } from "@avenire/database";
 import { Emailer, renderWaitlistApprovalEmail } from "@avenire/emailer";
+import { Schema } from "effect-v4";
 import { NextResponse } from "next/server";
+import { parseJsonRequest } from "@/lib/api-request";
 import { resolveAppBaseUrl } from "@/lib/app-base-url";
 
 const emailer = new Emailer();
@@ -45,7 +47,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const body = (await request.json().catch(() => ({}))) as { email?: string };
+  const parsed = await parseJsonRequest(
+    request,
+    Schema.Struct({ email: Schema.optional(Schema.String) })
+  );
+  if (!parsed.success) {
+    return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
+  }
+  const body = parsed.data;
   const email = body.email?.trim() ?? "";
 
   if (!email) {

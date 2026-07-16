@@ -2726,6 +2726,7 @@ export async function registerFileAsset(
     hashComputedBy?: "client" | "server" | null;
     hashVerificationStatus?: "failed" | "pending" | "verified" | null;
     storageKey: string;
+    uploadSessionId?: string | null;
     storageUrl: string;
     name: string;
     mimeType?: string | null;
@@ -2757,6 +2758,7 @@ export async function registerFileAsset(
         workspaceId,
         folderId: input.folderId,
         storageKey: input.storageKey,
+        uploadSessionId: input.uploadSessionId ?? null,
         storageUrl: normalizeTrustedStorageUrl(input.storageUrl),
         name: input.name.slice(0, 255),
         mimeType: input.mimeType ?? null,
@@ -2779,6 +2781,15 @@ export async function registerFileAsset(
 
     return mapFile(record);
   });
+}
+
+export async function getFileAssetByUploadSessionId(uploadSessionId: string) {
+  const [record] = await db
+    .select()
+    .from(fileAsset)
+    .where(eq(fileAsset.uploadSessionId, uploadSessionId))
+    .limit(1);
+  return record ? mapFile(record) : null;
 }
 
 export async function updateFileAsset(

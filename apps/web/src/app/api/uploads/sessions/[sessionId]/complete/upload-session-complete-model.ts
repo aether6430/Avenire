@@ -1,37 +1,42 @@
+import { Schema } from "effect-v4";
 import { NextResponse } from "next/server";
-import { z } from "zod";
 
-export const completeSchema = z
-  .object({
-    storageKey: z.string().min(1).optional(),
-    storageUrl: z.string().url().optional(),
-    mimeType: z.string().nullable().optional(),
-    sizeBytes: z.number().int().nonnegative().optional(),
-    checksumSha256: z.string().optional(),
-    metadata: z.record(z.string(), z.unknown()).optional(),
-    multipart: z
-      .object({
-        partNumbers: z.array(z.number().int().positive()).optional(),
-      })
-      .optional(),
-  })
-  .refine(
-    (value) =>
-      (Boolean(value.storageKey) &&
-        Boolean(value.storageUrl) &&
-        typeof value.sizeBytes === "number") ||
-      Boolean(value.multipart),
-    {
-      message:
-        "Provide direct upload metadata or multipart completion payload.",
-    }
-  );
+const metadataSchema = Schema.Record(Schema.String, Schema.Unknown);
+const sharedFields = {
+  checksumSha256: Schema.optional(Schema.String),
+  metadata: Schema.optional(metadataSchema),
+};
 
-export type CompleteUploadPayload = z.infer<typeof completeSchema>;
+const multipartCompletionSchema = Schema.Struct({
+  ...sharedFields,
+  multipart: Schema.Struct({
+    partNumbers: Schema.optional(
+      Schema.Array(Schema.Number.check(Schema.isInt(), Schema.isGreaterThan(0)))
+    ),
+  }),
+});
+
+export const completeSchema = multipartCompletionSchema;
+export type CompleteUploadPayload = typeof completeSchema.Type;
+
+export function readExpectedMultipartPartNumbers(
+  payload: CompleteUploadPayload
+): number[] | undefined {
+  return "multipart" in payload && payload.multipart.partNumbers
+    ? Array.from(payload.multipart.partNumbers)
+    : undefined;
+}
 
 export function asNullableString(value: string | null | undefined) {
   const trimmed = (value ?? "").trim();
   return trimmed.length > 0 ? trimmed : null;
+}
+
+export function readUploadCompletionErrorCode(error: unknown) {
+  if (typeof error !== "object" || error === null || !("code" in error)) {
+    return null;
+  }
+  return typeof error.code === "string" ? error.code : null;
 }
 
 export function buildUploadCompletionReplayResponse(input: {

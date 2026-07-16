@@ -28,3 +28,4 @@ marketting/video/
 
 .vercel
 .env*.local
+.repos/effect

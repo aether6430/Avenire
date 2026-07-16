@@ -19,9 +19,11 @@ import {
   type RetrievalQualityCandidate,
 } from "@avenire/ingestion";
 import { toDurableStreamResponse } from "@durable-streams/aisdk-transport";
+import { Schema } from "effect-v4";
 import { headers } from "next/headers";
 import { after, NextResponse } from "next/server";
 import { consumeChatUnits, restoreChatUnits } from "@/lib/billing";
+import { parseJsonRequest } from "@/lib/api-request";
 import {
   createChatForUser,
   deleteChatForUser,
@@ -83,6 +85,7 @@ import {
   clearActiveStreamId,
   getActiveStreamId,
   getRedisClient,
+  markActiveStreamComplete,
   setActiveStreamId,
 } from "./chat-stream-store";
 
@@ -136,6 +139,52 @@ const MODEL_TOOL_ALLOW_LIST = new Set([
   "load_skill",
   "show_widget",
 ]);
+
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function getActiveOrganizationId(sessionDetails: unknown) {
+  if (!(isObject(sessionDetails) && "activeOrganizationId" in sessionDetails)) {
+    return null;
+  }
+
+  const { activeOrganizationId } = sessionDetails;
+  return typeof activeOrganizationId === "string"
+    ? activeOrganizationId
+    : null;
+}
+
+function isUiMessage(value: unknown): value is UIMessage {
+  return (
+    isObject(value) &&
+    typeof value.id === "string" &&
+    typeof value.role === "string" &&
+    Array.isArray(value.parts)
+  );
+}
+
+const chatRequestSchema = Schema.Struct({
+  kind: Schema.optional(Schema.Literal("session-close")),
+  messages: Schema.optional(Schema.Array(Schema.declare<UIMessage>(isUiMessage))),
+  workspaceUuid: Schema.optional(Schema.String),
+  selectedModel: Schema.optional(
+    Schema.Literals([
+      "apollo-sprint",
+      "apollo-core",
+      "apollo-apex",
+      "apex-turbo",
+      "apollo-agent",
+      "apollo-meta",
+      "apollo-tiny",
+    ])
+  ),
+  chatId: Schema.optional(Schema.String),
+  id: Schema.optional(Schema.String),
+  sessionId: Schema.optional(Schema.String),
+  status: Schema.optional(Schema.String),
+  userName: Schema.optional(Schema.String),
+});
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
@@ -314,17 +363,19 @@ async function signToolApprovalRequest(input: {
   toolName: string;
   toolInput: unknown;
 }) {
-  const key = await crypto.subtle.importKey(
-    "raw",
-    toolApprovalSignatureEncoder.encode(input.secret),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"]
-  );
-  const inputDigest = await crypto.subtle.digest(
-    "SHA-256",
-    toolApprovalSignatureEncoder.encode(stableJson(input.toolInput))
-  );
+  const [key, inputDigest] = await Promise.all([
+    crypto.subtle.importKey(
+      "raw",
+      toolApprovalSignatureEncoder.encode(input.secret),
+      { name: "HMAC", hash: "SHA-256" },
+      false,
+      ["sign"]
+    ),
+    crypto.subtle.digest(
+      "SHA-256",
+      toolApprovalSignatureEncoder.encode(stableJson(input.toolInput))
+    ),
+  ]);
   const payload = toolApprovalSignatureEncoder.encode(
     `${input.approvalId}\n${input.toolCallId}\n${input.toolName}\n${toBase64Url(new Uint8Array(inputDigest))}`
   );
@@ -1484,7 +1535,7 @@ function mergeSupersededStreamMessages(input: {
 
 export async function POST(request: Request) {
   const requestHeadersPromise = headers();
-  const requestBodyPromise = request.json().catch(() => ({}));
+  const requestBodyPromise = parseJsonRequest(request, chatRequestSchema);
   const session = await auth.api.getSession({
     headers: await requestHeadersPromise,
   });
@@ -1504,9 +1555,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const activeOrganizationId =
-      (session as { session?: { activeOrganizationId?: string | null } })
-        .session?.activeOrganizationId ?? null;
+    const activeOrganizationId = getActiveOrganizationId(session.session);
     const workspace = await resolveWorkspaceForUser(
       session.user.id,
       activeOrganizationId
@@ -1519,17 +1568,12 @@ export async function POST(request: Request) {
       );
     }
 
-    const body = (await requestBodyPromise) as {
-      kind?: "session-close";
-      messages?: UIMessage[];
-      workspaceUuid?: string;
-      selectedModel?: ApolloModelName;
-      chatId?: string;
-      id?: string;
-      sessionId?: string;
-      status?: string;
-      userName?: string;
-    };
+    const parsedBody = await requestBodyPromise;
+    if (!parsedBody.success) {
+      apiLogger.requestFailed(400, "Invalid payload");
+      return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
+    }
+    const body = parsedBody.data;
 
     if (body.kind === "session-close") {
       const chatId = body.chatId?.trim() ?? "";
@@ -1650,7 +1694,7 @@ export async function POST(request: Request) {
     const originalMessages = await signMissingToolApprovalRequests(
       stripUnconfiguredToolApprovalParts(
         stripNonHttpFileParts(
-          normalizeMessageFileMediaTypes(body.messages ?? [])
+          normalizeMessageFileMediaTypes(Array.from(body.messages ?? []))
         )
       ),
       process.env.TOOL_APPROVAL_SECRET
@@ -2390,7 +2434,7 @@ export async function POST(request: Request) {
               try {
                 const persistedMessages = getPersistedMessages({
                   originalMessages,
-                  streamedMessages: messages as unknown as UIMessage[],
+                  streamedMessages: Array.from(messages),
                   responseMessage: responseMessage as unknown as UIMessage,
                   isContinuation,
                 });
@@ -2520,7 +2564,14 @@ export async function POST(request: Request) {
                   } else if (unusedCredits > 0) {
                     await restoreChatUnits(
                       session.user.id,
-                      getRefundedChatUsage(initialUsage, unusedCredits)
+                      getRefundedChatUsage(initialUsage, unusedCredits),
+                      `chat-refund:${session.user.id}:${chatSlug}:${
+                        idempotencyHeader ??
+                        originalMessages.findLast(
+                          (message) => message.role === "user"
+                        )?.id ??
+                        originalMessages.length
+                      }`
                     );
                   }
 
@@ -2569,11 +2620,14 @@ export async function POST(request: Request) {
                   error,
                 });
               } finally {
-                await clearActiveStreamId(chatSlug, streamPath);
+                await markActiveStreamComplete(chatSlug, streamPath);
                 if (idempotencyRedisKey && idempotencyLockAcquired) {
                   await markIdempotencyDone(idempotencyRedisKey, chatSlug);
                 }
-                logInfo("Cleared active stream id", { chatId: chatSlug });
+                logInfo("Retained completed stream id for catch-up", {
+                  chatId: chatSlug,
+                  streamPath,
+                });
               }
             },
           })
@@ -2646,9 +2700,7 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: "Missing chat id" }, { status: 400 });
     }
 
-    const activeOrganizationId =
-      (session as { session?: { activeOrganizationId?: string | null } })
-        .session?.activeOrganizationId ?? null;
+    const activeOrganizationId = getActiveOrganizationId(session.session);
     const workspace = await resolveWorkspaceForUser(
       session.user.id,
       activeOrganizationId

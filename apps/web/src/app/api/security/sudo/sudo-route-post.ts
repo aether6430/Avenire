@@ -1,6 +1,7 @@
 import { sendSudoVerificationCodeEmail } from "@avenire/auth/server";
 import { getLatestActiveSudoChallenge } from "@avenire/database";
 import { NextResponse } from "next/server";
+import { parseJsonRequest } from "@/lib/api-request";
 import {
   createSudoChallenge,
   invalidateSudoChallenge,
@@ -13,16 +14,18 @@ import {
   isSudoChallengeRateLimited,
   normalizeSudoCode,
   resolveSudoAction,
+  SudoRouteRequest,
 } from "./sudo-route-model";
 
 export async function handleSudoRoutePost(input: {
   request: Request;
   user: { id: string; email: string };
 }) {
-  const payload = (await input.request.json().catch(() => ({}))) as {
-    action?: "request" | "verify";
-    code?: string;
-  };
+  const parsed = await parseJsonRequest(input.request, SudoRouteRequest);
+  if (!parsed.success) {
+    return NextResponse.json({ error: "Unsupported action" }, { status: 400 });
+  }
+  const payload = parsed.data;
   const action = resolveSudoAction(payload);
 
   if (action === "request") {

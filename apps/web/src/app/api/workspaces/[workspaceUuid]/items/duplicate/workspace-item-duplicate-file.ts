@@ -60,9 +60,9 @@ export async function handleDuplicateWorkspaceFile(input: {
     input.workspaceUuid,
     input.userId
   );
-  const siblingNames = workspaceFiles
-    .filter((file) => file.folderId === targetFolderId)
-    .map((file) => file.name);
+  const siblingNames = workspaceFiles.flatMap((file) =>
+    file.folderId === targetFolderId ? [file.name] : []
+  );
   const duplicateName = resolveDuplicateName(siblingNames, source.name);
 
   if (isMarkdownFileRecord(source)) {

@@ -3,10 +3,44 @@ import {
   AVAILABLE_VISUAL_SKILLS,
   loadSkills,
 } from "@avenire/ai/skills";
-import { tavily } from "@tavily/core";
-import type { z } from "zod";
+import { Firecrawl } from "firecrawl";
+import { z } from "zod";
 
 const DEFAULT_WEB_SEARCH_LIMIT = 5;
+
+const FirecrawlSearchSchema = z.object({
+  news: z
+    .array(
+      z.object({
+        date: z.string().optional(),
+        description: z.string().optional(),
+        markdown: z.string().optional(),
+        metadata: z
+          .object({
+            favicon: z.string().optional(),
+          })
+          .optional(),
+        title: z.string(),
+        url: z.string(),
+      })
+    )
+    .optional(),
+  web: z
+    .array(
+      z.object({
+        description: z.string().optional(),
+        markdown: z.string().optional(),
+        metadata: z
+          .object({
+            favicon: z.string().optional(),
+          })
+          .optional(),
+        title: z.string(),
+        url: z.string(),
+      })
+    )
+    .optional(),
+});
 
 type WebSearchInput = z.infer<
   typeof import("@avenire/ai/tools").chatToolSchemas["web_search"]["input"]
@@ -55,45 +89,52 @@ export async function runWebSearch(input: WebSearchInput) {
     throw new Error("A web search query is required.");
   }
 
-  const apiKey = process.env.TAVILY_API_KEY?.trim();
+  const apiKey = process.env.FIRECRAWL_API_KEY?.trim();
   if (!apiKey) {
-    throw new Error("TAVILY_API_KEY is required for web_search.");
+    throw new Error("FIRECRAWL_API_KEY is required for web_search.");
   }
 
-  const client = tavily({ apiKey });
-  const response = await client.search(query, {
-    includeAnswer: input.includeAnswer ?? true,
-    includeFavicon: true,
-    maxResults: input.maxResults ?? DEFAULT_WEB_SEARCH_LIMIT,
-    searchDepth: "advanced",
-    topic: input.topic ?? "general",
+  const client = new Firecrawl({
+    apiKey,
+    ...(process.env.FIRECRAWL_API_URL?.trim()
+      ? { apiUrl: process.env.FIRECRAWL_API_URL.trim() }
+      : {}),
   });
+  const source = input.topic === "news" ? "news" : "web";
+  const response = FirecrawlSearchSchema.parse(
+    await client.search(query, {
+      limit: input.maxResults ?? DEFAULT_WEB_SEARCH_LIMIT,
+      sources: [source],
+    })
+  );
+  const matches =
+    source === "news" ? (response.news ?? []) : (response.web ?? []);
 
   return {
-    answer: response.answer?.trim() || undefined,
-    query: response.query,
-    results: response.results.map((result) => ({
-      content: result.content.trim(),
-      favicon: result.favicon,
-      publishedDate: result.publishedDate,
-      score: result.score,
+    query,
+    results: matches.map((result, index) => ({
+      content: (result.description ?? result.markdown ?? "").trim(),
+      ...(result.metadata?.favicon ? { favicon: result.metadata.favicon } : {}),
+      ...("date" in result && result.date
+        ? { publishedDate: result.date }
+        : {}),
+      score: Math.max(0, 1 - index / Math.max(1, matches.length)),
       title: result.title.trim(),
       url: result.url.trim(),
     })),
-    totalResults: response.results.length,
+    totalResults: matches.length,
   };
 }
 
 export async function executeLoadSkill(input: LoadSkillInput) {
   const skills = Array.from(
     new Set(
-      input.skills
-        .map((skillName) => skillName.trim())
-        .filter((skillName) =>
-          AVAILABLE_STUDY_SKILLS.includes(
-            skillName as (typeof AVAILABLE_STUDY_SKILLS)[number]
-          )
-        )
+      input.skills.flatMap((skillName) => {
+        const normalizedName = skillName.trim();
+        return AVAILABLE_STUDY_SKILLS.some((skill) => skill === normalizedName)
+          ? [normalizedName]
+          : [];
+      })
     )
   );
   if (skills.length === 0) {
@@ -108,13 +149,12 @@ export async function executeLoadSkill(input: LoadSkillInput) {
 export async function executeVisualizeReadMe(input: VisualizeReadMeInput) {
   const modules = Array.from(
     new Set(
-      input.modules
-        .map((moduleName) => moduleName.trim())
-        .filter((moduleName) =>
-          AVAILABLE_VISUAL_SKILLS.includes(
-            moduleName as (typeof AVAILABLE_VISUAL_SKILLS)[number]
-          )
-        )
+      input.modules.flatMap((moduleName) => {
+        const normalizedName = moduleName.trim();
+        return AVAILABLE_VISUAL_SKILLS.some((skill) => skill === normalizedName)
+          ? [normalizedName]
+          : [];
+      })
     )
   );
   if (modules.length === 0) {

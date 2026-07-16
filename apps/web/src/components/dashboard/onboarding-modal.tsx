@@ -24,8 +24,7 @@ import { StudentCalendar } from "@/components/student-calendar";
 import type { FlashcardSetSummary } from "@/lib/flashcards";
 import type { MisconceptionRecord } from "@/lib/learning-data";
 import { getUploadErrorMessage } from "@/lib/upload";
-import { requestUploadPreflight } from "@/lib/upload-preflight";
-import { useUploadThing } from "@/lib/uploadthing";
+import { uploadFileWithSession } from "@/lib/upload-preflight";
 
 interface WeakPointGroup {
   subject: string;
@@ -762,12 +761,13 @@ function ReviewLoopStep({
                 key={day}
               >
                 <m.div
-                  animate={{ height: `${counts[index] * 6}px` }}
+                  style={{ height: `${Math.max(counts[index] * 6, 1)}px`, transformOrigin: "bottom" }}
+                  animate={{ scaleY: 1 }}
                   className={cn(
                     "w-full rounded-md",
                     index === 0 ? "bg-foreground/70" : "bg-foreground/20"
                   )}
-                  initial={{ height: 0 }}
+                  initial={{ scaleY: 0 }}
                   transition={{
                     delay: 0.1 + index * 0.05,
                     duration: 0.38,
@@ -937,12 +937,6 @@ export function OnboardingModal({
   const activeStepIndex = Math.min(stepIndex, ONBOARDING_STEPS.length - 1);
   const step = ONBOARDING_STEPS[activeStepIndex] ?? ONBOARDING_STEPS[0];
   const isLast = activeStepIndex === ONBOARDING_STEPS.length - 1;
-  const { startUpload } = useUploadThing("fileExplorerUploader", {
-    onUploadError: () => {
-      setUploadPhase("failed");
-      setUploadMessage("Upload failed. Try another PDF.");
-    },
-  });
 
   useEffect(() => {
     setMemory(EMPTY_ONBOARDING_MEMORY);
@@ -1023,45 +1017,6 @@ export function OnboardingModal({
     fileInputRef.current?.click();
   };
 
-  const registerUpload = async (
-    file: File,
-    uploaded: {
-      key?: string;
-      name?: string;
-      size?: number;
-      contentType?: string;
-      ufsUrl?: string;
-    }
-  ) => {
-    if (!(workspaceUuid && rootFolderId && uploaded.key && uploaded.ufsUrl)) {
-      throw new Error("Upload metadata is incomplete.");
-    }
-
-    const response = await fetch(
-      `/api/workspaces/${workspaceUuid}/files/register`,
-      {
-        body: JSON.stringify({
-          folderId: rootFolderId,
-          metadata: { source: "onboarding" },
-          mimeType: uploaded.contentType ?? file.type ?? null,
-          name: uploaded.name ?? file.name,
-          sizeBytes: uploaded.size ?? file.size,
-          storageKey: uploaded.key,
-          storageUrl: uploaded.ufsUrl,
-        }),
-        headers: { "Content-Type": "application/json" },
-        method: "POST",
-      }
-    );
-
-    if (!response.ok) {
-      const payload = (await response.json().catch(() => ({}))) as {
-        error?: string;
-      };
-      throw new Error(payload.error ?? "Unable to register uploaded file.");
-    }
-  };
-
   const handleUploadSelection = async (
     event: ChangeEvent<HTMLInputElement>
   ) => {
@@ -1077,26 +1032,22 @@ export function OnboardingModal({
     setUploadPhase("uploading");
 
     try {
-      if (workspaceUuid && rootFolderId) {
-        await requestUploadPreflight({
-          file,
-          folderId: rootFolderId,
-          workspaceUuid,
-        });
-      }
-      const uploadedResults = (await startUpload([file])) ?? [];
-      const uploaded = uploadedResults[0];
-      if (!uploaded) {
-        throw new Error("Upload returned no storage payload.");
+      if (!(workspaceUuid && rootFolderId)) {
+        throw new Error("Upload destination is unavailable.");
       }
       setUploadMessage("Registering the file in your workspace.");
-      await registerUpload(file, uploaded);
+      await uploadFileWithSession({
+        file,
+        folderId: rootFolderId,
+        metadata: { source: "onboarding" },
+        workspaceUuid,
+      });
       setUploadPhase("done");
       setUploadMessage("Uploaded and queued for ingestion.");
       setMemory((current) => ({
         ...current,
         uploadAt: new Date().toISOString(),
-        uploadFileName: uploaded.name ?? file.name,
+        uploadFileName: file.name,
       }));
       setTimeout(() => {
         router.refresh();

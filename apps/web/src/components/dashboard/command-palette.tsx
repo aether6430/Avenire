@@ -42,8 +42,8 @@ import { useQuery } from "@tanstack/react-query";
 import Fuse from "fuse.js";
 import type { Route } from "next";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useWorkspaceSurfaceNavigation } from "@/lib/workspace-panes";
 import { useTheme } from "next-themes";
+import type { ElementType, ReactNode } from "react";
 import {
   useCallback,
   useEffect,
@@ -52,7 +52,7 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
-import type { ElementType, ReactNode } from "react";
+import { Markdown } from "@/components/chat/markdown";
 import type { WorkspaceSearchResult } from "@/components/files/stylized-search-bar";
 import type { ChatSummary } from "@/lib/chat-data";
 import {
@@ -62,6 +62,7 @@ import {
 import { warmWorkspaceSurface } from "@/lib/dashboard-warmup";
 import type { FlashcardSetSummary } from "@/lib/flashcards";
 import type { MisconceptionRecord } from "@/lib/learning-data";
+import { retrievalQueryResponseSchema } from "@/lib/retrieval-http-contract";
 import {
   getTaskStoreSnapshot,
   primeWorkspaceTaskStore,
@@ -69,6 +70,8 @@ import {
   subscribeToTaskStore,
 } from "@/lib/task-client-store";
 import { formatTaskDueDate } from "@/lib/tasks";
+import { cn } from "@/lib/utils";
+import { useWorkspaceSurfaceNavigation } from "@/lib/workspace-panes";
 import {
   readWorkspaceTreeCache,
   writeWorkspaceTreeCache,
@@ -78,10 +81,8 @@ import {
   useCommandPaletteStore,
 } from "@/stores/commandPaletteStore";
 import { useDashboardOverlayStore } from "@/stores/dashboardOverlayStore";
-import { Markdown } from "@/components/chat/markdown";
 import { filesUiActions } from "@/stores/filesUiStore";
 import { quickCaptureActions } from "@/stores/quickCaptureStore";
-import { cn } from "@/lib/utils";
 
 type PaletteItemType = "file" | "folder";
 type PaletteSearchType = "chat" | "flashcard" | "misconception";
@@ -180,24 +181,24 @@ interface WorkspaceTreePayload {
 }
 
 async function hydrateWorkspaceIndex(workspace: WorkspaceSummary) {
-    const cached = readWorkspaceTreeCache<
-      {
-        id: string;
-        name: string;
-        parentId: string | null;
-        readOnly?: boolean;
-      },
-      {
-        folderId: string;
-        id: string;
-        name: string;
-        page?: {
-          bannerUrl: string | null;
-          properties?: Record<string, unknown> | null;
-        } | null;
-        readOnly?: boolean;
-      }
-    >(workspace.workspaceId);
+  const cached = readWorkspaceTreeCache<
+    {
+      id: string;
+      name: string;
+      parentId: string | null;
+      readOnly?: boolean;
+    },
+    {
+      folderId: string;
+      id: string;
+      name: string;
+      page?: {
+        bannerUrl: string | null;
+        properties?: Record<string, unknown> | null;
+      } | null;
+      readOnly?: boolean;
+    }
+  >(workspace.workspaceId);
 
   if (cached) {
     commandPaletteActions.setFileIndex({
@@ -281,32 +282,17 @@ async function queryWorkspaceRetrieval(input: {
     return [];
   }
 
-  const payload = (await response.json()) as {
-    results?: Array<{
-      chunkId?: string;
-      content: string;
-      endMs?: number | null;
-      fileId?: string | null;
-      page?: number | null;
-      rerankScore?: number;
-      score?: number;
-      sourceType?:
-        | "audio"
-        | "document"
-        | "image"
-        | "link"
-        | "markdown"
-        | "pdf"
-        | "video";
-      startMs?: number | null;
-      title?: string | null;
-    }>;
-  };
+  const payload = retrievalQueryResponseSchema.safeParse(
+    await response.json().catch(() => null)
+  );
+  if (!payload.success) {
+    return [];
+  }
 
   const fileById = new Map(input.files.map((file) => [file.id, file]));
   const mapped: WorkspaceSearchResult[] = [];
 
-  for (const result of payload.results ?? []) {
+  for (const result of payload.data.results) {
     const fileId = result.fileId ?? null;
     if (!fileId) {
       continue;
@@ -418,7 +404,7 @@ function normalizeFilterValue(value: string) {
 }
 
 function normalizeFilterValues(values: string[]) {
-  return values.map(normalizeFilterValue).filter(Boolean);
+  return values.flatMap(x => { const r = normalizeFilterValue(x); return r ? [r] : []; });
 }
 
 function propertyValueMatchesFilter(
@@ -618,7 +604,8 @@ const PALETTE_NUMBER_OPERATORS = [
 const PALETTE_ITEM_CLASS =
   "min-h-8 rounded-lg px-2 text-[0.8125rem] text-muted-foreground data-selected:bg-accent data-selected:text-foreground data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50";
 
-const PALETTE_ICON_CLASS = "mt-0.5 size-[0.95rem] shrink-0 text-muted-foreground";
+const PALETTE_ICON_CLASS =
+  "mt-0.5 size-[0.95rem] shrink-0 text-muted-foreground";
 
 const PALETTE_CHEVRON_CLASS =
   "mt-0.5 ml-auto size-3.5 shrink-0 opacity-0 transition-opacity duration-150 group-data-[selected=true]:opacity-100 group-hover:opacity-100 text-muted-foreground/45";
@@ -762,7 +749,9 @@ export function CommandPalette({
   const mindsetOverviewQuery = useQuery({
     queryFn: ({ signal }) => loadMindsetOverview(signal),
     queryKey: ["command-palette", "mindset-overview", resolvedWorkspaceUuid],
-    enabled: Boolean(open && resolvedWorkspaceUuid && scopeAllows("misconception")),
+    enabled: Boolean(
+      open && resolvedWorkspaceUuid && scopeAllows("misconception")
+    ),
     staleTime: 30_000,
   });
 
@@ -883,45 +872,43 @@ export function CommandPalette({
 
   const fileItems = workspaceItems.files;
   const folderItems = workspaceItems.folders;
-  const fileItemsForFilters = useMemo(
-    () => {
-      if (!scopeAllows("file")) {
-        return [];
-      }
-      if (hasContentTypeFilter(paletteFilters)) {
-        return fileItems;
-      }
+  const fileItemsForFilters = useMemo(() => {
+    if (!scopeAllows("file")) {
+      return [];
+    }
+    if (hasContentTypeFilter(paletteFilters)) {
+      return fileItems;
+    }
 
-      return fileItems.filter((item) => {
-        const properties: Record<string, PalettePropertyValue> = {
-          "file:workspace": { type: "text", value: item.workspaceName },
-        };
+    return fileItems.filter((item) => {
+      const properties: Record<string, PalettePropertyValue> = {
+        "file:workspace": { type: "text", value: item.workspaceName },
+      };
 
-        for (const [key, rawProperty] of Object.entries(
-          item.page?.properties ?? {}
-        )) {
-          const property = normalizePalettePropertyValue(rawProperty);
-          if (property) {
-            properties[`file:${key}`] = property;
-          }
+      for (const [key, rawProperty] of Object.entries(
+        item.page?.properties ?? {}
+      )) {
+        const property = normalizePalettePropertyValue(rawProperty);
+        if (property) {
+          properties[`file:${key}`] = property;
         }
+      }
 
-        return matchesPaletteFilters("file", properties, paletteFilters);
-      });
-    },
-    [fileItems, paletteFilters, scopeAllows]
-  );
+      return matchesPaletteFilters("file", properties, paletteFilters);
+    });
+  }, [fileItems, paletteFilters, scopeAllows]);
   const folderItemsForFilters = useMemo(
     () =>
-      folderItems.filter((item) =>
-        scopeAllows("folder") &&
-        matchesPaletteFilters(
-          "folder",
-          {
-            "folder:workspace": { type: "text", value: item.workspaceName },
-          },
-          paletteFilters
-        )
+      folderItems.filter(
+        (item) =>
+          scopeAllows("folder") &&
+          matchesPaletteFilters(
+            "folder",
+            {
+              "folder:workspace": { type: "text", value: item.workspaceName },
+            },
+            paletteFilters
+          )
       ),
     [folderItems, paletteFilters, scopeAllows]
   );
@@ -931,7 +918,10 @@ export function CommandPalette({
       ? [resolvedWorkspaceUuid]
       : workspaces.map((workspace) => workspace.workspaceId);
     const fileByWorkspaceAndId = new Map(
-      fileItemsForFilters.map((file) => [`${file.workspaceUuid}:${file.id}`, file])
+      fileItemsForFilters.map((file) => [
+        `${file.workspaceUuid}:${file.id}`,
+        file,
+      ])
     );
     const items: PaletteItem[] = [];
 
@@ -946,7 +936,12 @@ export function CommandPalette({
     }
 
     return items.slice(0, 8);
-  }, [fileItemsForFilters, recentFileIdsByWorkspace, resolvedWorkspaceUuid, workspaces]);
+  }, [
+    fileItemsForFilters,
+    recentFileIdsByWorkspace,
+    resolvedWorkspaceUuid,
+    workspaces,
+  ]);
 
   const searchItems = useMemo(
     () => [...fileItemsForFilters, ...folderItemsForFilters],
@@ -1185,7 +1180,9 @@ export function CommandPalette({
         searchTerms: ["tasks", "todo", "planner", "upcoming"],
         shortcut: "Ctrl+3",
         onSelect: () => {
-          navigateTo("/workspace/tasks" as Route, { openInNewPane: ctrlHeldRef.current });
+          navigateTo("/workspace/tasks" as Route, {
+            openInNewPane: ctrlHeldRef.current,
+          });
         },
       },
       {
@@ -1247,7 +1244,9 @@ export function CommandPalette({
         group: "Create",
         searchTerms: ["study", "cards", "flashcards"],
         onSelect: () => {
-          navigateTo("/workspace/flashcards?create=1" as Route, { openInNewPane: ctrlHeldRef.current });
+          navigateTo("/workspace/flashcards?create=1" as Route, {
+            openInNewPane: ctrlHeldRef.current,
+          });
         },
       },
       {
@@ -1310,73 +1309,77 @@ export function CommandPalette({
   );
   const commandItemsForFilters = useMemo(
     () =>
-      commandItems.filter((item) =>
-        scopeAllows("command") &&
-        matchesPaletteFilters(
-          "command",
-          {
-            "command:group": { type: "select", value: item.group },
-          },
-          paletteFilters
-        )
+      commandItems.filter(
+        (item) =>
+          scopeAllows("command") &&
+          matchesPaletteFilters(
+            "command",
+            {
+              "command:group": { type: "select", value: item.group },
+            },
+            paletteFilters
+          )
       ),
     [commandItems, paletteFilters, scopeAllows]
   );
   const workspaceTasksForFilters = useMemo(
     () =>
-      workspaceTasks.filter((task) =>
-        scopeAllows("task") &&
-        matchesPaletteFilters(
-          "task",
-          {
-            "task:status": { type: "select", value: task.status },
-            "task:priority": { type: "select", value: task.priority },
-            "task:assignee": {
-              type: "text",
-              value: [task.assignee?.name, task.assignee?.email]
-                .filter(Boolean)
-                .join(" "),
+      workspaceTasks.filter(
+        (task) =>
+          scopeAllows("task") &&
+          matchesPaletteFilters(
+            "task",
+            {
+              "task:status": { type: "select", value: task.status },
+              "task:priority": { type: "select", value: task.priority },
+              "task:assignee": {
+                type: "text",
+                value: [task.assignee?.name, task.assignee?.email]
+                  .filter(Boolean)
+                  .join(" "),
+              },
+              "task:due": { type: "date", value: task.dueAt },
+              "task:resources": {
+                type: "number",
+                value: task.resources.length,
+              },
             },
-            "task:due": { type: "date", value: task.dueAt },
-            "task:resources": {
-              type: "number",
-              value: task.resources.length,
-            },
-          },
-          paletteFilters
-        )
+            paletteFilters
+          )
       ),
     [paletteFilters, scopeAllows, workspaceTasks]
   );
   const cachedChatsForFilters = useMemo(
     () =>
-      cachedChats.filter((chat) =>
-        scopeAllows("chat") &&
-        matchesPaletteFilters(
-          "chat",
-          {
-            "chat:pinned": { type: "boolean", value: chat.pinned },
-            "chat:workspace": { type: "text", value: chat.workspaceId },
-          },
-          paletteFilters
-        )
+      cachedChats.filter(
+        (chat) =>
+          scopeAllows("chat") &&
+          matchesPaletteFilters(
+            "chat",
+            {
+              "chat:pinned": { type: "boolean", value: chat.pinned },
+              "chat:workspace": { type: "text", value: chat.workspaceId },
+            },
+            paletteFilters
+          )
       ),
     [cachedChats, paletteFilters, scopeAllows]
   );
   const cachedFlashcardSetsForFilters = useMemo(
     () =>
-      cachedFlashcardSets.filter((set) =>
-        scopeAllows("flashcard") &&
-        matchesPaletteFilters(
-          "flashcard",
-          {
-            "card:source": { type: "select", value: set.sourceType },
-            "card:tags": { type: "multi_select", value: set.tags },
-            "card:due": { type: "number", value: set.dueCount },
-            "card:new": { type: "number", value: set.newCount },
-          },
-          paletteFilters
-        )
+      cachedFlashcardSets.filter(
+        (set) =>
+          scopeAllows("flashcard") &&
+          matchesPaletteFilters(
+            "flashcard",
+            {
+              "card:source": { type: "select", value: set.sourceType },
+              "card:tags": { type: "multi_select", value: set.tags },
+              "card:due": { type: "number", value: set.dueCount },
+              "card:new": { type: "number", value: set.newCount },
+            },
+            paletteFilters
+          )
       ),
     [cachedFlashcardSets, paletteFilters, scopeAllows]
   );
@@ -1387,8 +1390,12 @@ export function CommandPalette({
   const filteredCommands = useMemo(() => {
     if (!searchQuery) {
       return {
-        create: commandItemsForFilters.filter((item) => item.group === "Create"),
-        general: commandItemsForFilters.filter((item) => item.group === "General"),
+        create: commandItemsForFilters.filter(
+          (item) => item.group === "Create"
+        ),
+        general: commandItemsForFilters.filter(
+          (item) => item.group === "General"
+        ),
       };
     }
 
@@ -1403,30 +1410,27 @@ export function CommandPalette({
 
   const hasCommandMatches =
     filteredCommands.general.length > 0 || filteredCommands.create.length > 0;
-  const taskResults = useMemo(
-    () => {
-      if (!searchQuery) {
-        return [];
-      }
+  const taskResults = useMemo(() => {
+    if (!searchQuery) {
+      return [];
+    }
 
-      return workspaceTasksForFilters
-        .filter((task) =>
-          matchesNeedle(
-            [
-              task.title,
-              task.description ?? "",
-              task.status,
-              task.priority ?? "",
-              task.assignee?.name ?? "",
-              task.assignee?.email ?? "",
-            ].join(" "),
-            searchQuery
-          )
+    return workspaceTasksForFilters
+      .filter((task) =>
+        matchesNeedle(
+          [
+            task.title,
+            task.description ?? "",
+            task.status,
+            task.priority ?? "",
+            task.assignee?.name ?? "",
+            task.assignee?.email ?? "",
+          ].join(" "),
+          searchQuery
         )
-        .slice(0, 8);
-    },
-    [searchQuery, workspaceTasksForFilters]
-  );
+      )
+      .slice(0, 8);
+  }, [searchQuery, workspaceTasksForFilters]);
   const chatResults = useMemo<PaletteSearchItem[]>(() => {
     if (!searchQuery) {
       return [];
@@ -1530,8 +1534,9 @@ export function CommandPalette({
     );
     const fuzzyMatches = fuse
       .search(searchQuery)
-      .filter((result) => (result.score ?? 1) <= FILE_FUSE_OPTIONS.threshold)
-      .map((result) => result.item);
+      .flatMap((result) =>
+        (result.score ?? 1) <= FILE_FUSE_OPTIONS.threshold ? [result.item] : []
+      );
 
     return [...directMatches, ...fuzzyMatches]
       .filter((item) => {
@@ -1560,13 +1565,17 @@ export function CommandPalette({
     queryFn: ({ signal }) =>
       resolvedWorkspaceUuid && searchQuery
         ? queryWorkspaceRetrieval({
-            files: fileItemsForFilters
-              .filter((file) => file.workspaceUuid === resolvedWorkspaceUuid)
-              .map((file) => ({
-                folderId: file.folderId,
-                id: file.id,
-                name: file.name,
-              })),
+            files: fileItemsForFilters.flatMap((file) =>
+              file.workspaceUuid === resolvedWorkspaceUuid
+                ? [
+                    {
+                      folderId: file.folderId,
+                      id: file.id,
+                      name: file.name,
+                    },
+                  ]
+                : []
+            ),
             query: searchQuery,
             signal,
             workspaceUuid: resolvedWorkspaceUuid,
@@ -1820,10 +1829,19 @@ export function CommandPalette({
       const targetRoute =
         `/workspace/files/${workspaceId}/folder/${folderId}?${params.toString()}` as Route;
       router.prefetch(targetRoute);
-      paneNavigate(targetRoute, { openInNewPane: options?.openInNewPane, replace });
+      paneNavigate(targetRoute, {
+        openInNewPane: options?.openInNewPane,
+        replace,
+      });
       commandPaletteActions.close();
     },
-    [currentFilesFolderId, currentFilesWorkspaceUuid, paneNavigate, router, workspaces]
+    [
+      currentFilesFolderId,
+      currentFilesWorkspaceUuid,
+      paneNavigate,
+      router,
+      workspaces,
+    ]
   );
 
   const openSearchResult = useCallback(
@@ -1857,7 +1875,11 @@ export function CommandPalette({
       | { kind: "flashcard"; value: string; item: PaletteSearchItem }
       | { kind: "misconception"; value: string; item: PaletteSearchItem }
       | { kind: "content"; value: string; item: WorkspaceSearchResult }
-      | { kind: "task"; value: string; item: (typeof workspaceTasksForFilters)[number] }
+      | {
+          kind: "task";
+          value: string;
+          item: (typeof workspaceTasksForFilters)[number];
+        }
     > = [];
 
     if (searchQuery) {
@@ -2078,8 +2100,8 @@ export function CommandPalette({
       description="Search commands, projects, and threads..."
       showCloseButton={false}
       className={cn(
+        // Instant open (CommandDialog animate=false); snap size changes — no layout transition.
         "top-[4.5vh]! h-[min(78vh,39.5rem)] translate-y-0! gap-0! border-0! bg-transparent! p-0! shadow-none! ring-0!",
-        open && "transition-[width,height,max-width] duration-200 ease-out",
         showPreview
           ? "w-[min(calc(100vw-2rem),56.75rem)]! max-w-[56.75rem]!"
           : "w-[min(calc(100vw-2rem),34rem)]! max-w-[34rem]!"
@@ -2143,8 +2165,10 @@ export function CommandPalette({
 
         <div
           className={cn(
-            "grid transition-[grid-template-rows,opacity] duration-200 ease-out",
-            showFilters ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+            "grid transition-[grid-template-rows,opacity] duration-150 ease-[var(--ease-out)]",
+            showFilters
+              ? "grid-rows-[1fr] opacity-100"
+              : "grid-rows-[0fr] opacity-0"
           )}
         >
           <div className="min-h-0 overflow-hidden">
@@ -2183,7 +2207,7 @@ export function CommandPalette({
         {hasResults ? (
           <Command.Split
             className={cn(
-              "transition-[grid-template-columns,gap] duration-200 ease-out",
+              // Snap column layout; preview content may fade in separately if needed.
               !showPreview && "md:grid-cols-[minmax(0,1fr)]"
             )}
           >
@@ -2212,7 +2236,11 @@ export function CommandPalette({
                           <CommandItem
                             className={PALETTE_ITEM_CLASS}
                             key={`chat-${chat.id}`}
-                            onSelect={() => navigateTo(chat.path as Route, { openInNewPane: ctrlHeldRef.current })}
+                            onSelect={() =>
+                              navigateTo(chat.path as Route, {
+                                openInNewPane: ctrlHeldRef.current,
+                              })
+                            }
                             value={`chat-${chat.id}`}
                           >
                             {renderPaletteIcon(
@@ -2242,13 +2270,14 @@ export function CommandPalette({
                             <CommandItem
                               className={PALETTE_ITEM_CLASS}
                               key={`flashcard-${set.id}`}
-                               onSelect={() => navigateTo(set.path as Route, { openInNewPane: ctrlHeldRef.current })}
-                               value={`flashcard-${set.id}`}
+                              onSelect={() =>
+                                navigateTo(set.path as Route, {
+                                  openInNewPane: ctrlHeldRef.current,
+                                })
+                              }
+                              value={`flashcard-${set.id}`}
                             >
-                              {renderPaletteIcon(
-                                Sparkles,
-                                PALETTE_ICON_CLASS
-                              )}
+                              {renderPaletteIcon(Sparkles, PALETTE_ICON_CLASS)}
                               <div className="min-w-0 flex-1">
                                 <p className="truncate font-medium text-foreground">
                                   {set.label}
@@ -2274,8 +2303,8 @@ export function CommandPalette({
                     ) : null}
                     {misconceptionResults.length > 0 ? (
                       <>
-                        {(chatResults.length > 0 ||
-                          flashcardResults.length > 0) ? (
+                        {chatResults.length > 0 ||
+                        flashcardResults.length > 0 ? (
                           <CommandSeparator />
                         ) : null}
                         <CommandGroup heading="Misconceptions">
@@ -2318,9 +2347,9 @@ export function CommandPalette({
                     ) : null}
                     {taskResults.length > 0 ? (
                       <>
-                        {(chatResults.length > 0 ||
-                          flashcardResults.length > 0 ||
-                          misconceptionResults.length > 0) ? (
+                        {chatResults.length > 0 ||
+                        flashcardResults.length > 0 ||
+                        misconceptionResults.length > 0 ? (
                           <CommandSeparator />
                         ) : null}
                         <CommandGroup heading="Tasks">
@@ -2454,10 +2483,7 @@ export function CommandPalette({
                               }}
                               value={`retrieval-${result.id}-${result.chunkId ?? "main"}`}
                             >
-                              {renderPaletteIcon(
-                                FileText,
-                                PALETTE_ICON_CLASS
-                              )}
+                              {renderPaletteIcon(FileText, PALETTE_ICON_CLASS)}
                               <div className="min-w-0 flex-1">
                                 <p className="truncate font-medium text-foreground">
                                   {result.title}
@@ -2488,7 +2514,9 @@ export function CommandPalette({
                     chatResults.length === 0 &&
                     taskResults.length === 0 &&
                     flashcardResults.length === 0 &&
-                    misconceptionResults.length === 0 ? null : null}
+                    misconceptionResults.length === 0
+                      ? null
+                      : null}
                   </>
                 ) : null
               ) : (
@@ -2499,13 +2527,15 @@ export function CommandPalette({
                         <CommandItem
                           className={PALETTE_ITEM_CLASS}
                           key={`task-${task.id}`}
-                          onSelect={() => navigateTo(`/workspace/tasks?task=${task.id}` as Route, { openInNewPane: ctrlHeldRef.current })}
+                          onSelect={() =>
+                            navigateTo(
+                              `/workspace/tasks?task=${task.id}` as Route,
+                              { openInNewPane: ctrlHeldRef.current }
+                            )
+                          }
                           value={`task-${task.id}`}
                         >
-                          {renderPaletteIcon(
-                            ListChecks,
-                            PALETTE_ICON_CLASS
-                          )}
+                          {renderPaletteIcon(ListChecks, PALETTE_ICON_CLASS)}
                           <div className="min-w-0 flex-1">
                             <p className="truncate font-medium text-foreground">
                               {task.title}
@@ -2527,7 +2557,9 @@ export function CommandPalette({
                       ))}
                     </CommandGroup>
                   ) : null}
-                  {workspaceTasksForFilters.length > 0 ? <CommandSeparator /> : null}
+                  {workspaceTasksForFilters.length > 0 ? (
+                    <CommandSeparator />
+                  ) : null}
                   {recentItems.length > 0 ? (
                     <CommandGroup heading="Recent files">
                       {recentItems.map((item) => (
@@ -2580,8 +2612,13 @@ export function CommandPalette({
                             <CommandItem
                               className={PALETTE_ITEM_CLASS}
                               key={`recent-chat-${chat.slug}`}
-                              onSelect={() => navigateTo(`/workspace/chats/${chat.slug}` as Route, { openInNewPane: ctrlHeldRef.current })}
-                               value={`recent-chat-${chat.slug}`}
+                              onSelect={() =>
+                                navigateTo(
+                                  `/workspace/chats/${chat.slug}` as Route,
+                                  { openInNewPane: ctrlHeldRef.current }
+                                )
+                              }
+                              value={`recent-chat-${chat.slug}`}
                             >
                               {renderPaletteIcon(
                                 MessageSquareText,
@@ -2620,13 +2657,15 @@ export function CommandPalette({
                             <CommandItem
                               className={PALETTE_ITEM_CLASS}
                               key={`recent-flashcard-${set.id}`}
-                              onSelect={() => navigateTo(`/workspace/flashcards/${set.id}` as Route, { openInNewPane: ctrlHeldRef.current })}
-                               value={`recent-flashcard-${set.id}`}
+                              onSelect={() =>
+                                navigateTo(
+                                  `/workspace/flashcards/${set.id}` as Route,
+                                  { openInNewPane: ctrlHeldRef.current }
+                                )
+                              }
+                              value={`recent-flashcard-${set.id}`}
                             >
-                              {renderPaletteIcon(
-                                Sparkles,
-                                PALETTE_ICON_CLASS
-                              )}
+                              {renderPaletteIcon(Sparkles, PALETTE_ICON_CLASS)}
                               <div className="min-w-0 flex-1">
                                 <p className="truncate font-medium text-foreground">
                                   {set.title}
@@ -2650,34 +2689,36 @@ export function CommandPalette({
                   {misconceptionResults.length > 0 ? (
                     <>
                       <CommandGroup heading="Misconceptions">
-                        {misconceptionResults.slice(0, 6).map((misconception) => (
-                          <CommandItem
-                            className={PALETTE_ITEM_CLASS}
-                            key={`misconception-${misconception.id}`}
-                            onSelect={() =>
-                              navigateTo(misconception.path as Route, {
-                                openInNewPane: ctrlHeldRef.current,
-                              })
-                            }
-                            value={`misconception-${misconception.id}`}
-                          >
-                            {renderPaletteIcon(
-                              TriangleAlert,
-                              PALETTE_ICON_CLASS
-                            )}
-                            <div className="min-w-0 flex-1">
-                              <p className="truncate font-medium text-foreground">
-                                {misconception.label}
-                              </p>
-                              <p className="truncate text-[0.6875rem] text-muted-foreground">
-                                {misconception.description}
-                              </p>
-                            </div>
-                            <span className="mt-0.5 shrink-0 whitespace-nowrap text-[0.6875rem] text-muted-foreground">
-                              {misconception.meta}
-                            </span>
-                          </CommandItem>
-                        ))}
+                        {misconceptionResults
+                          .slice(0, 6)
+                          .map((misconception) => (
+                            <CommandItem
+                              className={PALETTE_ITEM_CLASS}
+                              key={`misconception-${misconception.id}`}
+                              onSelect={() =>
+                                navigateTo(misconception.path as Route, {
+                                  openInNewPane: ctrlHeldRef.current,
+                                })
+                              }
+                              value={`misconception-${misconception.id}`}
+                            >
+                              {renderPaletteIcon(
+                                TriangleAlert,
+                                PALETTE_ICON_CLASS
+                              )}
+                              <div className="min-w-0 flex-1">
+                                <p className="truncate font-medium text-foreground">
+                                  {misconception.label}
+                                </p>
+                                <p className="truncate text-[0.6875rem] text-muted-foreground">
+                                  {misconception.description}
+                                </p>
+                              </div>
+                              <span className="mt-0.5 shrink-0 whitespace-nowrap text-[0.6875rem] text-muted-foreground">
+                                {misconception.meta}
+                              </span>
+                            </CommandItem>
+                          ))}
                       </CommandGroup>
                       <CommandSeparator />
                     </>
@@ -2688,7 +2729,10 @@ export function CommandPalette({
             </CommandList>
             {showPreview ? (
               <Command.Preview className="bg-popover">
-                <PalettePreview item={selectedPreview} workspaceUuid={resolvedWorkspaceUuid} />
+                <PalettePreview
+                  item={selectedPreview}
+                  workspaceUuid={resolvedWorkspaceUuid}
+                />
               </Command.Preview>
             ) : null}
           </Command.Split>
@@ -2848,8 +2892,7 @@ function PalettePreview({
       /\.(png|jpg|jpeg|gif|webp|svg)$/i.test(nameLower);
     const isPdf = item.item.type === "file" && nameLower.endsWith(".pdf");
     const isVideo =
-      item.item.type === "file" &&
-      /\.(mp4|webm|mov)$/i.test(nameLower);
+      item.item.type === "file" && /\.(mp4|webm|mov)$/i.test(nameLower);
 
     const fileUrl =
       item.item.type === "file" && workspaceUuid
@@ -2977,31 +3020,41 @@ function PalettePreview({
         <div className="space-y-2 text-sm text-muted-foreground">
           {task.dueAt ? (
             <div className="flex items-center gap-2">
-              <span className="text-[0.6875rem] text-muted-foreground">Due</span>
+              <span className="text-[0.6875rem] text-muted-foreground">
+                Due
+              </span>
               <span>{formatTaskDueDate(task.dueAt)}</span>
             </div>
           ) : null}
           {task.assignee?.name ? (
             <div className="flex items-center gap-2">
-              <span className="text-[0.6875rem] text-muted-foreground">Assignee</span>
+              <span className="text-[0.6875rem] text-muted-foreground">
+                Assignee
+              </span>
               <span>{task.assignee.name}</span>
             </div>
           ) : null}
           {task.priority ? (
             <div className="flex items-center gap-2">
-              <span className="text-[0.6875rem] text-muted-foreground">Priority</span>
+              <span className="text-[0.6875rem] text-muted-foreground">
+                Priority
+              </span>
               <span className="capitalize">{task.priority.toLowerCase()}</span>
             </div>
           ) : null}
           {task.resources && task.resources.length > 0 ? (
             <div className="flex items-center gap-2">
-              <span className="text-[0.6875rem] text-muted-foreground">Resources</span>
+              <span className="text-[0.6875rem] text-muted-foreground">
+                Resources
+              </span>
               <span>{task.resources.length}</span>
             </div>
           ) : null}
           {task.status ? (
             <div className="flex items-center gap-2">
-              <span className="text-[0.6875rem] text-muted-foreground">Status</span>
+              <span className="text-[0.6875rem] text-muted-foreground">
+                Status
+              </span>
               <span className="capitalize">{task.status.toLowerCase()}</span>
             </div>
           ) : null}

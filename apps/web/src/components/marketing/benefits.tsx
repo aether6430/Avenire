@@ -173,14 +173,15 @@ const MiddleCard = () => {
                     </div>
                     <div className="h-1.5 overflow-hidden rounded-full bg-white/10 dark:bg-white/10">
                       <motion.div
-                        initial={{ width: 0 }}
-                        animate={{ width: `${item.width}%` }}
+                        initial={{ scaleX: 0 }}
+                        animate={{ scaleX: item.width / 100 }}
                         transition={{
                           duration: 1.2,
                           delay: 0.4 + index * 0.1,
                           ease: "easeOut",
                         }}
-                        className="h-full rounded-full bg-brand/75"
+                        className="h-full w-full rounded-full bg-brand/75"
+                        style={{ transformOrigin: "left" }}
                       />
                     </div>
                   </div>

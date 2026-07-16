@@ -7,7 +7,6 @@ import { CaretLeft as ChevronLeftIcon, CaretRight as ChevronRightIcon, DotsThree
 function Pagination({ className, ...props }: React.ComponentProps<"nav">) {
   return (
     <nav
-      role="navigation"
       aria-label="pagination"
       data-slot="pagination"
       className={cn(

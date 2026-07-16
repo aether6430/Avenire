@@ -9,6 +9,7 @@ import {
   real,
   text,
   timestamp,
+  unique,
   uniqueIndex,
   uuid,
   vector,
@@ -92,6 +93,7 @@ export const workspace = pgTable(
     organizationId: text("organization_id")
       .notNull()
       .references(() => organization.id, { onDelete: "cascade" }),
+    ingestionRevision: integer("ingestion_revision").notNull().default(0),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
@@ -217,6 +219,7 @@ export const fileAsset = pgTable(
       .notNull()
       .references(() => fileFolder.id, { onDelete: "cascade" }),
     storageKey: text("storage_key").notNull(),
+    uploadSessionId: text("upload_session_id"),
     storageUrl: text("storage_url").notNull(),
     optimizedStorageKey: text("optimized_storage_key"),
     optimizedStorageUrl: text("optimized_storage_url"),
@@ -253,6 +256,7 @@ export const fileAsset = pgTable(
       table.workspaceId,
       table.storageKey
     ),
+    uniqueIndex("file_asset_upload_session_uidx").on(table.uploadSessionId),
     index("file_asset_workspace_hash_idx").on(
       table.workspaceId,
       table.contentHashSha256
@@ -602,7 +606,10 @@ export const misconception = pgTable(
     status: text("status").notNull().default("candidate"),
     evidenceClass: text("evidence_class").notNull().default("session"),
     evidenceRootId: text("evidence_root_id"),
-    evidenceSpan: jsonb("evidence_span").$type<Record<string, unknown> | null>(),
+    evidenceSpan: jsonb("evidence_span").$type<Record<
+      string,
+      unknown
+    > | null>(),
     sourceSessionId: text("source_session_id"),
     promotedAt: timestamp("promoted_at", { withTimezone: true }),
     decayedAt: timestamp("decayed_at", { withTimezone: true }),
@@ -673,7 +680,10 @@ export const misconceptionEvidence = pgTable(
     evidenceRootId: text("evidence_root_id"),
     sourceSessionId: text("source_session_id"),
     confidence: real("confidence").notNull().default(0),
-    evidenceSpan: jsonb("evidence_span").$type<Record<string, unknown> | null>(),
+    evidenceSpan: jsonb("evidence_span").$type<Record<
+      string,
+      unknown
+    > | null>(),
     observedAt: timestamp("observed_at", { withTimezone: true }).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
@@ -820,6 +830,41 @@ export const usageMeter = pgTable(
   ]
 );
 
+export const billingUsageEvent = pgTable(
+  "billing_usage_event",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    meter: text("meter").notNull(),
+    units: integer("units").notNull(),
+    idempotencyKey: text("idempotency_key").notNull(),
+    occurredAt: timestamp("occurred_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    deliveredAt: timestamp("delivered_at", { withTimezone: true }),
+    attempts: integer("attempts").notNull().default(0),
+    nextAttemptAt: timestamp("next_attempt_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    lastError: text("last_error"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    unique("billing_usage_event_idempotency_uidx").on(table.idempotencyKey),
+    index("billing_usage_event_delivery_idx")
+      .on(table.nextAttemptAt)
+      .where(sql`${table.deliveredAt} is null`),
+    index("billing_usage_event_user_meter_idx").on(table.userId, table.meter),
+  ]
+);
+
 export const userSettings = pgTable("user_settings", {
   userId: text("user_id")
     .primaryKey()
@@ -828,9 +873,7 @@ export const userSettings = pgTable("user_settings", {
   completedTasksAtTop: boolean("completed_tasks_at_top")
     .notNull()
     .default(true),
-  onboardingCompleted: boolean("onboarding_completed")
-    .notNull()
-    .default(false),
+  onboardingCompleted: boolean("onboarding_completed").notNull().default(false),
   petName: text("pet_name").notNull().default("Auri"),
   petAccessory: text("pet_accessory").notNull().default("none"),
   createdAt: timestamp("created_at", { withTimezone: true })

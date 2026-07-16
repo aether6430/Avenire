@@ -7,6 +7,9 @@ const redisUrl = process.env.REDIS_URL;
 const ACTIVE_STREAM_KEY_PREFIX = "chat-active-stream:";
 // Failsafe for crashed/serverless instances that never reach stream cleanup.
 const ACTIVE_STREAM_TTL_SECONDS = 60 * 60;
+// Keep a completed stream briefly so clients that navigated away can replay
+// the missed tail before the pointer expires.
+const COMPLETED_STREAM_TTL_SECONDS = 15 * 60;
 
 let redisClient: ManagedRedisClient | null = null;
 
@@ -82,6 +85,33 @@ export async function clearActiveStreamId(chatId: string, streamPath: string) {
     );
   } catch (error) {
     console.error("Failed to clear active stream id", {
+      chatId,
+      streamPath,
+      error,
+    });
+  }
+}
+
+export async function markActiveStreamComplete(
+  chatId: string,
+  streamPath: string
+) {
+  if (!hasRedisConfigured()) {
+    return;
+  }
+
+  try {
+    const client = await getRedisClient();
+    const key = `${ACTIVE_STREAM_KEY_PREFIX}${chatId}`;
+    await client.eval(
+      "if redis.call('GET', KEYS[1]) == ARGV[1] then return redis.call('EXPIRE', KEYS[1], ARGV[2]) end return 0",
+      {
+        keys: [key],
+        arguments: [streamPath, String(COMPLETED_STREAM_TTL_SECONDS)],
+      }
+    );
+  } catch (error) {
+    console.error("Failed to retain completed stream id", {
       chatId,
       streamPath,
       error,

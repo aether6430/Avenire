@@ -24,9 +24,9 @@ self.addEventListener("activate", (event) => {
       .keys()
       .then((cacheNames) =>
         Promise.all(
-          cacheNames
-            .filter((name) => name !== CACHE_NAME)
-            .map((name) => caches.delete(name))
+          cacheNames.flatMap((name) =>
+            name === CACHE_NAME ? [] : [caches.delete(name)]
+          )
         )
       )
       .then(() => self.clients.claim())
@@ -82,8 +82,10 @@ async function cacheFirst(request) {
     return cached;
   }
 
-  const networkResponse = await fetch(request);
-  const cache = await caches.open(CACHE_NAME);
+  const [networkResponse, cache] = await Promise.all([
+    fetch(request),
+    caches.open(CACHE_NAME),
+  ]);
   cache.put(request, networkResponse.clone());
   return networkResponse;
 }

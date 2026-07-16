@@ -220,7 +220,7 @@ export function ReviewSimulator() {
         {([1, 2, 3, 4] as Rating[]).map((rating) => {
           const preview = previewIntervals.find((p) => p.rating === rating)!;
           return (
-            <button
+            <button type="button"
               key={rating}
               onClick={() => handleRate(rating)}
               className="flex flex-col items-center rounded-lg border-2 bg-neutral-950/40 px-2 py-3 font-mono transition-all hover:opacity-80"
@@ -246,7 +246,7 @@ export function ReviewSimulator() {
           <div className="flex flex-col gap-1 max-h-[180px] overflow-y-auto">
             {history.map((h, i) => (
               <div
-                key={i}
+                key={`${h.stabilityBefore}-${h.interval}`}
                 className={`flex items-center justify-between rounded-lg p-2 text-[10px] ${
                   i === 0 ? "bg-white/5" : ""
                 }`}
@@ -266,7 +266,7 @@ export function ReviewSimulator() {
       )}
 
       <div className="flex items-center justify-between">
-        <button
+        <button type="button"
           onClick={handleReset}
           className="rounded-lg border border-divide bg-neutral-900 px-3 py-1.5 text-[10px] uppercase tracking-widest text-white/50 transition-all hover:border-white/30 hover:text-white/80"
         >

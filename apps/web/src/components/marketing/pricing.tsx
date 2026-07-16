@@ -51,7 +51,7 @@ export const Pricing = () => {
         <div className="relative mt-8 flex items-center gap-4 overflow-hidden rounded-xl border border-white/16 bg-gray-50 p-2 dark:bg-neutral-800">
           <Scale className="opacity-75" />
           {tabs.map((tab) => (
-            <button
+            <button type="button"
               key={tab.value}
               onClick={() => setActiveTier(tab.value as "monthly" | "yearly")}
               className="relative z-20 flex w-32 justify-center py-1 text-center sm:w-40"

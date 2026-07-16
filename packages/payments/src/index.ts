@@ -1,5 +1,8 @@
 import { Polar } from "@polar-sh/sdk";
-import { WebhookVerificationError, validateEvent } from "@polar-sh/sdk/webhooks";
+import {
+  WebhookVerificationError,
+  validateEvent,
+} from "@polar-sh/sdk/webhooks";
 
 type PolarServer = "sandbox" | "production";
 
@@ -138,7 +141,7 @@ export async function ensurePolarCustomer(input: {
 }
 
 export async function getActiveSubscriptionForExternalCustomer(
-  externalCustomerId: string,
+  externalCustomerId: string
 ) {
   const polar = getPolarClient();
   try {
@@ -164,24 +167,72 @@ export async function getActiveSubscriptionForExternalCustomer(
   return null;
 }
 
+export interface PolarUsageEventInput {
+  externalCustomerId: string;
+  externalId: string;
+  meter: string;
+  occurredAt: Date;
+  units: number;
+}
+
+export async function ingestPolarUsageEvents(input: {
+  eventName: string;
+  events: PolarUsageEventInput[];
+}) {
+  if (input.events.length === 0) {
+    return;
+  }
+
+  const polar = getPolarClient();
+  await polar.events.ingest({
+    events: input.events.map((event) => ({
+      name: input.eventName,
+      externalId: event.externalId,
+      externalCustomerId: event.externalCustomerId,
+      timestamp: event.occurredAt,
+      metadata: {
+        meter: event.meter,
+        units: event.units,
+      },
+    })),
+  });
+}
+
+export async function getPolarCustomerMeter(input: {
+  externalCustomerId: string;
+  meterId: string;
+}) {
+  const polar = getPolarClient();
+  const pages = await polar.customerMeters.list({
+    externalCustomerId: input.externalCustomerId,
+    meterId: input.meterId,
+    limit: 10,
+  });
+
+  for await (const page of pages) {
+    return page.result.items[0] ?? null;
+  }
+  return null;
+}
+
 export async function validatePolarWebhook(
   payload: string,
-  headers: Record<string, string>,
+  headers: Record<string, string>
 ) {
   return handlePolarWebhook(
     payload,
-    headers["polar-signature"] ?? headers["Polar-Signature"] ?? null,
+    headers["polar-signature"] ?? headers["Polar-Signature"] ?? null
   );
 }
 
 export async function handlePolarWebhook(
   payload: string,
-  signatureHeader: string | null | undefined,
+  signatureHeader: string | null | undefined
 ) {
   const secret = (process.env.POLAR_WEBHOOK_SECRET ?? "").trim();
   const signature = signatureHeader?.trim();
 
-  if (!secret || !signature) {
+  if (!(secret && signature)) {
     return null;
   }
 
@@ -195,7 +246,10 @@ export async function handlePolarWebhook(
   }
 }
 
-export async function createCustomerPortalLink(customerId: string, returnUrl?: string) {
+export async function createCustomerPortalLink(
+  customerId: string,
+  returnUrl?: string
+) {
   const polar = getPolarClient();
   try {
     return await polar.customerSessions.create({
@@ -215,7 +269,7 @@ export async function createCustomerPortalLink(customerId: string, returnUrl?: s
 
 export async function createCustomerPortalLinkForExternalCustomer(
   externalCustomerId: string,
-  returnUrl?: string,
+  returnUrl?: string
 ) {
   const polar = getPolarClient();
   try {
@@ -224,12 +278,15 @@ export async function createCustomerPortalLinkForExternalCustomer(
       returnUrl: returnUrl ?? null,
     });
   } catch (error) {
-    console.error("[payments] failed to create Polar external customer portal link", {
-      externalCustomerId,
-      hasReturnUrl: Boolean(returnUrl),
-      polarServer: getPolarServer(),
-      error: describePolarError(error),
-    });
+    console.error(
+      "[payments] failed to create Polar external customer portal link",
+      {
+        externalCustomerId,
+        hasReturnUrl: Boolean(returnUrl),
+        polarServer: getPolarServer(),
+        error: describePolarError(error),
+      }
+    );
     throw error;
   }
 }
@@ -245,7 +302,9 @@ export async function createCheckoutSession(input: {
   const polar = getPolarClient();
   const productId = getProductId(input.plan, input.billing);
   if (!productId) {
-    throw new Error(`Missing Polar product id for ${input.plan}/${input.billing}`);
+    throw new Error(
+      `Missing Polar product id for ${input.plan}/${input.billing}`
+    );
   }
 
   try {

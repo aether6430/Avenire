@@ -125,6 +125,21 @@ describe("/api/uploads/sessions route", () => {
     });
   });
 
+  it("rejects malformed JSON with the same public payload error", async () => {
+    getSessionUserMock.mockResolvedValue({ id: "user-1" });
+
+    const response = await POST(
+      new Request("http://localhost:3003/api/uploads/sessions", {
+        method: "POST",
+        body: "{",
+      })
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({ error: "Invalid payload" });
+    expect(createUploadSessionMock).not.toHaveBeenCalled();
+  });
+
   it("returns forbidden when the user cannot access the workspace or edit the folder", async () => {
     getSessionUserMock.mockResolvedValue({ id: "user-1" });
     ensureWorkspaceAccessForUserMock.mockResolvedValueOnce(false);

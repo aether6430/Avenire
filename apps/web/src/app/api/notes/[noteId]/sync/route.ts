@@ -15,6 +15,8 @@ import {
 import { publishFilesInvalidationEvent } from "@/lib/files-realtime-publisher";
 import { deleteUploadThingFile } from "@/lib/upload-registration";
 import { getSessionUser } from "@/lib/workspace";
+import { parseJsonRequest } from "@/lib/api-request";
+import { noteSyncSchema } from "../../note-route-model";
 
 const NOTE_REINDEX_DEBOUNCE_MS = 3000;
 
@@ -125,16 +127,14 @@ export async function POST(
     );
   }
 
-  const body = (await request.json().catch(() => ({}))) as {
-    base?: string;
-    current?: string;
-  };
-  if (typeof body.base !== "string" || typeof body.current !== "string") {
+  const parsed = await parseJsonRequest(request, noteSyncSchema);
+  if (!parsed.success) {
     return NextResponse.json(
       { error: "Invalid sync payload" },
       { status: 400 }
     );
   }
+  const body = parsed.data;
 
   const note = await getNoteContent(noteId);
   const serverMarkdown = note?.content ?? "";

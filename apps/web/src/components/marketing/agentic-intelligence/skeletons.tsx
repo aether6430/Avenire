@@ -201,7 +201,7 @@ export const LLMModelSelectorSkeleton = () => {
                   key={sparkleIndex}
                   initial={{
                     opacity: 0,
-                    scale: 0,
+                    scale: 0.95,
                     x: 0,
                     y: 0,
                   }}
@@ -340,7 +340,7 @@ export const TextToWorkflowBuilderSkeleton = () => {
         />
         <div className="mr-4 flex items-center gap-2">
           <AttachmentIcon />
-          <button onClick={handleSendMessage} className="cursor-pointer">
+          <button type="button" aria-label="Send message" onClick={handleSendMessage} className="cursor-pointer">
             <SendIcon />
           </button>
         </div>
@@ -355,7 +355,7 @@ export const TextToWorkflowBuilderSkeleton = () => {
       >
         {chat.slice(0, visibleMessages).map((message, index) => (
           <motion.div
-            key={index}
+            key={`msg-${message.role}-${(message.content ?? '').slice(0, 20)}`}
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}

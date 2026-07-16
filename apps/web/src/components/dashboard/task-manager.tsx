@@ -227,6 +227,7 @@ export function DashboardTaskManager({
                 <div className="space-y-1" key={task.id}>
                   <div className="flex w-full items-center gap-1 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-muted/60">
                     <button
+                      aria-label={`Edit task ${task.title ?? ""}`}
                       className="shrink-0 rounded p-1 text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground"
                       onClick={(e) => {
                         e.stopPropagation();
@@ -287,6 +288,7 @@ export function DashboardTaskManager({
                       </m.button>
                     </LazyMotion>
                     <button
+                      aria-label={`Delete task ${task.title ?? ""}`}
                       className="shrink-0 rounded p-1 text-muted-foreground transition-colors hover:bg-muted/80 hover:text-destructive"
                       onClick={(e) => {
                         e.stopPropagation();

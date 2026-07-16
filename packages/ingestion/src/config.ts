@@ -92,8 +92,8 @@ export const config = {
   ingestionStageTimingLog:
     (process.env.INGESTION_STAGE_TIMING_LOG ?? "true").toLowerCase() !==
     "false",
-  linkExtractionProvider: "tavily" as const,
-  tavilyApiKey: process.env.TAVILY_API_KEY ?? "",
+  firecrawlApiKey: process.env.FIRECRAWL_API_KEY ?? "",
+  firecrawlApiUrl: process.env.FIRECRAWL_API_URL ?? "",
   maxInlineBytes: Number.parseInt(
     process.env.INGESTION_MAX_INLINE_BYTES ?? "10485760",
     10

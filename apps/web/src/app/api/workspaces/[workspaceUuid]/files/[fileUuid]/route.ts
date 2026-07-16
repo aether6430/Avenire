@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/workspace";
+import { parseJsonRequest } from "@/lib/api-request";
 import { handleWorkspaceFileGet } from "./workspace-file-route-get";
 import {
   resolveWorkspaceFileRouteError,
@@ -50,13 +51,7 @@ export async function PATCH(
     }
 
     const { workspaceUuid, fileUuid } = await context.params;
-    let json: unknown;
-    try {
-      json = await request.json();
-    } catch {
-      return NextResponse.json({ error: "Invalid request" }, { status: 400 });
-    }
-    const parsed = workspaceFilePatchSchema.safeParse(json);
+    const parsed = await parseJsonRequest(request, workspaceFilePatchSchema);
     if (!parsed.success) {
       return NextResponse.json({ error: "Invalid request" }, { status: 400 });
     }

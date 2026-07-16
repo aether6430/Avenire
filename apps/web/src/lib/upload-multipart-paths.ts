@@ -21,3 +21,7 @@ export function getPartPath(sessionId: string, partNumber: number) {
   const safePartNumber = toSafePartNumber(partNumber);
   return join(getSessionDirectory(sessionId), `${safePartNumber}.part`);
 }
+
+export function getProviderObjectMarkerPath(sessionId: string) {
+  return join(getSessionDirectory(sessionId), ".provider-object-key");
+}
