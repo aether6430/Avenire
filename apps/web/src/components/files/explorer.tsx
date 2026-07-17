@@ -1522,6 +1522,17 @@ function createPendingLinkImport(input: {
   };
 }
 
+function normalizeLinkImportUrl(value: string) {
+  const withProtocol = /^[a-z][a-z\d+.-]*:/i.test(value)
+    ? value
+    : `https://${value}`;
+  const parsed = new URL(withProtocol);
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+    throw new Error("Please enter a valid HTTP or HTTPS URL.");
+  }
+  return parsed.toString();
+}
+
 function PendingLinkImportCard({ item }: { item: PendingLinkImport }) {
   return (
     <Card
@@ -1952,20 +1963,26 @@ export function FileExplorer({
       return;
     }
 
-    const normalizedUrl = linkImportDialog.url.trim();
-    if (!normalizedUrl) {
+    const enteredUrl = linkImportDialog.url.trim();
+    if (!enteredUrl) {
       return;
     }
 
     const dialog = linkImportDialog;
-    const pendingImport = createPendingLinkImport({
-      folderId: dialog.folderId,
-      name: dialog.name,
-      url: normalizedUrl,
-    });
-    setPendingLinkImports((previous) => [...previous, pendingImport]);
-    setLinkImportDialog(null);
+    let pendingImport: PendingLinkImport | null = null;
     try {
+      const normalizedUrl = normalizeLinkImportUrl(enteredUrl);
+      const nextPendingImport = createPendingLinkImport({
+        folderId: dialog.folderId,
+        name: dialog.name,
+        url: normalizedUrl,
+      });
+      pendingImport = nextPendingImport;
+      setPendingLinkImports((previous) => [
+        ...previous,
+        nextPendingImport,
+      ]);
+      setLinkImportDialog(null);
       const response = await fetch(`/api/workspaces/${workspaceUuid}/links`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -2009,9 +2026,12 @@ export function FileExplorer({
         error instanceof Error ? error.message : "Unable to import link."
       );
     } finally {
-      setPendingLinkImports((previous) =>
-        previous.filter((item) => item.id !== pendingImport.id)
-      );
+      if (pendingImport) {
+        const pendingImportId = pendingImport.id;
+        setPendingLinkImports((previous) =>
+          previous.filter((item) => item.id !== pendingImportId)
+        );
+      }
     }
   }, [linkImportDialog, router, workspaceUuid]);
 

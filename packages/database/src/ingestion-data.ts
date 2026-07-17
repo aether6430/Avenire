@@ -616,7 +616,8 @@ export async function updateLinkPreviewMetadataAfterIngestion(input: {
       .select({ metadata: fileAsset.metadata })
       .from(fileAsset)
       .where(where)
-      .limit(1);
+      .limit(1)
+      .for("update");
     if (!existing) {
       return null;
     }

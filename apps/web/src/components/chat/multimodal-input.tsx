@@ -305,6 +305,7 @@ function PureMultimodalInput({
   const hasHydratedInputRef = useRef(false);
   const uploadingIdsRef = useRef(new Set<string>());
   const compactTextareaWidthRef = useRef<number | null>(null);
+  const multilineControlWidthRef = useRef<number | null>(null);
   const [textareaSelection, setTextareaSelection] = useState({
     start: 0,
     end: 0,
@@ -552,8 +553,24 @@ function PureMultimodalInput({
       return;
     }
 
+    const currentTextareaWidth =
+      width > 0 ? textarea.getBoundingClientRect().width : textarea.clientWidth;
     if (!isMultiLine) {
-      compactTextareaWidthRef.current = textarea.getBoundingClientRect().width;
+      compactTextareaWidthRef.current = currentTextareaWidth;
+      multilineControlWidthRef.current = null;
+    } else if (
+      multilineControlWidthRef.current === null &&
+      compactTextareaWidthRef.current !== null
+    ) {
+      multilineControlWidthRef.current = Math.max(
+        0,
+        currentTextareaWidth - compactTextareaWidthRef.current
+      );
+    } else if (multilineControlWidthRef.current !== null) {
+      compactTextareaWidthRef.current = Math.max(
+        1,
+        currentTextareaWidth - multilineControlWidthRef.current
+      );
     }
     const compactWidth = compactTextareaWidthRef.current;
     const measuredHeight = compactWidth
@@ -568,7 +585,7 @@ function PureMultimodalInput({
     if (nextIsMultiLine !== isMultiLine) {
       setIsMultiLine(nextIsMultiLine);
     }
-  }, [input, isMultiLine]);
+  }, [input, isMultiLine, width]);
 
   useEffect(() => {
     if (hasHydratedInputRef.current) {

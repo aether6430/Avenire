@@ -68,16 +68,11 @@ export async function getStorageUrl(key: string) {
     return "";
   }
 
-  if (isFilesSdkStorageKey(key)) {
-    const { UTApi } = await import("uploadthing/server");
-    const utapi = new UTApi({ token: process.env.UPLOADTHING_TOKEN });
-    const response = await utapi.getFileUrls([key], { keyType: "customId" });
-    return response.data[0]?.url ?? "";
-  }
-
   const { UTApi } = await import("uploadthing/server");
   const utapi = new UTApi({ token: process.env.UPLOADTHING_TOKEN });
-  const response = await utapi.getFileUrls([key]);
+  const options: { keyType: "customId" } | undefined =
+    isFilesSdkStorageKey(key) ? { keyType: "customId" } : undefined;
+  const response = await utapi.getFileUrls([key], options);
   return response.data[0]?.url ?? "";
 }
 
