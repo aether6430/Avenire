@@ -31,7 +31,7 @@ import {
   scopedLogger,
   shutdownObservability,
 } from "@avenire/observability";
-import { uploadStorageFile } from "@avenire/storage";
+import { getStorageUrl, uploadStorageFile } from "@avenire/storage";
 import { serve } from "@hono/node-server";
 import { config as loadEnv } from "dotenv";
 import { Hono } from "hono";
@@ -115,24 +115,50 @@ async function persistLinkPreviewImage(input: {
     return input.imageUrl;
   }
 
-  const response = await fetch(input.imageUrl);
-  if (!response.ok) {
-    throw new Error(`Failed to download link screenshot: ${response.status}`);
-  }
-  const contentType = response.headers.get("content-type") ?? "image/png";
-  if (!contentType.toLowerCase().startsWith("image/")) {
-    throw new Error("Link screenshot response was not an image.");
-  }
+  let screenshotKey: string | null = null;
+  try {
+    const response = await fetch(input.imageUrl);
+    if (!response.ok) {
+      console.warn("Unable to download link screenshot", {
+        sourceUrl: input.sourceUrl,
+        status: response.status,
+      });
+      return input.imageUrl;
+    }
+    const contentType = response.headers.get("content-type") ?? "image/png";
+    if (!contentType.toLowerCase().startsWith("image/")) {
+      console.warn("Link screenshot response was not an image", {
+        contentType,
+        sourceUrl: input.sourceUrl,
+      });
+      return input.imageUrl;
+    }
 
-  const sourceHash = createHash("sha256").update(input.sourceUrl).digest("hex");
-  const extension = getScreenshotExtension(contentType);
-  const uploaded = await uploadStorageFile({
-    body: new Uint8Array(await response.arrayBuffer()),
-    contentType,
-    key: `uploads/link-previews/${sourceHash}.${extension}`,
-    name: `link-preview-${sourceHash}.${extension}`,
-  });
-  return uploaded.url;
+    const sourceHash = createHash("sha256")
+      .update(input.sourceUrl)
+      .digest("hex");
+    const extension = getScreenshotExtension(contentType);
+    screenshotKey = `uploads/link-previews/${sourceHash}.${extension}`;
+    const uploaded = await uploadStorageFile({
+      body: new Uint8Array(await response.arrayBuffer()),
+      contentType,
+      key: screenshotKey,
+      name: `link-preview-${sourceHash}.${extension}`,
+    });
+    return uploaded.url;
+  } catch (error) {
+    const existingImageUrl = screenshotKey
+      ? await getStorageUrl(screenshotKey).catch(() => "")
+      : "";
+    if (existingImageUrl) {
+      return existingImageUrl;
+    }
+    console.warn("Unable to persist link screenshot", {
+      error: error instanceof Error ? error.message : "Unknown error",
+      sourceUrl: input.sourceUrl,
+    });
+    return input.imageUrl;
+  }
 }
 
 async function persistLinkPreviewMetadata(input: {
