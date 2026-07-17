@@ -595,6 +595,75 @@ export async function getFileForIngestion(workspaceId: string, fileId: string) {
   };
 }
 
+function isMetadataRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+export async function updateLinkPreviewMetadataAfterIngestion(input: {
+  favicon: string | null;
+  fileId: string;
+  link: Record<string, unknown>;
+  sourceUrl: string;
+  workspaceId: string;
+}) {
+  return db.transaction(async (tx) => {
+    const where = and(
+      eq(fileAsset.id, input.fileId),
+      eq(fileAsset.workspaceId, input.workspaceId),
+      isNull(fileAsset.deletedAt)
+    );
+    const [existing] = await tx
+      .select({ metadata: fileAsset.metadata })
+      .from(fileAsset)
+      .where(where)
+      .limit(1);
+    if (!existing) {
+      return null;
+    }
+
+    const metadata = isMetadataRecord(existing.metadata)
+      ? existing.metadata
+      : {};
+    const page = isMetadataRecord(metadata.page) ? metadata.page : {};
+    const properties = isMetadataRecord(page.properties)
+      ? page.properties
+      : {};
+    const pendingFavicon = new URL("/favicon.ico", input.sourceUrl).toString();
+    const currentIcon = page.icon;
+    const canReplaceIcon =
+      typeof currentIcon !== "string" ||
+      currentIcon === "🔗" ||
+      currentIcon === pendingFavicon;
+    const [record] = await tx
+      .update(fileAsset)
+      .set({
+        metadata: {
+          ...metadata,
+          link: input.link,
+          page: {
+            ...page,
+            bannerUrl: page.bannerUrl ?? null,
+            icon: canReplaceIcon
+              ? (input.favicon ?? currentIcon ?? "🔗")
+              : currentIcon,
+            properties: {
+              ...properties,
+              source: {
+                type: "text",
+                value: input.sourceUrl,
+              },
+            },
+          },
+        },
+        updatedAt: new Date(),
+      })
+      .where(where)
+      .returning({ folderId: fileAsset.folderId, id: fileAsset.id });
+
+    return record ?? null;
+  });
+}
+
 export async function findReusableIngestionResource(input: {
   source: string;
   sourceType: string;

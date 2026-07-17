@@ -17,6 +17,7 @@
     "@avenire/database": "workspace:*",
     "@avenire/ingestion": "workspace:*",
     "@avenire/observability": "workspace:*",
+    "@avenire/storage": "workspace:*",
     "@hono/node-server": "^1.19.12",
     "dotenv": "latest",
     "hono": "^4.12.9",

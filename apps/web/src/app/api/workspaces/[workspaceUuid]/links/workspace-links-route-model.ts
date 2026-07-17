@@ -1,5 +1,5 @@
-import { resolveApiErrorMessage } from "@/lib/api-error-message";
 import { Schema } from "effect-v4";
+import { resolveApiErrorMessage } from "@/lib/api-error-message";
 
 export const workspaceLinkCreateSchema = Schema.Struct({
   folderId: Schema.optional(Schema.String),
@@ -84,6 +84,10 @@ export function deriveWorkspaceLinkDocumentTitle(input: {
     fileName,
     noteTitle,
   };
+}
+
+export function deriveWorkspaceLinkFaviconUrl(normalizedUrl: string) {
+  return new URL("/favicon.ico", normalizedUrl).toString();
 }
 
 export function buildWorkspaceLinkNoteContent(input: {
