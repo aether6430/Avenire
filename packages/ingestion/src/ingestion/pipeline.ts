@@ -3,7 +3,12 @@ import { PostgresVectorStore } from "../retrieval/postgres-vector-store";
 import { assertSafeUrl, safeRemoteFetch } from "../utils/safety";
 import { ingestAudio } from "./audio";
 import { ingestImage } from "./image";
-import { ingestLink, linkPreviewFromMetadata } from "./link";
+import {
+  extractLinkPreview,
+  ingestLink,
+  type LinkPreview,
+  linkPreviewFromMetadata,
+} from "./link";
 import { ingestMarkdown } from "./markdown";
 import { ingestPdfs } from "./ocr";
 import { ingestOfficeDocument } from "./office";
@@ -515,11 +520,18 @@ export const ingestStoredFile = async (input: {
     : input.fileName;
 
   let resources: CanonicalResource[] = [];
+  let linkPreview: LinkPreview | null = null;
   if (shouldIngestAsLink && linkSourceUrl) {
-    resources = isOfficeDocumentType({
+    const isOfficeLink = isOfficeDocumentType({
       fileName: linkSourceFileName,
       mimeType: inferMimeTypeFromName(linkSourceFileName) ?? "",
-    })
+    });
+    if (!isOfficeLink) {
+      linkPreview =
+        linkPreviewFromMetadata(linkMetadata) ??
+        (await extractLinkPreview(linkSourceUrl));
+    }
+    resources = isOfficeLink
       ? [
           await ingestOfficeDocument({
             source: linkSourceUrl,
@@ -527,12 +539,7 @@ export const ingestStoredFile = async (input: {
             url: linkSourceUrl,
           }),
         ]
-      : [
-          await ingestLink(
-            linkSourceUrl,
-            linkPreviewFromMetadata(linkMetadata)
-          ),
-        ];
+      : [await ingestLink(linkSourceUrl, linkPreview)];
   } else if (typeof input.content === "string") {
     resources = [
       ingestMarkdown({
@@ -631,5 +638,5 @@ export const ingestStoredFile = async (input: {
   });
 
   await logCorpusGrowth(beforeStats, vectorStore);
-  return persisted;
+  return { ...persisted, linkPreview };
 };

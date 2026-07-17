@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -10,10 +11,12 @@ import {
   markNoteReindexed,
   replaceFileTranscriptCues,
   retryIngestionJob,
+  updateLinkPreviewMetadataAfterIngestion,
 } from "@avenire/database";
 import {
   assertRequiredSecrets,
   ingestStoredFile,
+  type LinkPreview,
   warmWorkspace,
 } from "@avenire/ingestion";
 import {
@@ -28,6 +31,7 @@ import {
   scopedLogger,
   shutdownObservability,
 } from "@avenire/observability";
+import { uploadStorageFile } from "@avenire/storage";
 import { serve } from "@hono/node-server";
 import { config as loadEnv } from "dotenv";
 import { Hono } from "hono";
@@ -87,6 +91,98 @@ function isNonRetryableIngestionError(stage: string, error: unknown) {
     stage === "load-file" &&
     error.message === "File not found for ingestion job."
   );
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function getScreenshotExtension(contentType: string) {
+  if (contentType.includes("webp")) {
+    return "webp";
+  }
+  if (contentType.includes("jpeg")) {
+    return "jpg";
+  }
+  return "png";
+}
+
+async function persistLinkPreviewImage(input: {
+  imageUrl: string | null;
+  sourceUrl: string;
+}) {
+  if (!(input.imageUrl && process.env.UPLOADTHING_TOKEN)) {
+    return input.imageUrl;
+  }
+
+  const response = await fetch(input.imageUrl);
+  if (!response.ok) {
+    throw new Error(`Failed to download link screenshot: ${response.status}`);
+  }
+  const contentType = response.headers.get("content-type") ?? "image/png";
+  if (!contentType.toLowerCase().startsWith("image/")) {
+    throw new Error("Link screenshot response was not an image.");
+  }
+
+  const sourceHash = createHash("sha256").update(input.sourceUrl).digest("hex");
+  const extension = getScreenshotExtension(contentType);
+  const uploaded = await uploadStorageFile({
+    body: new Uint8Array(await response.arrayBuffer()),
+    contentType,
+    key: `uploads/link-previews/${sourceHash}.${extension}`,
+    name: `link-preview-${sourceHash}.${extension}`,
+  });
+  return uploaded.url;
+}
+
+async function persistLinkPreviewMetadata(input: {
+  fileId: string;
+  preview: LinkPreview;
+  sourceUrl: string;
+  workspaceId: string;
+}) {
+  const imageUrl = await persistLinkPreviewImage({
+    imageUrl: input.preview.imageUrl,
+    sourceUrl: input.sourceUrl,
+  });
+  const snapshot = input.preview.snapshot
+    ? { ...input.preview.snapshot, imageUrl }
+    : null;
+  const updated = await updateLinkPreviewMetadataAfterIngestion({
+    workspaceId: input.workspaceId,
+    fileId: input.fileId,
+    favicon: input.preview.favicon,
+    sourceUrl: input.sourceUrl,
+    link: {
+      content: input.preview.content,
+      description: input.preview.description,
+      displayMode: input.preview.displayMode,
+      extractionMode: input.preview.mode,
+      favicon: input.preview.favicon,
+      imageUrl,
+      kind: input.preview.kind,
+      mediaUrls: input.preview.mediaUrls,
+      provider: input.preview.provider ?? null,
+      readerMarkdown: input.preview.readerMarkdown,
+      snapshot,
+      sourceUrl: input.sourceUrl,
+      title: input.preview.title,
+    },
+  });
+
+  if (updated) {
+    await publishWorkspaceStreamEvent({
+      workspaceUuid: input.workspaceId,
+      type: "files.invalidate",
+      payload: {
+        at: Date.now(),
+        fileId: updated.id,
+        folderId: updated.folderId,
+        reason: "file.updated",
+        workspaceUuid: input.workspaceId,
+      },
+    });
+  }
 }
 
 async function publishIngestionEvent(input: {
@@ -187,6 +283,22 @@ async function processQueuedJob(queueJob: IngestionQueueJobData) {
       metadata: file.metadata,
       content: file.isNote ? (file.content ?? "") : null,
     });
+
+    if (result.linkPreview) {
+      const linkMetadata = isRecord(file.metadata.link)
+        ? file.metadata.link
+        : null;
+      const sourceUrl = linkMetadata?.sourceUrl;
+      if (typeof sourceUrl === "string" && sourceUrl.length > 0) {
+        stage = "persist-link-preview";
+        await persistLinkPreviewMetadata({
+          fileId: file.id,
+          preview: result.linkPreview,
+          sourceUrl,
+          workspaceId: job.workspaceId,
+        });
+      }
+    }
 
     stage = "persist-transcript";
     await replaceFileTranscriptCues({

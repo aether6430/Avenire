@@ -1497,6 +1497,83 @@ interface FileExplorerProps {
   workspaceUuid?: string;
 }
 
+interface PendingLinkImport {
+  faviconUrl: string;
+  folderId: string;
+  id: string;
+  name: string;
+}
+
+function createPendingLinkImport(input: {
+  folderId: string;
+  name: string;
+  url: string;
+}): PendingLinkImport {
+  const parsed = new URL(input.url);
+  const requestedName = input.name.trim();
+  const inferredName = parsed.hostname.replace(/^www\./i, "");
+  const name = requestedName || inferredName || "Imported link";
+
+  return {
+    faviconUrl: new URL("/favicon.ico", parsed.origin).toString(),
+    folderId: input.folderId,
+    id: `pending-link:${crypto.randomUUID()}`,
+    name: /\.mdx?$/i.test(name) ? name : `${name}.md`,
+  };
+}
+
+function normalizeLinkImportUrl(value: string) {
+  const withProtocol = /^[a-z][a-z\d+.-]*:/i.test(value)
+    ? value
+    : `https://${value}`;
+  const parsed = new URL(withProtocol);
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+    throw new Error("Please enter a valid HTTP or HTTPS URL.");
+  }
+  return parsed.toString();
+}
+
+function PendingLinkImportCard({ item }: { item: PendingLinkImport }) {
+  return (
+    <Card
+      aria-label={`Importing ${item.name}`}
+      aria-live="polite"
+      className="relative w-40 overflow-hidden rounded-md border border-transparent bg-transparent p-2"
+      style={{ width: 160 }}
+    >
+      <CardContent className="px-0 pt-0">
+        <div className="relative flex h-28 items-center justify-center overflow-hidden rounded-md border border-border/60 bg-muted/70">
+          <LinkSimple
+            aria-hidden="true"
+            className="size-8 text-muted-foreground/60"
+          />
+          <img
+            alt=""
+            className="absolute max-h-10 max-w-10 object-contain"
+            height={40}
+            onError={(event) => {
+              event.currentTarget.style.display = "none";
+            }}
+            referrerPolicy="no-referrer"
+            src={item.faviconUrl}
+            width={40}
+          />
+          <Spinner className="absolute right-2 bottom-2 size-4 text-muted-foreground" />
+        </div>
+        <div className="mt-2 flex min-w-0 items-center gap-2">
+          <LinkSimple
+            aria-hidden="true"
+            className="size-4 shrink-0 text-muted-foreground"
+          />
+          <span className="min-w-0 flex-1 truncate font-medium text-sm">
+            {item.name}
+          </span>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export function FileExplorer({
   folderUuid: folderUuidFromPage,
   workspaceUuid: workspaceUuidFromPage,
@@ -1646,7 +1723,9 @@ export function FileExplorer({
     name: string;
     url: string;
   } | null>(null);
-  const [linkImportBusy, setLinkImportBusy] = useState(false);
+  const [pendingLinkImports, setPendingLinkImports] = useState<
+    PendingLinkImport[]
+  >([]);
   const [mobileCreateMenuOpen, setMobileCreateMenuOpen] = useState(false);
   const [mobileConfirmAction, setMobileConfirmAction] = useState<
     "delete" | "move" | null
@@ -1884,19 +1963,32 @@ export function FileExplorer({
       return;
     }
 
-    const normalizedUrl = linkImportDialog.url.trim();
-    if (!normalizedUrl || linkImportBusy) {
+    const enteredUrl = linkImportDialog.url.trim();
+    if (!enteredUrl) {
       return;
     }
 
-    setLinkImportBusy(true);
+    const dialog = linkImportDialog;
+    let pendingImport: PendingLinkImport | null = null;
     try {
+      const normalizedUrl = normalizeLinkImportUrl(enteredUrl);
+      const nextPendingImport = createPendingLinkImport({
+        folderId: dialog.folderId,
+        name: dialog.name,
+        url: normalizedUrl,
+      });
+      pendingImport = nextPendingImport;
+      setPendingLinkImports((previous) => [
+        ...previous,
+        nextPendingImport,
+      ]);
+      setLinkImportDialog(null);
       const response = await fetch(`/api/workspaces/${workspaceUuid}/links`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          folderId: linkImportDialog.folderId,
-          name: linkImportDialog.name,
+          folderId: dialog.folderId,
+          name: dialog.name,
           url: normalizedUrl,
         }),
       });
@@ -1909,8 +2001,20 @@ export function FileExplorer({
         throw new Error(payload.error ?? "Unable to import link.");
       }
 
-      const targetFolderId = linkImportDialog.folderId;
-      setLinkImportDialog(null);
+      const importedFile = payload.file;
+      const targetFolderId = dialog.folderId;
+      setAllFiles((previous) =>
+        previous.some((file) => file.id === importedFile.id)
+          ? previous
+          : [...previous, importedFile]
+      );
+      if (currentFolderIdRef.current === targetFolderId) {
+        setFiles((previous) =>
+          previous.some((file) => file.id === importedFile.id)
+            ? previous
+            : [...previous, importedFile]
+        );
+      }
       toast.success("Link saved and queued for ingestion.");
       const params = new URLSearchParams();
       params.set("file", payload.file.id);
@@ -1922,9 +2026,14 @@ export function FileExplorer({
         error instanceof Error ? error.message : "Unable to import link."
       );
     } finally {
-      setLinkImportBusy(false);
+      if (pendingImport) {
+        const pendingImportId = pendingImport.id;
+        setPendingLinkImports((previous) =>
+          previous.filter((item) => item.id !== pendingImportId)
+        );
+      }
     }
-  }, [linkImportBusy, linkImportDialog, router, workspaceUuid]);
+  }, [linkImportDialog, router, workspaceUuid]);
 
   const parentFolder = useMemo(() => breadcrumbs.at(-2) ?? null, [breadcrumbs]);
   const isAtWorkspaceRoot = breadcrumbs.length <= 1;
@@ -6754,6 +6863,12 @@ export function FileExplorer({
                           );
                         })}
 
+                        {pendingLinkImports
+                          .filter((item) => item.folderId === currentFolderId)
+                          .map((item) => (
+                            <PendingLinkImportCard item={item} key={item.id} />
+                          ))}
+
                         {sortedFiles.map((file) => {
                           const {
                             isImage,
@@ -8053,7 +8168,7 @@ export function FileExplorer({
 
       <Dialog
         onOpenChange={(open) => {
-          if (!(open || linkImportBusy)) {
+          if (!open) {
             setLinkImportDialog(null);
           }
         }}
@@ -8117,7 +8232,6 @@ export function FileExplorer({
           </div>
           <DialogFooter>
             <Button
-              disabled={linkImportBusy}
               onClick={() => setLinkImportDialog(null)}
               type="button"
               variant="ghost"
@@ -8125,13 +8239,12 @@ export function FileExplorer({
               Cancel
             </Button>
             <Button
-              disabled={!linkImportDialog?.url.trim() || linkImportBusy}
+              disabled={!linkImportDialog?.url.trim()}
               onClick={() => {
                 void importLinkAsResource();
               }}
               type="button"
             >
-              {linkImportBusy ? <Spinner className="size-4" /> : null}
               Save link
             </Button>
           </DialogFooter>

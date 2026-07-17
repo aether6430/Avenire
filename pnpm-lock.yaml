@@ -66,6 +66,9 @@ importers:
       '@avenire/observability':
         specifier: workspace:*
         version: link:../../packages/observability
+      '@avenire/storage':
+        specifier: workspace:*
+        version: link:../../packages/storage
       '@hono/node-server':
         specifier: 1.19.12
         version: 1.19.12(hono@4.12.25)
