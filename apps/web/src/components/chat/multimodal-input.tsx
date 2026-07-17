@@ -32,6 +32,7 @@ import {
   useCallback,
   useDeferredValue,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -44,6 +45,7 @@ import {
   createWorkspaceAttachment,
   revokeAttachmentUrl,
 } from "@/components/chat/attachment";
+import { shouldUseMultilineComposer } from "@/components/chat/composer-layout";
 import { PreviewAttachment } from "@/components/chat/preview-attachment";
 import {
   CHAT_COMPOSER_SEND_MODE_STORAGE_KEY,
@@ -92,6 +94,20 @@ function syncTextareaHeight(textarea: HTMLTextAreaElement) {
   textarea.style.height = `${nextHeight}px`;
   textarea.style.overflowY =
     textarea.scrollHeight > TEXTAREA_MAX_HEIGHT ? "auto" : "hidden";
+}
+
+function measureTextareaHeightAtWidth(
+  textarea: HTMLTextAreaElement,
+  width: number
+) {
+  const previousHeight = textarea.style.height;
+  const previousWidth = textarea.style.width;
+  textarea.style.height = "auto";
+  textarea.style.width = `${width}px`;
+  const measuredHeight = textarea.scrollHeight;
+  textarea.style.height = previousHeight;
+  textarea.style.width = previousWidth;
+  return measuredHeight;
 }
 
 interface WorkspaceTreeFolder {
@@ -288,6 +304,7 @@ function PureMultimodalInput({
   const latestInputRef = useRef(input);
   const hasHydratedInputRef = useRef(false);
   const uploadingIdsRef = useRef(new Set<string>());
+  const compactTextareaWidthRef = useRef<number | null>(null);
   const [textareaSelection, setTextareaSelection] = useState({
     start: 0,
     end: 0,
@@ -528,14 +545,30 @@ function PureMultimodalInput({
         : "What do you want to learn?";
   const isVoiceInputActive = isRecording || isTranscribing;
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     latestInputRef.current = input;
-    if (!textareaRef.current) {
+    const textarea = textareaRef.current;
+    if (!textarea) {
       return;
     }
-    syncTextareaHeight(textareaRef.current);
-    setIsMultiLine(textareaRef.current.scrollHeight > 40);
-  }, [input]);
+
+    if (!isMultiLine) {
+      compactTextareaWidthRef.current = textarea.getBoundingClientRect().width;
+    }
+    const compactWidth = compactTextareaWidthRef.current;
+    const measuredHeight = compactWidth
+      ? measureTextareaHeightAtWidth(textarea, compactWidth)
+      : textarea.scrollHeight;
+    const nextIsMultiLine = shouldUseMultilineComposer({
+      measuredHeight,
+      value: input,
+    });
+
+    syncTextareaHeight(textarea);
+    if (nextIsMultiLine !== isMultiLine) {
+      setIsMultiLine(nextIsMultiLine);
+    }
+  }, [input, isMultiLine]);
 
   useEffect(() => {
     if (hasHydratedInputRef.current) {
@@ -1629,9 +1662,7 @@ function PureComposerActionButton({
 }) {
   const disabled = !(isRunning || canSend);
   const reduceMotion = useReducedMotion() ?? false;
-  const iconEnter = reduceMotion
-    ? { opacity: 0 }
-    : { opacity: 0, scale: 0.94 };
+  const iconEnter = reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.94 };
   const iconExit = reduceMotion
     ? { opacity: 0, transition: { duration: 0.06 } }
     : { opacity: 0, scale: 0.94, transition: { duration: 0.06 } };
