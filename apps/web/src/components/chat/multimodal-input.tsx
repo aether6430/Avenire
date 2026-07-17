@@ -32,6 +32,7 @@ import {
   useCallback,
   useDeferredValue,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -528,14 +529,14 @@ function PureMultimodalInput({
         : "What do you want to learn?";
   const isVoiceInputActive = isRecording || isTranscribing;
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     latestInputRef.current = input;
     if (!textareaRef.current) {
       return;
     }
     syncTextareaHeight(textareaRef.current);
     setIsMultiLine(textareaRef.current.scrollHeight > 40);
-  }, [input]);
+  }, [input, width]);
 
   useEffect(() => {
     if (hasHydratedInputRef.current) {
