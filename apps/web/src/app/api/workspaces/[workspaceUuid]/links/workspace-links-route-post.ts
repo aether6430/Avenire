@@ -1,5 +1,5 @@
 import { scheduleIngestionJob } from "@avenire/ingestion/queue";
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { canStoreBytes } from "@/lib/billing";
 import {
   createWorkspaceNoteFile,
@@ -20,6 +20,51 @@ interface WorkspaceLinksRouteBody {
   folderId?: string;
   name?: string;
   url?: string;
+}
+
+function scheduleLinkIngestionAfterUpload(input: {
+  fileId: string;
+  folderId: string;
+  workspaceUuid: string;
+}) {
+  after(async () => {
+    const publishFileCreated = Promise.allSettled([
+      publishFilesInvalidationEvent({
+        workspaceUuid: input.workspaceUuid,
+        fileId: input.fileId,
+        folderId: input.folderId,
+        reason: "file.created",
+      }),
+      publishFilesInvalidationEvent({
+        workspaceUuid: input.workspaceUuid,
+        reason: "tree.changed",
+      }),
+    ]);
+
+    try {
+      const job = await scheduleIngestionJob({
+        workspaceId: input.workspaceUuid,
+        fileId: input.fileId,
+        sourceType: "link",
+      });
+      await Promise.allSettled([
+        publishFileCreated,
+        publishWorkspaceStreamEvent(
+          buildWorkspaceLinkQueuedEvent({
+            workspaceUuid: input.workspaceUuid,
+            jobId: job.id,
+          })
+        ),
+      ]);
+    } catch (error) {
+      await publishFileCreated;
+      console.error("link.ingestion_enqueue_failed", {
+        workspaceUuid: input.workspaceUuid,
+        fileId: input.fileId,
+        error,
+      });
+    }
+  });
 }
 
 export async function handleWorkspaceLinksPost(input: {
@@ -99,30 +144,11 @@ export async function handleWorkspaceLinksPost(input: {
     },
   });
 
-  const job = await scheduleIngestionJob({
-    workspaceId: input.workspaceUuid,
+  scheduleLinkIngestionAfterUpload({
+    workspaceUuid: input.workspaceUuid,
     fileId: file.id,
-    sourceType: "link",
+    folderId,
   });
 
-  await Promise.allSettled([
-    publishFilesInvalidationEvent({
-      workspaceUuid: input.workspaceUuid,
-      fileId: file.id,
-      folderId,
-      reason: "file.created",
-    }),
-    publishFilesInvalidationEvent({
-      workspaceUuid: input.workspaceUuid,
-      reason: "tree.changed",
-    }),
-    publishWorkspaceStreamEvent(
-      buildWorkspaceLinkQueuedEvent({
-        workspaceUuid: input.workspaceUuid,
-        jobId: job.id,
-      })
-    ),
-  ]);
-
-  return NextResponse.json({ file, ingestionJob: job }, { status: 201 });
+  return NextResponse.json({ file }, { status: 201 });
 }

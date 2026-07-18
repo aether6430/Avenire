@@ -21,9 +21,7 @@ drizzle/
 !packages/database/drizzle/**
 
 context
-docs/
 writings/
-plans/
 marketting/video/
 
 .vercel
