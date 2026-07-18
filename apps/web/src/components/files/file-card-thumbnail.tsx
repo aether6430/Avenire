@@ -35,6 +35,7 @@ interface FileCardProps {
   name: string;
   previewContent?: React.ReactNode;
   previewUrl?: string;
+  titleIcon?: React.ReactNode;
   variant?: "grid" | "row";
 }
 
@@ -169,6 +170,7 @@ export function FileCard({
   name,
   previewContent,
   previewUrl,
+  titleIcon,
   variant = "grid",
 }: FileCardProps) {
   const [timeAgo, setTimeAgo] = useState(() => formatTimeAgo(lastUpdated));
@@ -237,9 +239,13 @@ export function FileCard({
       <div className="flex min-w-0 flex-col gap-2">
         <div className="flex w-full min-w-0 max-w-full items-center justify-between gap-2">
           <div className="flex min-w-0 flex-1 items-center gap-2">
-            <span className="shrink-0 text-muted-foreground">
-              {getFileIcon(fileType)}
-            </span>
+            {titleIcon ? (
+              titleIcon
+            ) : (
+              <span className="shrink-0 text-muted-foreground">
+                {getFileIcon(fileType)}
+              </span>
+            )}
             <span
               className="min-w-0 flex-1 truncate font-medium text-sm"
               title={name}

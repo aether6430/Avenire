@@ -2016,11 +2016,6 @@ export function FileExplorer({
         );
       }
       toast.success("Link saved and queued for ingestion.");
-      const params = new URLSearchParams();
-      params.set("file", payload.file.id);
-      router.push(
-        `/workspace/files/${workspaceUuid}/folder/${targetFolderId}?${params.toString()}` as Route
-      );
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "Unable to import link."
@@ -4792,7 +4787,7 @@ export function FileExplorer({
   }, []);
 
   async function refreshExplorerAfterMutation() {
-    await Promise.all([loadFolder(), loadTree()]);
+    await Promise.all([loadFolder({ silent: true }), loadTree()]);
     emitSync();
     selection.clearSelection();
   }
@@ -7046,11 +7041,7 @@ export function FileExplorer({
                                       }
                                       matchMeta={searchMatchMeta}
                                       matchSnippet={searchResult?.snippet}
-                                      name={
-                                        normalizeFilePageIcon(file.page?.icon)
-                                          ? `${normalizeFilePageIcon(file.page?.icon)} ${file.name}`
-                                          : file.name
-                                      }
+                                      name={file.name}
                                       previewContent={
                                         isImage ? (
                                           <img
@@ -7096,6 +7087,15 @@ export function FileExplorer({
                                         ) : undefined
                                       }
                                       previewUrl={linkThumbnailUrl ?? undefined}
+                                      titleIcon={
+                                        normalizeFilePageIcon(file.page?.icon)
+                                          ? getFileVisualIcon(
+                                              file,
+                                              fileKind,
+                                              "size-4"
+                                            )
+                                          : undefined
+                                      }
                                       variant={
                                         isSearchFilteredView ? "row" : "grid"
                                       }
