@@ -2015,7 +2015,7 @@ export function FileExplorer({
             : [...previous, importedFile]
         );
       }
-      toast.success("Link saved and queued for ingestion.");
+      toast.success("Link saved. Ingestion continues in the background.");
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "Unable to import link."
@@ -2028,7 +2028,7 @@ export function FileExplorer({
         );
       }
     }
-  }, [linkImportDialog, router, workspaceUuid]);
+  }, [linkImportDialog, workspaceUuid]);
 
   const parentFolder = useMemo(() => breadcrumbs.at(-2) ?? null, [breadcrumbs]);
   const isAtWorkspaceRoot = breadcrumbs.length <= 1;
