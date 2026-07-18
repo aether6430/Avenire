@@ -31,7 +31,7 @@ import {
   scopedLogger,
   shutdownObservability,
 } from "@avenire/observability";
-import { uploadStorageFile } from "@avenire/storage";
+import { getStorageUrl, uploadStorageFile } from "@avenire/storage";
 import { serve } from "@hono/node-server";
 import { config as loadEnv } from "dotenv";
 import { Hono } from "hono";
@@ -97,6 +97,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+const MAX_SCREENSHOT_SIZE = 10 * 1024 * 1024; // 10 MB
+const SCREENSHOT_FETCH_TIMEOUT_MS = 30_000;
+
 function getScreenshotExtension(contentType: string) {
   if (contentType.includes("webp")) {
     return "webp";
@@ -107,6 +110,37 @@ function getScreenshotExtension(contentType: string) {
   return "png";
 }
 
+function isSafeUrl(urlString: string): boolean {
+  try {
+    const url = new URL(urlString);
+    if (url.protocol !== "http:" && url.protocol !== "https:") {
+      return false;
+    }
+    const hostname = url.hostname.toLowerCase();
+    if (
+      hostname === "localhost" ||
+      hostname === "127.0.0.1" ||
+      hostname === "0.0.0.0" ||
+      hostname === "[::1]" ||
+      hostname.startsWith("10.") ||
+      hostname.startsWith("192.168.") ||
+      hostname.startsWith("169.254.") ||
+      hostname.endsWith(".local") ||
+      hostname.endsWith(".internal")
+    ) {
+      return false;
+    }
+    const match = hostname.match(/^172\.(\d+)\./);
+    if (match) {
+      const octet = Number.parseInt(match[1], 10);
+      if (octet >= 16 && octet <= 31) return false;
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 async function persistLinkPreviewImage(input: {
   imageUrl: string | null;
   sourceUrl: string;
@@ -115,24 +149,104 @@ async function persistLinkPreviewImage(input: {
     return input.imageUrl;
   }
 
-  const response = await fetch(input.imageUrl);
-  if (!response.ok) {
-    throw new Error(`Failed to download link screenshot: ${response.status}`);
-  }
-  const contentType = response.headers.get("content-type") ?? "image/png";
-  if (!contentType.toLowerCase().startsWith("image/")) {
-    throw new Error("Link screenshot response was not an image.");
-  }
+  let screenshotKey: string | null = null;
+  try {
+    if (!isSafeUrl(input.imageUrl)) {
+      console.warn("Rejected unsafe link screenshot URL", {
+        sourceUrl: input.sourceUrl,
+      });
+      return input.imageUrl;
+    }
 
-  const sourceHash = createHash("sha256").update(input.sourceUrl).digest("hex");
-  const extension = getScreenshotExtension(contentType);
-  const uploaded = await uploadStorageFile({
-    body: new Uint8Array(await response.arrayBuffer()),
-    contentType,
-    key: `uploads/link-previews/${sourceHash}.${extension}`,
-    name: `link-preview-${sourceHash}.${extension}`,
-  });
-  return uploaded.url;
+    const response = await fetch(input.imageUrl, {
+      signal: AbortSignal.timeout(SCREENSHOT_FETCH_TIMEOUT_MS),
+    });
+    if (!response.ok) {
+      console.warn("Unable to download link screenshot", {
+        sourceUrl: input.sourceUrl,
+        status: response.status,
+      });
+      return input.imageUrl;
+    }
+    const contentType = response.headers.get("content-type") ?? "image/png";
+    const normalizedContentType = contentType.toLowerCase();
+    if (!normalizedContentType.startsWith("image/")) {
+      console.warn("Link screenshot response was not an image", {
+        contentType,
+        sourceUrl: input.sourceUrl,
+      });
+      return input.imageUrl;
+    }
+
+    const contentLength = response.headers.get("content-length");
+    if (
+      contentLength &&
+      Number.parseInt(contentLength, 10) > MAX_SCREENSHOT_SIZE
+    ) {
+      console.warn("Link screenshot Content-Length exceeds limit", {
+        contentLength,
+        sourceUrl: input.sourceUrl,
+      });
+      return input.imageUrl;
+    }
+
+    const reader = response.body?.getReader();
+    if (!reader) {
+      console.warn("Link screenshot response has no readable body", {
+        sourceUrl: input.sourceUrl,
+      });
+      return input.imageUrl;
+    }
+
+    const chunks: Uint8Array[] = [];
+    let totalBytes = 0;
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      totalBytes += value.byteLength;
+      if (totalBytes > MAX_SCREENSHOT_SIZE) {
+        await reader.cancel();
+        console.warn("Link screenshot download exceeded size limit", {
+          totalBytes,
+          sourceUrl: input.sourceUrl,
+        });
+        return input.imageUrl;
+      }
+      chunks.push(value);
+    }
+
+    const body = new Uint8Array(totalBytes);
+    let offset = 0;
+    for (const chunk of chunks) {
+      body.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+
+    const sourceHash = createHash("sha256")
+      .update(input.sourceUrl)
+      .digest("hex");
+    const extension = getScreenshotExtension(normalizedContentType);
+    screenshotKey = `uploads/link-previews/${sourceHash}.${extension}`;
+    const uploaded = await uploadStorageFile({
+      body,
+      contentType: normalizedContentType,
+      key: screenshotKey,
+      name: `link-preview-${sourceHash}.${extension}`,
+    });
+    return uploaded.url;
+  } catch (error) {
+    const existingImageUrl = screenshotKey
+      ? await getStorageUrl(screenshotKey).catch(() => "")
+      : "";
+    if (existingImageUrl) {
+      return existingImageUrl;
+    }
+    console.warn("Unable to persist link screenshot", {
+      error: error instanceof Error ? error.message : "Unknown error",
+      sourceUrl: input.sourceUrl,
+    });
+    return input.imageUrl;
+  }
 }
 
 async function persistLinkPreviewMetadata(input: {
