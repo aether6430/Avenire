@@ -1412,31 +1412,109 @@ function normalizeFilePageIcon(icon: string | null | undefined) {
   return trimmed.slice(0, 8);
 }
 
-function getLinkResourceThumbnailUrl(file: FileRecord) {
+interface LinkResourceCardMetadata {
+  faviconUrl: string | null;
+  imageUrl: string | null;
+  title: string | null;
+}
+
+function isObjectRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function readNonEmptyString(value: unknown) {
+  return typeof value === "string" && value.trim().length > 0
+    ? value.trim()
+    : null;
+}
+
+function getLinkResourceCardMetadata(
+  file: FileRecord
+): LinkResourceCardMetadata | null {
   const metadata = file.metadata;
-  const link =
-    metadata &&
-    typeof metadata === "object" &&
-    !Array.isArray(metadata) &&
-    metadata.link &&
-    typeof metadata.link === "object" &&
-    !Array.isArray(metadata.link)
-      ? (metadata.link as Record<string, unknown>)
-      : null;
+  const link = isObjectRecord(metadata) && isObjectRecord(metadata.link)
+    ? metadata.link
+    : null;
   if (!link) {
     return null;
   }
 
-  const snapshot =
-    link.snapshot && typeof link.snapshot === "object"
-      ? (link.snapshot as Record<string, unknown>)
-      : null;
-  const imageUrl =
-    (typeof snapshot?.imageUrl === "string" && snapshot.imageUrl.trim()) ||
-    (typeof link.imageUrl === "string" && link.imageUrl.trim()) ||
-    null;
+  const sourceUrl = readNonEmptyString(link.sourceUrl);
+  if (!sourceUrl) {
+    return null;
+  }
 
-  return imageUrl;
+  const snapshot = isObjectRecord(link.snapshot) ? link.snapshot : null;
+  const imageUrl =
+    readNonEmptyString(snapshot?.imageUrl) ??
+    readNonEmptyString(link.imageUrl) ??
+    null;
+  const pageIcon = normalizeFilePageIcon(file.page?.icon);
+  const faviconUrl =
+    readNonEmptyString(link.favicon) ??
+    (pageIcon && isRenderableIconUrl(pageIcon)
+      ? pageIcon
+      : new URL("/favicon.ico", sourceUrl).toString());
+
+  return {
+    faviconUrl,
+    imageUrl,
+    title: readNonEmptyString(link.title),
+  };
+}
+
+function LinkResourceThumbnailFallback({
+  faviconUrl,
+  loading = false,
+}: {
+  faviconUrl: string | null;
+  loading?: boolean;
+}) {
+  return (
+    <div className="relative flex h-full w-full items-center justify-center overflow-hidden rounded-md border border-border/60 bg-muted/70">
+      <LinkSimple
+        aria-hidden="true"
+        className="size-8 text-muted-foreground/60"
+      />
+      {faviconUrl ? (
+        <img
+          alt=""
+          className="absolute max-h-10 max-w-10 object-contain"
+          height={40}
+          onError={(event) => {
+            event.currentTarget.style.display = "none";
+          }}
+          referrerPolicy="no-referrer"
+          src={faviconUrl}
+          width={40}
+        />
+      ) : null}
+      {loading ? (
+        <Spinner className="absolute right-2 bottom-2 size-4 text-muted-foreground" />
+      ) : null}
+    </div>
+  );
+}
+
+function LinkResourceTitleIcon({ faviconUrl }: { faviconUrl: string | null }) {
+  return (
+    <span className="relative inline-flex size-4 shrink-0 items-center justify-center overflow-hidden rounded-[3px] bg-muted text-muted-foreground">
+      <LinkSimple aria-hidden="true" className="size-3" />
+      {faviconUrl ? (
+        <img
+          alt=""
+          className="absolute inset-0 size-full object-contain"
+          height={16}
+          onError={(event) => {
+            event.currentTarget.style.display = "none";
+          }}
+          referrerPolicy="no-referrer"
+          src={faviconUrl}
+          width={16}
+        />
+      ) : null}
+    </span>
+  );
 }
 
 function isRenderableIconUrl(icon: string) {
@@ -1542,23 +1620,11 @@ function PendingLinkImportCard({ item }: { item: PendingLinkImport }) {
       style={{ width: 160 }}
     >
       <CardContent className="px-0 pt-0">
-        <div className="relative flex h-28 items-center justify-center overflow-hidden rounded-md border border-border/60 bg-muted/70">
-          <LinkSimple
-            aria-hidden="true"
-            className="size-8 text-muted-foreground/60"
+        <div className="h-28">
+          <LinkResourceThumbnailFallback
+            faviconUrl={item.faviconUrl}
+            loading
           />
-          <img
-            alt=""
-            className="absolute max-h-10 max-w-10 object-contain"
-            height={40}
-            onError={(event) => {
-              event.currentTarget.style.display = "none";
-            }}
-            referrerPolicy="no-referrer"
-            src={item.faviconUrl}
-            width={40}
-          />
-          <Spinner className="absolute right-2 bottom-2 size-4 text-muted-foreground" />
         </div>
         <div className="mt-2 flex min-w-0 items-center gap-2">
           <LinkSimple
@@ -1797,6 +1863,9 @@ export function FileExplorer({
   const importLinkIntentVersion = useFilesUiStore(
     (state) => state.intentVersion.importLink
   );
+  const consumedImportLinkIntentVersion = useFilesUiStore(
+    (state) => state.consumedIntentVersion.importLink
+  );
   const uploadFileIntentVersion = useFilesUiStore(
     (state) => state.intentVersion.uploadFile
   );
@@ -1829,7 +1898,6 @@ export function FileExplorer({
     deleteSelection: 0,
     focusSearch: 0,
     goParent: 0,
-    importLink: 0,
     moveSelectionUp: 0,
     newNote: 0,
     openSelection: 0,
@@ -3424,8 +3492,8 @@ export function FileExplorer({
       openCreateNoteDialog(currentFolderId);
     }
 
-    if (importLinkIntentVersion > processed.importLink) {
-      processed.importLink = importLinkIntentVersion;
+    if (importLinkIntentVersion > consumedImportLinkIntentVersion) {
+      filesUiActions.consumeIntent("importLink", importLinkIntentVersion);
       openImportLinkDialog(currentFolderId);
     }
 
@@ -3452,6 +3520,7 @@ export function FileExplorer({
     }
   }, [
     createFolderIntentVersion,
+    consumedImportLinkIntentVersion,
     currentFolderId,
     focusSearchIntentVersion,
     importLinkIntentVersion,
@@ -6913,8 +6982,14 @@ export function FileExplorer({
                           const fileKind = detectFileKind(file);
                           const fileCardType =
                             fileKind === "sheet" ? "document" : fileKind;
+                          const linkCardMetadata =
+                            getLinkResourceCardMetadata(file);
                           const linkThumbnailUrl =
-                            getLinkResourceThumbnailUrl(file);
+                            linkCardMetadata?.imageUrl ?? null;
+                          const fileCardName = linkCardMetadata
+                            ? (linkCardMetadata.title ??
+                              file.name.replace(/\.mdx?$/i, ""))
+                            : file.name;
                           const searchResult = searchResultByFileId.get(
                             file.id
                           );
@@ -7041,7 +7116,7 @@ export function FileExplorer({
                                       }
                                       matchMeta={searchMatchMeta}
                                       matchSnippet={searchResult?.snippet}
-                                      name={file.name}
+                                      name={fileCardName}
                                       previewContent={
                                         isImage ? (
                                           <img
@@ -7074,6 +7149,13 @@ export function FileExplorer({
                                               hoveredPreviewFileId === file.id
                                             }
                                           />
+                                        ) : linkCardMetadata &&
+                                          !linkThumbnailUrl ? (
+                                          <LinkResourceThumbnailFallback
+                                            faviconUrl={
+                                              linkCardMetadata.faviconUrl
+                                            }
+                                          />
                                         ) : isMarkdown && !linkThumbnailUrl ? (
                                           <MarkdownThumbnail
                                             className="h-full w-full"
@@ -7088,7 +7170,15 @@ export function FileExplorer({
                                       }
                                       previewUrl={linkThumbnailUrl ?? undefined}
                                       titleIcon={
-                                        normalizeFilePageIcon(file.page?.icon)
+                                        linkCardMetadata ? (
+                                          <LinkResourceTitleIcon
+                                            faviconUrl={
+                                              linkCardMetadata.faviconUrl
+                                            }
+                                          />
+                                        ) : normalizeFilePageIcon(
+                                            file.page?.icon
+                                          )
                                           ? getFileVisualIcon(
                                               file,
                                               fileKind,

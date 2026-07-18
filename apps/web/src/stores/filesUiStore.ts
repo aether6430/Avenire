@@ -34,6 +34,7 @@ const INITIAL_INTENT_VERSION: FilesUiIntentVersion = {
 };
 
 interface FilesUiState {
+  consumedIntentVersion: FilesUiIntentVersion;
   intentVersion: FilesUiIntentVersion;
   sync: {
     version: number;
@@ -43,6 +44,7 @@ interface FilesUiState {
 }
 
 export const useFilesUiStore = create<FilesUiState>()(() => ({
+  consumedIntentVersion: INITIAL_INTENT_VERSION,
   intentVersion: INITIAL_INTENT_VERSION,
   sync: {
     version: 0,
@@ -52,6 +54,18 @@ export const useFilesUiStore = create<FilesUiState>()(() => ({
 }));
 
 export const filesUiActions = {
+  consumeIntent: (intent: FilesUiIntent, version: number) =>
+    useFilesUiStore.setState((state) => {
+      if (state.consumedIntentVersion[intent] >= version) {
+        return state;
+      }
+      return {
+        consumedIntentVersion: {
+          ...state.consumedIntentVersion,
+          [intent]: version,
+        },
+      };
+    }),
   emitIntent: (intent: FilesUiIntent) =>
     useFilesUiStore.setState((state) => ({
       intentVersion: {
