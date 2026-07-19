@@ -236,23 +236,18 @@ export function FileCard({
           <div className="pointer-events-none absolute inset-0 bg-black opacity-0 transition-opacity duration-300 group-hover:opacity-10" />
         ) : null}
       </div>
-      <div className="flex min-w-0 flex-col gap-2">
-        <div className="flex w-full min-w-0 max-w-full items-center justify-between gap-2">
-          <div className="flex min-w-0 flex-1 items-center gap-2">
-            {titleIcon ? (
-              titleIcon
-            ) : (
-              <span className="shrink-0 text-muted-foreground">
-                {getFileIcon(fileType)}
-              </span>
-            )}
-            <span
-              className="min-w-0 flex-1 truncate font-medium text-sm"
-              title={name}
-            >
-              {name}
+      <div className="flex w-full min-w-0 flex-col gap-2">
+        <div className="grid w-full min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2">
+          {titleIcon ? (
+            titleIcon
+          ) : (
+            <span className="shrink-0 text-muted-foreground">
+              {getFileIcon(fileType)}
             </span>
-          </div>
+          )}
+          <span className="truncate font-medium text-sm" title={name}>
+            {name}
+          </span>
           <span className="shrink-0 text-muted-foreground text-xs tabular-nums">
             {timeAgo}
           </span>

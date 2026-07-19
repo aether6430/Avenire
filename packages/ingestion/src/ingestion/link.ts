@@ -1,3 +1,4 @@
+import { Defuddle } from "defuddle/node";
 import { Firecrawl } from "firecrawl";
 import { z } from "zod";
 import { config } from "../config";
@@ -35,7 +36,7 @@ export interface LinkPreview {
 }
 
 const FirecrawlDocumentSchema = z.object({
-  markdown: z.string().optional(),
+  html: z.string().optional(),
   metadata: z
     .object({
       description: z.string().optional(),
@@ -92,7 +93,7 @@ const extractViaFirecrawl = async (url: string) => {
   const response = await getFirecrawlClient().scrape(url, {
     blockAds: true,
     formats: [
-      "markdown",
+      "html",
       "summary",
       {
         type: "screenshot",
@@ -101,24 +102,40 @@ const extractViaFirecrawl = async (url: string) => {
         viewport: { height: 900, width: 1440 },
       },
     ],
-    onlyMainContent: true,
+    onlyMainContent: false,
     removeBase64Images: true,
   });
   const parsed = FirecrawlDocumentSchema.parse(response);
-  const markdown = normalizeOptionalString(parsed.markdown);
+  const html = normalizeOptionalString(parsed.html);
+  if (!html) {
+    throw new Error(`Firecrawl returned empty HTML for ${url}`);
+  }
+
+  const defuddled = await Defuddle(html, url, {
+    markdown: true,
+    useAsync: false,
+  });
+  const markdown = normalizeOptionalString(defuddled.content);
   if (!markdown) {
-    throw new Error(`Firecrawl returned empty markdown for ${url}`);
+    throw new Error(`Defuddle returned empty Markdown for ${url}`);
   }
 
   return {
     description:
+      normalizeOptionalString(defuddled.description) ??
       normalizeOptionalString(parsed.summary) ??
       normalizeOptionalString(parsed.metadata?.description),
-    favicon: normalizeOptionalString(parsed.metadata?.favicon),
+    favicon:
+      normalizeOptionalString(defuddled.favicon) ??
+      normalizeOptionalString(parsed.metadata?.favicon),
     markdown,
-    pageImageUrl: normalizeOptionalString(parsed.metadata?.ogImage),
+    pageImageUrl:
+      normalizeOptionalString(defuddled.image) ??
+      normalizeOptionalString(parsed.metadata?.ogImage),
     screenshotUrl: normalizeOptionalString(parsed.screenshot),
-    title: normalizeOptionalString(parsed.metadata?.title),
+    title:
+      normalizeOptionalString(defuddled.title) ??
+      normalizeOptionalString(parsed.metadata?.title),
   };
 };
 

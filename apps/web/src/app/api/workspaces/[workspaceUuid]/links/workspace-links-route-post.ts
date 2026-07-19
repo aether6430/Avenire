@@ -1,6 +1,7 @@
 import { scheduleIngestionJob } from "@avenire/ingestion/queue";
 import { after, NextResponse } from "next/server";
 import { canStoreBytes } from "@/lib/billing";
+import { invalidateWorkspaceReadCaches } from "@/lib/domain-cache";
 import {
   createWorkspaceNoteFile,
   isSharedFilesVirtualFolderId,
@@ -143,6 +144,8 @@ export async function handleWorkspaceLinksPost(input: {
       },
     },
   });
+
+  await invalidateWorkspaceReadCaches(input.workspaceUuid);
 
   scheduleLinkIngestionAfterUpload({
     workspaceUuid: input.workspaceUuid,

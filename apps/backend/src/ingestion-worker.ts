@@ -35,7 +35,10 @@ import { getStorageUrl, uploadStorageFile } from "@avenire/storage";
 import { serve } from "@hono/node-server";
 import { config as loadEnv } from "dotenv";
 import { Hono } from "hono";
-import { publishWorkspaceStreamEvent } from "./workspace-event-stream";
+import {
+  invalidateWorkspaceReadCaches,
+  publishWorkspaceStreamEvent,
+} from "./workspace-event-stream";
 
 // Prefer backend-local env; keep repo root as fallback.
 const here = fileURLToPath(new URL(".", import.meta.url));
@@ -285,6 +288,7 @@ async function persistLinkPreviewMetadata(input: {
   });
 
   if (updated) {
+    await invalidateWorkspaceReadCaches(input.workspaceId);
     await publishWorkspaceStreamEvent({
       workspaceUuid: input.workspaceId,
       type: "files.invalidate",
