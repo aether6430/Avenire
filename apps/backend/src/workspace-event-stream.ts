@@ -3,6 +3,12 @@ import { createClient, type RedisClientType } from "redis";
 
 const redisUrl = process.env.REDIS_URL;
 const DEFAULT_MAX_LEN = 5000;
+const ROUTE_CACHE_VERSION_TTL_SECONDS = 60 * 60 * 24;
+const WORKSPACE_READ_CACHE_NAMESPACES = [
+  "workspace:folder",
+  "workspace:overview",
+  "workspace:tree",
+] as const;
 
 let publisher: RedisClientType | null = null;
 
@@ -44,6 +50,22 @@ async function getPublisherClient() {
   }
 
   return publisher;
+}
+
+export async function invalidateWorkspaceReadCaches(workspaceUuid: string) {
+  if (!redisUrl) {
+    return;
+  }
+
+  const client = await getPublisherClient();
+  const version = Date.now().toString();
+  await Promise.all(
+    WORKSPACE_READ_CACHE_NAMESPACES.map((namespace) =>
+      client.set(`${namespace}:v1:version:${workspaceUuid}`, version, {
+        EX: ROUTE_CACHE_VERSION_TTL_SECONDS,
+      })
+    )
+  );
 }
 
 export async function publishWorkspaceStreamEvent(input: {

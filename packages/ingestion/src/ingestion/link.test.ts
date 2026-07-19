@@ -28,14 +28,32 @@ describe("link ingestion", () => {
     scrapeMock.mockReset();
   });
 
-  it("gets reader markdown and a full-page screenshot in one Firecrawl run", async () => {
+  it("cleans Firecrawl HTML with Defuddle and keeps the full-page screenshot", async () => {
     scrapeMock.mockResolvedValue({
-      markdown:
-        "## Introduction\n\nToday we're announcing Project Glasswing.\n\n**Mythos Preview** found critical vulnerabilities.",
+      html: `<!doctype html>
+        <html>
+          <head>
+            <title>Project Glasswing</title>
+            <meta name="description" content="Securing critical software for the AI era">
+            <link rel="icon" href="/favicon.ico">
+          </head>
+          <body>
+            <nav>Products Pricing Company</nav>
+            <main>
+              <article>
+                <h1>Project Glasswing</h1>
+                <h2>Introduction</h2>
+                <p>Today we're announcing Project Glasswing.</p>
+                <p><strong>Mythos Preview</strong> found critical vulnerabilities.</p>
+              </article>
+            </main>
+            <footer>Privacy Terms</footer>
+          </body>
+        </html>`,
       metadata: {
-        description: "Securing critical software for the AI era",
-        favicon: "https://anthropic.com/favicon.ico",
-        title: "Project Glasswing",
+        description: "Fallback description",
+        favicon: "https://anthropic.com/fallback.ico",
+        title: "Fallback title",
       },
       screenshot: "https://firecrawl.example/screenshots/glasswing.png",
       summary: "A new initiative for securing critical software.",
@@ -46,21 +64,23 @@ describe("link ingestion", () => {
     expect(preview.mode).toBe("firecrawl");
     expect(preview.provider).toBe("firecrawl");
     expect(preview.kind).toBe("article");
+    expect(preview.title).toBe("Project Glasswing");
     expect(preview.imageUrl).toBe(
       "https://firecrawl.example/screenshots/glasswing.png"
     );
-    expect(preview.readerMarkdown).toContain("Introduction");
+    expect(preview.readerMarkdown).toContain("## Introduction");
     expect(preview.readerMarkdown).toContain("**Mythos Preview**");
+    expect(preview.readerMarkdown).not.toContain("Products Pricing Company");
     expect(scrapeMock).toHaveBeenCalledTimes(1);
     expect(scrapeMock).toHaveBeenCalledWith(
       "https://anthropic.com/glasswing",
       expect.objectContaining({
         formats: expect.arrayContaining([
-          "markdown",
+          "html",
           "summary",
           expect.objectContaining({ fullPage: true, type: "screenshot" }),
         ]),
-        onlyMainContent: true,
+        onlyMainContent: false,
       })
     );
   });

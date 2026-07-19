@@ -1596,7 +1596,7 @@ function createPendingLinkImport(input: {
     faviconUrl: new URL("/favicon.ico", parsed.origin).toString(),
     folderId: input.folderId,
     id: `pending-link:${crypto.randomUUID()}`,
-    name: /\.mdx?$/i.test(name) ? name : `${name}.md`,
+    name: name.replace(/\.mdx?$/i, "") || "Imported link",
   };
 }
 
@@ -1626,13 +1626,13 @@ function PendingLinkImportCard({ item }: { item: PendingLinkImport }) {
             loading
           />
         </div>
-        <div className="mt-2 flex min-w-0 items-center gap-2">
-          <LinkSimple
-            aria-hidden="true"
-            className="size-4 shrink-0 text-muted-foreground"
-          />
-          <span className="min-w-0 flex-1 truncate font-medium text-sm">
+        <div className="mt-2 grid w-full min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2">
+          <LinkResourceTitleIcon faviconUrl={item.faviconUrl} />
+          <span className="truncate font-medium text-sm" title={item.name}>
             {item.name}
+          </span>
+          <span className="shrink-0 text-muted-foreground text-xs tabular-nums">
+            now
           </span>
         </div>
       </CardContent>
@@ -6765,18 +6765,16 @@ export function FileExplorer({
                                         }
                                       />
                                     </div>
-                                    <div className="flex w-full min-w-0 max-w-full items-center justify-between gap-2">
-                                      <div className="flex min-w-0 flex-1 items-center gap-2">
-                                        <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 font-medium text-[10px] text-muted-foreground">
-                                          folder
-                                        </span>
-                                        <span
-                                          className="min-w-0 flex-1 truncate font-medium text-sm"
-                                          title={folder.name}
-                                        >
-                                          {folder.name}
-                                        </span>
-                                      </div>
+                                    <div className="grid w-full min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2">
+                                      <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 font-medium text-[10px] text-muted-foreground">
+                                        folder
+                                      </span>
+                                      <span
+                                        className="truncate font-medium text-sm"
+                                        title={folder.name}
+                                      >
+                                        {folder.name}
+                                      </span>
                                       <span className="shrink-0 text-muted-foreground text-xs tabular-nums">
                                         {folderUpdatedLabel}
                                       </span>
