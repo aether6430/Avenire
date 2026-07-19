@@ -62,7 +62,7 @@ export const ActivationEmail = ({ companyName, url }: ActivationEmailProps) => (
                 To verify your account, we just need to confirm your email.
               </Text>
               <Text className="font-13 text-fg-3 m-0 mt-[18px] font-sans">
-                If you didn&apos;t create an account, you can safely ignore this
+                If you didn't create an account, you can safely ignore this
                 email.
               </Text>
             </Section>

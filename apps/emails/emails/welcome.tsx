@@ -47,7 +47,7 @@ export const WelcomeEmail = ({ companyName, url }: WelcomeEmailProps) => (
               </Text>
               <Text className="font-14 text-fg-2 m-0 mt-10 font-sans">
                 You can start exploring right away, set up your workspace, and
-                invite your team if you&apos;re working with others.
+                invite your team if you're working with others.
               </Text>
             </Section>
           </Section>
@@ -63,7 +63,7 @@ export const WelcomeEmail = ({ companyName, url }: WelcomeEmailProps) => (
 
           <Section className="mobile:px-4 mobile:pt-10 mobile:pb-8 px-6 pt-16 pb-12">
             <Text className="font-11 text-muted m-0 font-sans">
-              If you need help getting started, we&apos;ve got you covered. Find
+              If you need help getting started, we've got you covered. Find
               guides, tips, and best practices anytime, visit our{' '}
               <Link href="https://avenire.space/" className="text-muted">
                 Help Center
@@ -94,7 +94,7 @@ export const WelcomeEmail = ({ companyName, url }: WelcomeEmailProps) => (
                 Invite your team
               </Text>
               <Text className="font-14 text-fg-2 m-0 my-3 font-sans">
-                Collaboration works best when everyone&apos;s in.
+                Collaboration works best when everyone's in.
               </Text>
               <Link href={url} className="font-15 text-fg font-sans">
                 Invite Teammates

@@ -72,7 +72,7 @@ export const ProductUpdateEmail = ({
           <DitherFonts />
         </Head>
         <Body className="bg-bg-2 font-14 m-0 p-0 font-sans">
-          <Preview>What&apos;s new in {companyName}</Preview>
+          <Preview>What's new in {companyName}</Preview>
           <Container className="bg-bg mx-auto max-w-[640px]">
             <Section className="mobile:px-4 px-6 py-6">
               <Img
@@ -123,7 +123,7 @@ export const ProductUpdateEmail = ({
                 product day to day.
               </Text>
               <Text className="font-14 text-fg-2 m-0">
-                We&apos;re continuing to shape {companyName} around real
+                We're continuing to shape {companyName} around real
                 workflows—not just features—so everything feels more connected
                 and effortless over time.
               </Text>
@@ -163,7 +163,7 @@ export const ProductUpdateEmail = ({
                 </span>
                 <span className="text-fg-3">
                   your workload automatically. As things change, your task list
-                  updates so you&apos;re always focused on what matters most.
+                  updates so you're always focused on what matters most.
                 </span>
               </Text>
             </Section>

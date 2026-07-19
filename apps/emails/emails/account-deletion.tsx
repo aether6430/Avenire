@@ -68,7 +68,7 @@ export const DeleteAccountConfirmation = ({
 
           <Section className="mobile:px-4 mobile:pt-12 mobile:pb-10 px-6 pt-16 pb-14">
             <Text className="font-14 text-fg-2 m-0 font-sans">
-              If you didn&apos;t request this, simply ignore this email and your account will stay active.
+              If you didn't request this, simply ignore this email and your account will stay active.
             </Text>
           </Section>
 

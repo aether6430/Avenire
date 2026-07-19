@@ -57,19 +57,19 @@ export const TextOnlyEmail = ({ companyName, url }: TextOnlyEmailProps) => {
                 className="mobile:!max-w-full max-w-[490px]"
               >
                 <Text className="font-14 text-fg-2 m-0 font-sans">
-                  We don&apos;t send long emails often. When we do, we keep them
+                  We don't send long emails often. When we do, we keep them
                   plain—no hero, no clutter—just a direct word from the team
                   behind {companyName}.
                 </Text>
                 <Text className="font-14 text-fg-2 m-0 mt-[18px] font-sans">
-                  We&apos;re building {companyName} so your team can see what
-                  matters, drop what doesn&apos;t, and ship without living in
-                  fifteen tabs. If you&apos;ve been in the product lately, thank
+                  We're building {companyName} so your team can see what
+                  matters, drop what doesn't, and ship without living in
+                  fifteen tabs. If you've been in the product lately, thank
                   you—your feedback sharpens what we ship next.
                 </Text>
                 <Text className="font-14 text-fg-2 m-0 mt-[18px] font-sans">
-                  Here&apos;s to clearer priorities and less noise. When
-                  you&apos;re ready to jump back in, we&apos;ll be there.
+                  Here's to clearer priorities and less noise. When
+                  you're ready to jump back in, we'll be there.
                 </Text>
                 <Text className="font-14 text-fg-2 m-0 mt-[18px] font-sans">
                   — The {companyName} team

@@ -47,8 +47,8 @@ function WaitlistEmail({
               <Img
                 src={`${baseUrl}/branding/avenire-logo-full.png`}
                 alt="Avenire"
-                width="128"
-                height="28"
+                width="32"
+                height="32"
                 className="block"
               />
             </Section>
@@ -75,10 +75,10 @@ function WaitlistEmail({
               <Text className="font-14 text-fg-2 m-0 font-sans">
                 {email ? (
                   <>
-                    We&apos;ll keep this address on the list: <span className="text-fg font-semibold">{email}</span>.
+                    We'll keep this address on the list: <span className="text-fg font-semibold">{email}</span>.
                   </>
                 ) : (
-                  "We&apos;ve saved your request and will keep you posted."
+                  "We've saved your request and will keep you posted."
                 )}
               </Text>
               {name && (

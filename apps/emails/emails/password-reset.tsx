@@ -54,7 +54,7 @@ export const PasswordReset = ({
                 We received a request to reset your password for {companyName}.
               </Text>
               <Text className="font-13 text-fg-3 m-0 mt-[18px] font-sans">
-                If you didn&apos;t request a reset, you can safely ignore this
+                If you didn't request a reset, you can safely ignore this
                 email.
               </Text>
             </Section>

@@ -146,7 +146,7 @@ export const FeatureAnnouncementEmail = ({
                 </span>
                 <span className="text-fg-3">
                   your workload automatically. As things change, your task list
-                  updates so you&apos;re always focused on what matters most.
+                  updates so you're always focused on what matters most.
                 </span>
               </Text>
 
@@ -162,8 +162,8 @@ export const FeatureAnnouncementEmail = ({
                   className="bg-bg mobile:px-6 mobile:py-12 border-stroke mx-auto mt-6 max-w-[640px] border px-10 py-20 text-center"
                 >
                   <Text className="font-14 text-fg m-0 font-sans">
-                    &quot;Smart Tasks helps me know what to do next without
-                    thinking about it.&quot;
+                    “Smart Tasks helps me know what to do next without
+                    thinking about it.”
                   </Text>
                   <Text className="font-13 text-fg-2 m-0 mt-4 font-sans">
                     Alex, Product Designer at Studio
