@@ -172,7 +172,7 @@ export const persistCanonicalResource = async (
   fileId: string | null,
   resource: CanonicalResource
 ): Promise<{ resourceId: string; chunks: number }> => {
-  const startedAtMs = Date.now();
+  const startedAtMs = performance.now();
   if (resource.chunks.length === 0) {
     throw new Error(
       `No chunks were produced for ${resource.sourceType}:${resource.source}`
@@ -309,7 +309,7 @@ export const persistCanonicalResource = async (
     resource.chunks,
     config.ingestionEmbedBatchSize
   );
-  const embedStartedAtMs = Date.now();
+  const embedStartedAtMs = performance.now();
   let dbInsertMs = 0;
   await runWithConcurrency(
     batches,
@@ -345,29 +345,29 @@ export const persistCanonicalResource = async (
         rows,
         config.ingestionDbBatchSize
       )) {
-        const dbBatchStartedAt = Date.now();
+        const dbBatchStartedAt = performance.now();
         await insertIngestionEmbeddings({ rows: dbBatch });
-        dbInsertMs += Date.now() - dbBatchStartedAt;
+        dbInsertMs += performance.now() - dbBatchStartedAt;
       }
     }
   );
   logPersistStageTiming({
     stage: "embed-and-insert",
-    durationMs: Date.now() - embedStartedAtMs,
+    durationMs: Math.round(performance.now() - embedStartedAtMs),
     workspaceId,
     resourceSource: resource.source,
     chunkCount: resource.chunks.length,
   });
   logPersistStageTiming({
     stage: "db-insert-only",
-    durationMs: dbInsertMs,
+    durationMs: Math.round(dbInsertMs),
     workspaceId,
     resourceSource: resource.source,
     chunkCount: resource.chunks.length,
   });
   logPersistStageTiming({
     stage: "total-persist-resource",
-    durationMs: Date.now() - startedAtMs,
+    durationMs: Math.round(performance.now() - startedAtMs),
     workspaceId,
     resourceSource: resource.source,
     chunkCount: resource.chunks.length,

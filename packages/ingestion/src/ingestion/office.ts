@@ -1,8 +1,8 @@
 import {
   type ChunkingConfig,
   type OfficeChunk,
-  OfficeParser,
   type OfficeParserAST,
+  parseOffice,
 } from "officeparser";
 import { safeRemoteFetch } from "../utils/safety";
 import { semanticChunkText } from "./chunking";
@@ -124,7 +124,7 @@ export async function ingestOfficeDocument(input: {
 }): Promise<CanonicalResource> {
   const { ast, generated } = await withOfficeDeadline(async (signal) => {
     const buffer = await fetchOfficeFile(input.url, signal);
-    const parsed = await OfficeParser.parseOffice(buffer, {
+    const parsed = await parseOffice(buffer, {
       abortSignal: signal,
       ignoreComments: false,
       ignoreNotes: false,

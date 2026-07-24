@@ -23,7 +23,15 @@ export interface RecentRetrievalQuery {
   path: "fast" | "slow";
   provider: string | null;
   query: string;
-  sourceType: "pdf" | "image" | "video" | "audio" | "document" | "markdown" | "link" | null;
+  sourceType:
+    | "pdf"
+    | "image"
+    | "video"
+    | "audio"
+    | "document"
+    | "markdown"
+    | "link"
+    | null;
   userId: string | null;
   workspaceUuid: string;
 }

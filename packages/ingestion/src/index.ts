@@ -1,6 +1,9 @@
 import { ingestStoredFile } from "./ingestion/pipeline";
 import { PostgresVectorStore } from "./retrieval/postgres-vector-store";
-import { retrieveRelevantChunks } from "./retrieval/retrieve";
+import {
+  retrieveRelevantChunks,
+  type RetrievalTraceCollector,
+} from "./retrieval/retrieve";
 
 export { assertRequiredSecrets } from "./config";
 
@@ -17,7 +20,13 @@ export {
   computeRetrievalQualitySignal,
   logRetrievalQualitySignal,
 } from "./retrieval/quality";
-export type { RetrievalDecisionTelemetry } from "./retrieval/retrieve";
+export type {
+  RetrievalDecisionTelemetry,
+  RetrievalTraceCandidate,
+  RetrievalTraceCollector,
+  RetrievalTraceSnapshot,
+  RetrievalTraceStage,
+} from "./retrieval/retrieve";
 export {
   normalizeRetrievalQuery,
   retrieveRelevantChunks,
@@ -49,6 +58,7 @@ export async function retrieveWorkspaceChunks(input: {
     | "markdown"
     | "link";
   provider?: string;
+  trace?: RetrievalTraceCollector;
 }) {
   const vectorStore = new PostgresVectorStore(input.workspaceId);
   return retrieveRelevantChunks(vectorStore, input.query, {
@@ -58,6 +68,7 @@ export async function retrieveWorkspaceChunks(input: {
     workspaceId: input.workspaceId,
     sourceType: input.sourceType,
     provider: input.provider,
+    trace: input.trace,
   });
 }
 

@@ -1,0 +1,13 @@
+diff --git a/dist/parsers/WordParser.js b/dist/parsers/WordParser.js
+index e8abfe9d554a689ab12c2ef2f922a85ddc523957..d8d4fd99ba3f18503e9faf798b9754b554ec3836 100644
+--- a/dist/parsers/WordParser.js
++++ b/dist/parsers/WordParser.js
+@@ -507,7 +507,7 @@ const parseWord = async (buffer, config) => {
+                 if (!formatting.backgroundColor && paraBackgroundColor) {
+                     formatting.backgroundColor = paraBackgroundColor;
+                 }
+-                for (const child of runNode.childNodes) {
++                for (const child of Array.from(runNode.childNodes)) {
+                     if (!(0, xmlUtils_js_1.isElement)(child))
+                         continue;
+                     // also handle unprefixed version (mirroring the behaviour of getElementsByTagName)

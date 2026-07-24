@@ -129,6 +129,17 @@ export const semanticChunkText = (params: {
       extra: params.baseMetadata,
     },
   });
+  const appendText = (content: string): void => {
+    const normalized = content.trim();
+    if (!normalized) {
+      return;
+    }
+    if (normalized.split(" ").length <= MAX_CHUNK_WORDS) {
+      chunks.push(buildChunk(normalized));
+      return;
+    }
+    chunks.push(...splitChunkByWords(normalized, buildChunk));
+  };
 
   for (let index = 0; index < paragraphs.length; index += 1) {
     const paragraph = paragraphs[index];
@@ -148,7 +159,7 @@ export const semanticChunkText = (params: {
         index += 1;
       }
 
-      chunks.push(buildChunk(collected.join("\n\n")));
+      appendText(collected.join("\n\n"));
       continue;
     }
 
@@ -171,18 +182,18 @@ export const semanticChunkText = (params: {
         index += 1;
       }
 
-      chunks.push(buildChunk(collected.join("\n\n")));
+      appendText(collected.join("\n\n"));
       continue;
     }
 
     if (isEquationBlock(paragraph)) {
-      chunks.push(buildChunk(paragraph));
+      appendText(paragraph);
       continue;
     }
 
     const words = paragraph.split(" ");
     if (words.length <= MAX_CHUNK_WORDS) {
-      chunks.push(buildChunk(paragraph));
+      appendText(paragraph);
       continue;
     }
 

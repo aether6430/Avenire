@@ -1,7 +1,7 @@
-import { type ApolloModelName, apollo, generateText } from "@avenire/ai";
+import { apollo, generateText } from "@avenire/ai";
 import { config } from "../config";
 
-const QUERY_EXPANSION_MODEL: ApolloModelName = "apollo-tiny";
+const QUERY_EXPANSION_MODEL = "apollo-tiny";
 const CODE_FENCE_START_PATTERN = /^```(?:json|text)?\s*/i;
 const CODE_FENCE_END_PATTERN = /\s*```$/i;
 
@@ -29,10 +29,10 @@ export async function expandQuery(
     abortSignal: options?.abortSignal,
     model: apollo.languageModel(QUERY_EXPANSION_MODEL),
     system:
-      "Expand this student query into a full academic search phrase. Output only the expanded query, nothing else.",
+      "Rewrite the student query as one standalone academic search sentence. Preserve every named entity, technical term, symbol, number, and constraint from the original; add only useful domain synonyms or expanded terminology. Never summarize to a broader topic. Output only the rewritten sentence.",
     prompt: normalizedQuery,
     temperature: 0.2,
-    maxOutputTokens: 64,
+    maxOutputTokens: 256,
   });
 
   const stripped = stripCodeFences(text);
@@ -70,7 +70,7 @@ export async function generateHydeDocument(
     ].join(" "),
     prompt: normalizedQuery,
     temperature: 0.2,
-    maxOutputTokens: Math.max(32, config.retrievalHydeMaxOutputTokens),
+    maxOutputTokens: Math.max(512, config.retrievalHydeMaxOutputTokens),
   });
 
   const hydeDocument = normalizeExpansion(stripCodeFences(text));

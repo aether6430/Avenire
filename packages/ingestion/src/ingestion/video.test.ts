@@ -53,10 +53,46 @@ import {
   ingestVideo,
   isDirectMediaUrl,
   isLowQualityTranscript,
+  parseSubtitleSegments,
   splitTranscriptByTime,
+  windowTranscriptSegments,
 } from "./video";
 
 describe("video helpers", () => {
+  it("parses SRT and WebVTT cues into timestamped transcript segments", () => {
+    expect(
+      parseSubtitleSegments(
+        "WEBVTT\n\n00:00:01.500 --> 00:00:03.250 align:start\nFirst <b>matrix</b> point.\n\n2\n00:00:04,000 --> 00:00:06,500\nSecond point."
+      )
+    ).toEqual([
+      { startMs: 1500, endMs: 3250, text: "First matrix point" },
+      { startMs: 4000, endMs: 6500, text: "Second point" },
+    ]);
+  });
+
+  it("windows dense subtitle cues with bounded temporal overlap", () => {
+    const windows = windowTranscriptSegments(
+      [
+        { startMs: 0, endMs: 8000, text: "First idea" },
+        { startMs: 8000, endMs: 16_000, text: "Second idea" },
+        { startMs: 16_000, endMs: 24_000, text: "Third idea" },
+        { startMs: 24_000, endMs: 32_000, text: "Fourth idea" },
+      ],
+      { windowMs: 24_000, overlapMs: 8000 }
+    );
+    expect(windows).toEqual([
+      {
+        startMs: 0,
+        endMs: 24_000,
+        text: "First idea Second idea Third idea",
+      },
+      {
+        startMs: 16_000,
+        endMs: 32_000,
+        text: "Third idea Fourth idea",
+      },
+    ]);
+  });
   it("cleans transcript text and drops codec noise", () => {
     expect(cleanTranscriptText("Hello\u0000   world\uFFFD")).toBe(
       "Hello world"

@@ -1240,7 +1240,7 @@ export async function retrieveWorkspaceChunksLexical(input: {
     score: number;
   }>`
     WITH search_query AS (
-      SELECT websearch_to_tsquery(${DEFAULT_TEXT_SEARCH_CONFIG}, ${query}) AS ts_query
+      SELECT plainto_tsquery(${DEFAULT_TEXT_SEARCH_CONFIG}, ${query}) AS ts_query
     ),
     ranked_chunks AS (
       SELECT
@@ -1382,7 +1382,11 @@ export async function retrieveWorkspaceChunksTrigram(input: {
   sourceType?: string;
   provider?: string;
 }): Promise<IngestionChunkSearchRecord[]> {
-  const query = input.query.trim();
+  const query = input.query
+    .trim()
+    .normalize("NFKC")
+    .replace(/[−–—]/g, "-")
+    .replace(/\s+/g, "");
   if (query.length < 3) {
     return [];
   }
@@ -1427,15 +1431,15 @@ export async function retrieveWorkspaceChunksTrigram(input: {
       c.content AS "content",
       c.metadata AS "metadata",
       CASE
-        WHEN lower(c.content) LIKE lower(${pattern}) ESCAPE '\\' THEN 1
+        WHEN regexp_replace(translate(lower(c.content), '−–—', '---'), '\\s+', '', 'g') LIKE lower(${pattern}) ESCAPE '\\' THEN 1
         ELSE 0
-      END + similarity(c.content, ${query}) AS "score"
+      END + similarity(regexp_replace(translate(c.content, '−–—', '---'), '\\s+', '', 'g'), ${query}) AS "score"
     FROM ingestion_chunk c
     INNER JOIN ingestion_resource r ON r.id = c.resource_id
     LEFT JOIN file_asset f ON f.id = r.file_id
     WHERE ${whereClause}
       AND (r.file_id IS NULL OR f.deleted_at IS NULL)
-      AND c.content ILIKE ${pattern} ESCAPE '\\'
+      AND regexp_replace(translate(c.content, '−–—', '---'), '\\s+', '', 'g') ILIKE ${pattern} ESCAPE '\\'
     ORDER BY "score" DESC, c.chunk_index ASC
     LIMIT ${Math.max(1, input.limit)}
   `);

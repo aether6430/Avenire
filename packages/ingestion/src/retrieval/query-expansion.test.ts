@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   generateText: vi.fn(),
-  languageModel: vi.fn(() => "apollo-tiny-model"),
+  apollo: { languageModel: vi.fn(() => "apollo-model") },
 }));
 
 vi.mock("@avenire/ai", () => ({
@@ -11,9 +11,7 @@ vi.mock("@avenire/ai", () => ({
   APOLLO_INGESTION_MISTRAL_IMAGE_DESCRIPTION_MODEL:
     "mistral-image-description-model",
   APOLLO_INGESTION_MISTRAL_OCR_MODEL: "mistral-ocr-model",
-  apollo: {
-    languageModel: mocks.languageModel,
-  },
+  apollo: mocks.apollo,
   generateText: mocks.generateText,
 }));
 
@@ -37,12 +35,12 @@ describe("expandQuery", () => {
     await expect(expandQuery("osmosis")).resolves.toBe(
       "diffusion across a semipermeable membrane"
     );
-    expect(mocks.languageModel).toHaveBeenCalledWith("apollo-tiny");
+    expect(mocks.apollo.languageModel).toHaveBeenCalledWith("apollo-tiny");
     expect(mocks.generateText).toHaveBeenCalledWith(
       expect.objectContaining({
         prompt: "osmosis",
         temperature: 0.2,
-        maxOutputTokens: 64,
+        maxOutputTokens: 256,
       })
     );
   });
@@ -96,7 +94,7 @@ describe("expandQuery", () => {
     await expect(generateHydeDocument("osmosis")).resolves.toBe(
       "Osmosis is the movement of water across a semipermeable membrane along a water potential gradient."
     );
-    expect(mocks.languageModel).toHaveBeenCalledWith("apollo-tiny");
+    expect(mocks.apollo.languageModel).toHaveBeenCalledWith("apollo-tiny");
     expect(mocks.generateText).toHaveBeenCalledWith(
       expect.objectContaining({
         prompt: "osmosis",

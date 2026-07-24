@@ -3,6 +3,7 @@ import {
   assertMaxSize,
   assertSafeUrl,
   decodeBase64ToBytes,
+  safeRemoteFetch,
 } from "../utils/safety";
 import type { CanonicalResource } from "./types";
 
@@ -88,15 +89,33 @@ export const ingestImage = async (input: {
 }): Promise<CanonicalResource> => {
   const source = input.url?.trim() || `image:inline:${crypto.randomUUID()}`;
 
-  let imagePart:
-    | { type: "image_url"; image_url: string }
-    | { type: "image_base64"; image_base64: string; mimeType?: string };
+  let imagePart: {
+    type: "image_base64";
+    image_base64: string;
+    mimeType?: string;
+  };
+  let remoteImageUrl: string | undefined;
 
   if (input.url) {
     const imageUrl = assertSafeUrl(input.url).toString();
+    remoteImageUrl = imageUrl;
+    const response = await safeRemoteFetch(imageUrl);
+    if (!response.ok) {
+      throw new Error(`Unable to fetch image (${response.status})`);
+    }
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    assertMaxSize(
+      "remote image payload",
+      bytes.byteLength,
+      config.maxInlineBytes
+    );
+    const mimeType =
+      response.headers.get("content-type")?.split(";")[0]?.trim() ||
+      "image/jpeg";
     imagePart = {
-      type: "image_url",
-      image_url: imageUrl,
+      type: "image_base64",
+      image_base64: Buffer.from(bytes).toString("base64"),
+      mimeType,
     };
   } else if (input.base64) {
     const dataUrlMatch = input.base64.match(
@@ -121,10 +140,10 @@ export const ingestImage = async (input: {
 
   const imageDescription = await describeImageWithMistral({
     imageDataUrl:
-      imagePart.type === "image_base64"
+      remoteImageUrl === undefined
         ? `data:${imagePart.mimeType || "image/jpeg"};base64,${imagePart.image_base64}`
         : undefined,
-    imageUrl: imagePart.type === "image_url" ? imagePart.image_url : undefined,
+    imageUrl: remoteImageUrl,
     title: input.title,
     contextText: input.contextText,
   });

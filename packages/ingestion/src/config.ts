@@ -28,6 +28,10 @@ export const config = {
     process.env.COHERE_RETRY_BASE_DELAY_MS ?? "1200",
     10
   ),
+  cohereRequestTimeoutMs: Number.parseInt(
+    process.env.COHERE_REQUEST_TIMEOUT_MS ?? "30000",
+    10
+  ),
   cohereTestSafeMode:
     (
       process.env.COHERE_TEST_SAFE_MODE ??
@@ -136,8 +140,18 @@ export const config = {
     process.env.RETRIEVAL_RERANK_CANDIDATE_LIMIT ?? "12",
     10
   ),
+  retrievalRerankExhaustiveLimit: Number.parseInt(
+    process.env.RETRIEVAL_RERANK_EXHAUSTIVE_LIMIT ?? "80",
+    10
+  ),
   retrievalMinScore: Number.parseFloat(
     process.env.RETRIEVAL_MIN_SCORE ?? "0.18"
+  ),
+  retrievalQueryExpansionEnabled:
+    (process.env.RETRIEVAL_QUERY_EXPANSION_ENABLED ?? "true").toLowerCase() !==
+    "false",
+  retrievalAbstentionScore: Number.parseFloat(
+    process.env.RETRIEVAL_ABSTENTION_SCORE ?? "0.18"
   ),
   retrievalHydeEnabled:
     (process.env.RETRIEVAL_HYDE_ENABLED ?? "true").toLowerCase() !== "false",
