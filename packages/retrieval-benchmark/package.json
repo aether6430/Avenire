@@ -1,0 +1,43 @@
+{
+  "name": "@avenire/retrieval-benchmark",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "tsc --noEmit",
+    "check-types": "tsc --noEmit",
+    "corpus:expand-arxiv": "bun src/commands/expand-arxiv-corpus.ts",
+    "corpus:fetch": "bun src/commands/fetch-sources.ts",
+    "corpus:generate": "bun src/commands/generate-office-fixtures.ts",
+    "corpus:import-db": "bun src/commands/import-database-corpus.ts",
+    "corpus:ingest-controlled": "bun src/commands/ingest-controlled-corpus.ts",
+    "corpus:import-mit": "bun src/commands/import-mit-lectures.ts",
+    "format": "biome format --write .",
+    "lint": "biome check .",
+    "report:run": "bun src/commands/evaluate-run.ts",
+    "run:controlled": "bun src/commands/run-database-benchmark.ts --scope controlled",
+    "run:database": "bun src/commands/run-database-benchmark.ts",
+    "test": "vitest run",
+    "validate:data": "bun src/commands/validate-data.ts"
+  },
+  "dependencies": {
+    "@avenire/database": "workspace:*",
+    "@avenire/ingestion": "workspace:*",
+    "@avenire/storage": "workspace:*",
+    "drizzle-orm": "0.45.2",
+    "effect-v4": "npm:effect@4.0.0-beta.97"
+  },
+  "devDependencies": {
+    "@avenire/env-types": "workspace:*",
+    "@avenire/typescript-config": "workspace:*",
+    "@types/node": "25.4.0",
+    "typescript": "5.9.3",
+    "vitest": "4.1.7"
+  },
+  "engines": {
+    "bun": ">=1.0.0"
+  }
+}

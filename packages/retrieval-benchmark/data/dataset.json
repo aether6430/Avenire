@@ -1,0 +1,1900 @@
+{
+  "schemaVersion": 1,
+  "version": "0.3.0",
+  "evidence": [
+    {
+      "id": "bayes-product",
+      "artifactId": "controlled-bayes",
+      "modality": "text",
+      "locator": {
+        "kind": "text",
+        "needle": "Their product is proportional to the posterior distribution"
+      },
+      "description": "Prior times likelihood is proportional to posterior."
+    },
+    {
+      "id": "bayes-screening",
+      "artifactId": "controlled-bayes",
+      "modality": "text",
+      "locator": {
+        "kind": "text",
+        "needle": "false positives arise from the much larger unaffected population"
+      },
+      "description": "Base rates change the interpretation of a positive screening result."
+    },
+    {
+      "id": "bayes-ppc",
+      "artifactId": "controlled-bayes",
+      "modality": "text",
+      "locator": {
+        "kind": "text",
+        "needle": "PPC_REPLICATE_COMPARE"
+      },
+      "description": "Posterior predictive check exact identifier."
+    },
+    {
+      "id": "bayes-normalized-equation",
+      "artifactId": "controlled-bayes",
+      "modality": "text",
+      "locator": {
+        "kind": "text",
+        "needle": "p(\\theta \\mid y) = \\frac{p(y \\mid \\theta)"
+      },
+      "description": "Normalized Bayesian posterior equation in LaTeX."
+    },
+    {
+      "id": "bayes-prior-sensitivity",
+      "artifactId": "controlled-bayes",
+      "modality": "text",
+      "locator": {
+        "kind": "text",
+        "needle": "inspect sensitivity to plausible prior choices"
+      },
+      "description": "Why prior sensitivity analysis matters."
+    },
+    {
+      "id": "biology-bilayer",
+      "artifactId": "controlled-cell-biology",
+      "modality": "text",
+      "locator": {
+        "kind": "text",
+        "needle": "hydrophobic tails toward the membrane interior"
+      },
+      "description": "Orientation of phospholipid tails."
+    },
+    {
+      "id": "biology-aquaporin",
+      "artifactId": "controlled-cell-biology",
+      "modality": "text",
+      "locator": {
+        "kind": "text",
+        "needle": "Aquaporins are channel proteins"
+      },
+      "description": "Aquaporin function and limitation."
+    },
+    {
+      "id": "biology-active",
+      "artifactId": "controlled-cell-biology",
+      "modality": "text",
+      "locator": {
+        "kind": "text",
+        "needle": "TRANSPORT_ATP_DIRECT"
+      },
+      "description": "Primary active transport exact identifier."
+    },
+    {
+      "id": "biology-nernst-equation",
+      "artifactId": "controlled-cell-biology",
+      "modality": "text",
+      "locator": {
+        "kind": "text",
+        "needle": "E_{\\mathrm{ion}} = \\frac{RT}{zF}"
+      },
+      "description": "Nernst equilibrium-potential equation in LaTeX."
+    },
+    {
+      "id": "biology-secondary-active",
+      "artifactId": "controlled-cell-biology",
+      "modality": "text",
+      "locator": {
+        "kind": "text",
+        "needle": "Secondary active transport uses a gradient that was established elsewhere"
+      },
+      "description": "Distinguishes secondary transport from direct ATP use."
+    },
+    {
+      "id": "climate-ice",
+      "artifactId": "controlled-climate",
+      "modality": "text",
+      "locator": {
+        "kind": "text",
+        "needle": "trapped ancient air"
+      },
+      "description": "Ice cores retain samples of past atmosphere."
+    },
+    {
+      "id": "climate-tree",
+      "artifactId": "controlled-climate",
+      "modality": "text",
+      "locator": {
+        "kind": "text",
+        "needle": "Tree-ring width may respond to temperature, moisture, competition, and age"
+      },
+      "description": "Tree rings have multiple influences."
+    },
+    {
+      "id": "climate-calibration",
+      "artifactId": "controlled-climate",
+      "modality": "text",
+      "locator": {
+        "kind": "text",
+        "needle": "PROXY_CALIBRATION_OVERLAP"
+      },
+      "description": "Proxy calibration exact identifier."
+    },
+    {
+      "id": "climate-calibration-equation",
+      "artifactId": "controlled-climate",
+      "modality": "text",
+      "locator": {
+        "kind": "text",
+        "needle": "T_t = \\alpha + \\beta P_t + \\varepsilon_t"
+      },
+      "description": "Linear proxy-calibration model and error term."
+    },
+    {
+      "id": "climate-gas-ice-age",
+      "artifactId": "controlled-climate",
+      "modality": "text",
+      "locator": {
+        "kind": "text",
+        "needle": "Gas age and ice age can differ"
+      },
+      "description": "Explains why gas and surrounding ice may have different ages."
+    },
+    {
+      "id": "graphs-bfs",
+      "artifactId": "controlled-graphs",
+      "modality": "text",
+      "locator": {
+        "kind": "text",
+        "needle": "explores vertices in nondecreasing number of edges"
+      },
+      "description": "Why BFS yields unweighted shortest paths."
+    },
+    {
+      "id": "graphs-negative",
+      "artifactId": "controlled-graphs",
+      "modality": "text",
+      "locator": {
+        "kind": "text",
+        "needle": "Dijkstra's algorithm requires nonnegative edge weights"
+      },
+      "description": "Dijkstra versus negative edges."
+    },
+    {
+      "id": "graphs-relax",
+      "artifactId": "controlled-graphs",
+      "modality": "text",
+      "locator": {
+        "kind": "text",
+        "needle": "RELAX_EDGE_UV"
+      },
+      "description": "Graph relaxation exact identifier."
+    },
+    {
+      "id": "graphs-relax-equation",
+      "artifactId": "controlled-graphs",
+      "modality": "text",
+      "locator": {
+        "kind": "text",
+        "needle": "d[v] \\leftarrow \\min"
+      },
+      "description": "Shortest-path relaxation update in LaTeX."
+    },
+    {
+      "id": "graphs-dag-negative",
+      "artifactId": "controlled-graphs",
+      "modality": "text",
+      "locator": {
+        "kind": "text",
+        "needle": "topological order permits shortest paths even with negative weights"
+      },
+      "description": "DAG shortest paths with negative weights."
+    },
+    {
+      "id": "history-primary",
+      "artifactId": "controlled-history",
+      "modality": "text",
+      "locator": {
+        "kind": "text",
+        "needle": "A primary source was created by a participant or observer"
+      },
+      "description": "Primary source definition."
+    },
+    {
+      "id": "history-criticism",
+      "artifactId": "controlled-history",
+      "modality": "text",
+      "locator": {
+        "kind": "text",
+        "needle": "Proximity to an event does not guarantee accuracy"
+      },
+      "description": "Contemporaneity alone does not establish accuracy."
+    },
+    {
+      "id": "history-corroborate",
+      "artifactId": "controlled-history",
+      "modality": "text",
+      "locator": {
+        "kind": "text",
+        "needle": "CORROBORATE_INDEPENDENT_02"
+      },
+      "description": "Independent corroboration exact identifier."
+    },
+    {
+      "id": "history-wire-dependence",
+      "artifactId": "controlled-history",
+      "modality": "text",
+      "locator": {
+        "kind": "text",
+        "needle": "Ten newspapers repeating one wire report provide less independent corroboration"
+      },
+      "description": "Repeated publication does not imply independent corroboration."
+    },
+    {
+      "id": "external-colbert-compression",
+      "artifactId": "external-colbertv2-paper",
+      "modality": "text",
+      "locator": {
+        "kind": "page",
+        "page": 3
+      },
+      "description": "ColBERTv2 residual compression mechanism."
+    },
+    {
+      "id": "external-colbert-supervision",
+      "artifactId": "external-colbertv2-paper",
+      "modality": "text",
+      "locator": {
+        "kind": "page",
+        "page": 1
+      },
+      "description": "ColBERTv2 denoised supervision motivation."
+    },
+    {
+      "id": "external-membrane-diagram",
+      "artifactId": "external-cell-membrane-image",
+      "modality": "image",
+      "locator": {
+        "kind": "document"
+      },
+      "description": "Diagram labeling intrinsic protein, extrinsic protein, and the bi-lipid layer."
+    },
+    {
+      "id": "external-climate-sdg-slide",
+      "artifactId": "external-climate-resilience-campaign",
+      "modality": "video-keyframe",
+      "locator": {
+        "kind": "time",
+        "startMs": 5000,
+        "endMs": 40000
+      },
+      "description": "Campaign overview slide listing SDGs and access to reliable information."
+    },
+    {
+      "id": "external-climate-strategies-slide",
+      "artifactId": "external-climate-resilience-strategies",
+      "modality": "video-keyframe",
+      "locator": {
+        "kind": "time",
+        "startMs": 5000,
+        "endMs": 50000
+      },
+      "description": "Lessons and strategies slide covering Wikimedia, activities, and inclusivity."
+    },
+    {
+      "id": "external-garvey-speech",
+      "artifactId": "external-marcus-garvey-audio",
+      "modality": "audio-transcript",
+      "locator": {
+        "kind": "document"
+      },
+      "description": "Marcus Garvey's 1921 explanation of the objects of the UNIA."
+    },
+    {
+      "id": "office-docx-allocation",
+      "artifactId": "controlled-allocation-docx",
+      "modality": "text",
+      "locator": {
+        "kind": "text",
+        "needle": "ALPHA-27"
+      },
+      "description": "Approved allocation identifier in the Word memo."
+    },
+    {
+      "id": "office-docx-archived-proposal",
+      "artifactId": "controlled-allocation-docx",
+      "modality": "text",
+      "locator": {
+        "kind": "text",
+        "needle": "archived 12 percent proposal"
+      },
+      "description": "Superseded reserve proposal in the Word memo."
+    },
+    {
+      "id": "office-pptx-metrics",
+      "artifactId": "controlled-retrieval-pptx",
+      "modality": "text",
+      "locator": {
+        "kind": "slide",
+        "slide": 2
+      },
+      "description": "Lecture slide contrasting MRR and nDCG behavior."
+    },
+    {
+      "id": "office-xlsx-apollo-score",
+      "artifactId": "controlled-results-xlsx",
+      "modality": "table",
+      "locator": {
+        "kind": "sheet",
+        "sheet": "Experiment Results",
+        "cell": "RUN-SHEET-842"
+      },
+      "description": "Apollo score and run identifier in the spreadsheet."
+    },
+    {
+      "id": "thermo-entropy",
+      "artifactId": "controlled-thermodynamics",
+      "modality": "text",
+      "locator": {
+        "kind": "text",
+        "needle": "energy is dispersed among accessible microscopic arrangements"
+      },
+      "description": "Entropy description and isolated-system direction."
+    },
+    {
+      "id": "thermo-carnot-id",
+      "artifactId": "controlled-thermodynamics",
+      "modality": "text",
+      "locator": {
+        "kind": "text",
+        "needle": "CARNOT_LIMIT_01"
+      },
+      "description": "Carnot fixture identifier."
+    },
+    {
+      "id": "thermo-efficiency",
+      "artifactId": "controlled-thermodynamics",
+      "modality": "text",
+      "locator": {
+        "kind": "text",
+        "needle": "maximum reversible efficiency of one half"
+      },
+      "description": "Carnot efficiency for 600 K and 300 K reservoirs."
+    },
+    {
+      "id": "thermo-carnot-equation",
+      "artifactId": "controlled-thermodynamics",
+      "modality": "text",
+      "locator": {
+        "kind": "text",
+        "needle": "\\eta_{\\mathrm{Carnot}} = 1 - \\frac{T_c}{T_h}"
+      },
+      "description": "Carnot efficiency equation and numerical substitution."
+    },
+    {
+      "id": "mit-column-space",
+      "artifactId": "mit-18065-lecture-1-captions",
+      "modality": "video-transcript",
+      "locator": {
+        "kind": "time",
+        "startMs": 553400,
+        "endMs": 560460
+      },
+      "description": "The columns of A span its column space."
+    },
+    {
+      "id": "mit-independent-columns",
+      "artifactId": "mit-18065-lecture-1-captions",
+      "modality": "video-transcript",
+      "locator": {
+        "kind": "time",
+        "startMs": 823030,
+        "endMs": 825550
+      },
+      "description": "The example has two independent columns."
+    },
+    {
+      "id": "mit-column-basis",
+      "artifactId": "mit-18065-lecture-1-captions",
+      "modality": "video-transcript",
+      "locator": {
+        "kind": "time",
+        "startMs": 954290,
+        "endMs": 961080
+      },
+      "description": "Two independent columns form a basis for the column space."
+    },
+    {
+      "id": "mit-svd-start",
+      "artifactId": "mit-18065-lecture-6-captions",
+      "modality": "video-transcript",
+      "locator": {
+        "kind": "time",
+        "startMs": 468550,
+        "endMs": 472330
+      },
+      "description": "The lecture begins a fresh treatment of singular value decomposition."
+    },
+    {
+      "id": "mit-svd-orthogonal",
+      "artifactId": "mit-18065-lecture-6-captions",
+      "modality": "video-transcript",
+      "locator": {
+        "kind": "time",
+        "startMs": 578680,
+        "endMs": 583540
+      },
+      "description": "The construction seeks orthogonal right singular vectors."
+    },
+    {
+      "id": "mit-svd-rank-one",
+      "artifactId": "mit-18065-lecture-6-captions",
+      "modality": "video-transcript",
+      "locator": {
+        "kind": "time",
+        "startMs": 840930,
+        "endMs": 843100
+      },
+      "description": "SVD terms are rank-one matrices."
+    },
+    {
+      "id": "mit-sgd-heart",
+      "artifactId": "mit-18065-lecture-25-captions",
+      "modality": "video-transcript",
+      "locator": {
+        "kind": "time",
+        "startMs": 909500,
+        "endMs": 914240
+      },
+      "description": "Randomly selecting component gradients is central to SGD."
+    },
+    {
+      "id": "mit-sgd-minibatch",
+      "artifactId": "mit-18065-lecture-25-captions",
+      "modality": "video-transcript",
+      "locator": {
+        "kind": "time",
+        "startMs": 2667680,
+        "endMs": 2669690
+      },
+      "description": "The lecture introduces the mini-batch variant."
+    },
+    {
+      "id": "mit-sgd-batch-one",
+      "artifactId": "mit-18065-lecture-25-captions",
+      "modality": "video-transcript",
+      "locator": {
+        "kind": "time",
+        "startMs": 2717490,
+        "endMs": 2721000
+      },
+      "description": "A mini-batch of size one is vanilla SGD."
+    },
+    {
+      "id": "mit-sgd-large-batch",
+      "artifactId": "mit-18065-lecture-25-captions",
+      "modality": "video-transcript",
+      "locator": {
+        "kind": "time",
+        "startMs": 2814710,
+        "endMs": 2818280
+      },
+      "description": "The lecture discusses the appeal of very large mini-batches."
+    }
+  ],
+  "queries": [
+    {
+      "id": "q-bayes-product",
+      "text": "How do the prior and likelihood determine the posterior?",
+      "family": "paraphrase",
+      "domain": "mathematics-statistics",
+      "split": "development",
+      "requiredEvidenceGroups": [["bayes-product"]]
+    },
+    {
+      "id": "q-bayes-screening",
+      "text": "Why is a positive result on a 90 percent sensitive test not necessarily a 90 percent chance of disease?",
+      "family": "direct-fact",
+      "domain": "mathematics-statistics",
+      "split": "test",
+      "requiredEvidenceGroups": [["bayes-screening"]]
+    },
+    {
+      "id": "q-bayes-ppc",
+      "text": "What does PPC_REPLICATE_COMPARE refer to?",
+      "family": "exact-identifier",
+      "domain": "mathematics-statistics",
+      "split": "development",
+      "requiredEvidenceGroups": [["bayes-ppc"]]
+    },
+    {
+      "id": "q-bayes-equation",
+      "text": "Write the normalized posterior equation and identify the marginal-likelihood term.",
+      "family": "formula-chart",
+      "domain": "mathematics-statistics",
+      "split": "test",
+      "requiredEvidenceGroups": [["bayes-normalized-equation"]]
+    },
+    {
+      "id": "q-bayes-prior-robustness",
+      "text": "How should an analyst check whether a posterior conclusion depends too heavily on one convenient prior?",
+      "family": "near-duplicate",
+      "domain": "mathematics-statistics",
+      "split": "test",
+      "requiredEvidenceGroups": [["bayes-prior-sensitivity"]]
+    },
+    {
+      "id": "q-biology-bilayer",
+      "text": "Which direction do phospholipid tails face in a membrane?",
+      "family": "direct-fact",
+      "domain": "biology",
+      "split": "development",
+      "requiredEvidenceGroups": [["biology-bilayer"]]
+    },
+    {
+      "id": "q-biology-aquaporin",
+      "text": "Do aquaporins actively pump water uphill?",
+      "family": "paraphrase",
+      "domain": "biology",
+      "split": "test",
+      "requiredEvidenceGroups": [["biology-aquaporin"]]
+    },
+    {
+      "id": "q-biology-active",
+      "text": "Find the fixture label for transport powered directly by ATP hydrolysis.",
+      "family": "exact-identifier",
+      "domain": "biology",
+      "split": "development",
+      "requiredEvidenceGroups": [["biology-active"]]
+    },
+    {
+      "id": "q-biology-nernst",
+      "text": "Which equation gives an ion's equilibrium voltage, and what does z represent?",
+      "family": "formula-chart",
+      "domain": "biology",
+      "split": "test",
+      "requiredEvidenceGroups": [["biology-nernst-equation"]]
+    },
+    {
+      "id": "q-biology-secondary-energy",
+      "text": "Can a transporter use an ATP-created sodium gradient without hydrolyzing ATP itself?",
+      "family": "near-duplicate",
+      "domain": "biology",
+      "split": "test",
+      "requiredEvidenceGroups": [["biology-secondary-active"]]
+    },
+    {
+      "id": "q-climate-ice",
+      "text": "Which proxy can preserve actual samples of ancient atmosphere?",
+      "family": "paraphrase",
+      "domain": "earth-climate-science",
+      "split": "development",
+      "requiredEvidenceGroups": [["climate-ice"]]
+    },
+    {
+      "id": "q-climate-tree",
+      "text": "Why can tree-ring width not be interpreted as temperature alone?",
+      "family": "direct-fact",
+      "domain": "earth-climate-science",
+      "split": "test",
+      "requiredEvidenceGroups": [["climate-tree"]]
+    },
+    {
+      "id": "q-climate-calibration",
+      "text": "What is PROXY_CALIBRATION_OVERLAP?",
+      "family": "exact-identifier",
+      "domain": "earth-climate-science",
+      "split": "development",
+      "requiredEvidenceGroups": [["climate-calibration"]]
+    },
+    {
+      "id": "q-climate-calibration-equation",
+      "text": "In the proxy calibration equation, what do P_t and epsilon_t represent?",
+      "family": "formula-chart",
+      "domain": "earth-climate-science",
+      "split": "test",
+      "requiredEvidenceGroups": [["climate-calibration-equation"]]
+    },
+    {
+      "id": "q-climate-gas-age",
+      "text": "Why can air bubbles and the ice around them have different ages at the same core depth?",
+      "family": "direct-fact",
+      "domain": "earth-climate-science",
+      "split": "test",
+      "requiredEvidenceGroups": [["climate-gas-ice-age"]]
+    },
+    {
+      "id": "q-graphs-bfs",
+      "text": "Why does breadth-first search produce shortest paths in an unweighted graph?",
+      "family": "direct-fact",
+      "domain": "computer-science",
+      "split": "development",
+      "requiredEvidenceGroups": [["graphs-bfs"]]
+    },
+    {
+      "id": "q-graphs-negative",
+      "text": "Which shortest-path method handles negative edges when Dijkstra cannot?",
+      "family": "paraphrase",
+      "domain": "computer-science",
+      "split": "test",
+      "requiredEvidenceGroups": [["graphs-negative"]]
+    },
+    {
+      "id": "q-graphs-relax",
+      "text": "Locate RELAX_EDGE_UV.",
+      "family": "exact-identifier",
+      "domain": "computer-science",
+      "split": "development",
+      "requiredEvidenceGroups": [["graphs-relax"]]
+    },
+    {
+      "id": "q-graphs-relax-equation",
+      "text": "What mathematical update relaxes edge (u,v), and when is the predecessor changed?",
+      "family": "formula-chart",
+      "domain": "computer-science",
+      "split": "test",
+      "requiredEvidenceGroups": [["graphs-relax-equation"]]
+    },
+    {
+      "id": "q-graphs-dag-negative",
+      "text": "Which graph structure allows shortest paths with negative weights to be solved in topological order?",
+      "family": "paraphrase",
+      "domain": "computer-science",
+      "split": "test",
+      "requiredEvidenceGroups": [["graphs-dag-negative"]]
+    },
+    {
+      "id": "q-history-primary",
+      "text": "What makes a record a primary source?",
+      "family": "direct-fact",
+      "domain": "history-social-science",
+      "split": "development",
+      "requiredEvidenceGroups": [["history-primary"]]
+    },
+    {
+      "id": "q-history-criticism",
+      "text": "Does being close to an event guarantee that an account is accurate?",
+      "family": "paraphrase",
+      "domain": "history-social-science",
+      "split": "test",
+      "requiredEvidenceGroups": [["history-criticism"]]
+    },
+    {
+      "id": "q-history-corroborate",
+      "text": "What practice is labeled CORROBORATE_INDEPENDENT_02?",
+      "family": "exact-identifier",
+      "domain": "history-social-science",
+      "split": "development",
+      "requiredEvidenceGroups": [["history-corroborate"]]
+    },
+    {
+      "id": "q-history-repeated-wire",
+      "text": "Do ten newspapers independently corroborate a claim if all ten copied the same wire report?",
+      "family": "near-duplicate",
+      "domain": "history-social-science",
+      "split": "test",
+      "requiredEvidenceGroups": [["history-wire-dependence"]]
+    },
+    {
+      "id": "q-thermo-entropy",
+      "text": "What does entropy track, and how does it behave during spontaneous change in isolation?",
+      "family": "direct-fact",
+      "domain": "physics",
+      "split": "development",
+      "requiredEvidenceGroups": [["thermo-entropy"]]
+    },
+    {
+      "id": "q-thermo-carnot-id",
+      "text": "Find CARNOT_LIMIT_01.",
+      "family": "exact-identifier",
+      "domain": "physics",
+      "split": "development",
+      "requiredEvidenceGroups": [["thermo-carnot-id"]]
+    },
+    {
+      "id": "q-thermo-efficiency",
+      "text": "What is the ideal efficiency between reservoirs at 600 K and 300 K?",
+      "family": "direct-fact",
+      "domain": "physics",
+      "split": "test",
+      "requiredEvidenceGroups": [["thermo-efficiency"]]
+    },
+    {
+      "id": "q-thermo-carnot-equation",
+      "text": "Use the Carnot equation to show the ideal efficiency between 600 K and 300 K.",
+      "family": "formula-chart",
+      "domain": "physics",
+      "split": "test",
+      "requiredEvidenceGroups": [["thermo-carnot-equation"]]
+    },
+    {
+      "id": "q-multihop-inference",
+      "text": "Give two reasons a seemingly persuasive observation can still mislead: one from medical screening and one from eyewitness history.",
+      "family": "multi-hop",
+      "domain": "mixed",
+      "split": "test",
+      "requiredEvidenceGroups": [["bayes-screening"], ["history-criticism"]]
+    },
+    {
+      "id": "q-cross-file-methods",
+      "text": "Which two controlled identifiers describe model checking and independent historical corroboration?",
+      "family": "cross-file",
+      "domain": "mixed",
+      "split": "development",
+      "requiredEvidenceGroups": [["bayes-ppc"], ["history-corroborate"]]
+    },
+    {
+      "id": "q-external-colbert-compression",
+      "text": "How does ColBERTv2 reduce the storage footprint of late interaction?",
+      "family": "paraphrase",
+      "domain": "computer-science",
+      "split": "test",
+      "sourceType": "pdf",
+      "requiredEvidenceGroups": [["external-colbert-compression"]]
+    },
+    {
+      "id": "q-external-colbert-supervision",
+      "text": "Which two ideas does ColBERTv2 combine to improve quality and space efficiency?",
+      "family": "multi-hop",
+      "domain": "computer-science",
+      "split": "development",
+      "sourceType": "pdf",
+      "requiredEvidenceGroups": [
+        ["external-colbert-supervision"],
+        ["external-colbert-compression"]
+      ]
+    },
+    {
+      "id": "q-external-membrane-visual",
+      "text": "Which diagram labels intrinsic protein, extrinsic protein, and a bi-lipid layer?",
+      "family": "visual-only",
+      "domain": "biology",
+      "split": "test",
+      "sourceType": "image",
+      "requiredEvidenceGroups": [["external-membrane-diagram"]]
+    },
+    {
+      "id": "q-external-video-sdgs",
+      "text": "In the climate resilience lightning talk, which SDGs appear on the campaign overview slide?",
+      "family": "visual-only",
+      "domain": "earth-climate-science",
+      "split": "test",
+      "sourceType": "video",
+      "requiredEvidenceGroups": [["external-climate-sdg-slide"]]
+    },
+    {
+      "id": "q-external-video-strategies",
+      "text": "At what point does the talk show lessons about Wikimedia's role, training activities, and inclusivity?",
+      "family": "timestamp",
+      "domain": "earth-climate-science",
+      "split": "development",
+      "sourceType": "video",
+      "requiredEvidenceGroups": [["external-climate-strategies-slide"]]
+    },
+    {
+      "id": "q-external-garvey-audio",
+      "text": "Which 1921 recording explains the objects of the Universal Negro Improvement Association?",
+      "family": "source-filtered",
+      "domain": "history-social-science",
+      "split": "test",
+      "sourceType": "audio",
+      "requiredEvidenceGroups": [["external-garvey-speech"]]
+    },
+    {
+      "id": "q-office-docx-allocation",
+      "text": "Which allocation identifier approves an 18 percent reserve target?",
+      "family": "exact-identifier",
+      "domain": "business-operations",
+      "split": "test",
+      "sourceType": "document",
+      "requiredEvidenceGroups": [["office-docx-allocation"]]
+    },
+    {
+      "id": "q-office-docx-revision",
+      "text": "Which reserve target is approved, and which lower target is only an archived proposal?",
+      "family": "conflicting-revision",
+      "domain": "business-operations",
+      "split": "test",
+      "sourceType": "document",
+      "requiredEvidenceGroups": [
+        ["office-docx-allocation"],
+        ["office-docx-archived-proposal"]
+      ]
+    },
+    {
+      "id": "q-office-pptx-metrics",
+      "text": "Which ranking metric rewards the first relevant result, and which preserves graded relevance?",
+      "family": "formula-chart",
+      "domain": "computer-science",
+      "split": "test",
+      "sourceType": "document",
+      "requiredEvidenceGroups": [["office-pptx-metrics"]]
+    },
+    {
+      "id": "q-office-xlsx-score",
+      "text": "What nDCG@10 belongs to run RUN-SHEET-842?",
+      "family": "table-cell",
+      "domain": "computer-science",
+      "split": "test",
+      "sourceType": "document",
+      "requiredEvidenceGroups": [["office-xlsx-apollo-score"]]
+    },
+    {
+      "id": "q-unanswerable-kepler",
+      "text": "What was the aperture diameter of the Kepler space telescope?",
+      "family": "unanswerable",
+      "domain": "astronomy",
+      "split": "test",
+      "requiredEvidenceGroups": []
+    },
+    {
+      "id": "q-v03-time-column-space",
+      "text": "At roughly 9:15 in lecture 1, what name is given to all vectors Ax?",
+      "family": "timestamp",
+      "domain": "mathematics",
+      "split": "test",
+      "sourceType": "video",
+      "requiredEvidenceGroups": [["mit-column-space"]]
+    },
+    {
+      "id": "q-v03-time-independent-columns",
+      "text": "What property of the two columns is mentioned near 13:44 in lecture 1?",
+      "family": "timestamp",
+      "domain": "mathematics",
+      "split": "test",
+      "sourceType": "video",
+      "requiredEvidenceGroups": [["mit-independent-columns"]]
+    },
+    {
+      "id": "q-v03-time-column-basis",
+      "text": "Near 15:57, what do the two columns form for the column space?",
+      "family": "timestamp",
+      "domain": "mathematics",
+      "split": "test",
+      "sourceType": "video",
+      "requiredEvidenceGroups": [["mit-column-basis"]]
+    },
+    {
+      "id": "q-v03-time-svd-start",
+      "text": "What topic gets a fresh start at about 7:50 in lecture 6?",
+      "family": "timestamp",
+      "domain": "mathematics",
+      "split": "test",
+      "sourceType": "video",
+      "requiredEvidenceGroups": [["mit-svd-start"]]
+    },
+    {
+      "id": "q-v03-time-svd-orthogonal",
+      "text": "Around 9:40 in the SVD lecture, what kind of vectors v is Strang seeking?",
+      "family": "timestamp",
+      "domain": "mathematics",
+      "split": "test",
+      "sourceType": "video",
+      "requiredEvidenceGroups": [["mit-svd-orthogonal"]]
+    },
+    {
+      "id": "q-v03-time-svd-rank-one",
+      "text": "What rank do the component matrices have near 14:02 in the SVD lecture?",
+      "family": "timestamp",
+      "domain": "mathematics",
+      "split": "test",
+      "sourceType": "video",
+      "requiredEvidenceGroups": [["mit-svd-rank-one"]]
+    },
+    {
+      "id": "q-v03-time-sgd-heart",
+      "text": "What stochastic optimization idea is emphasized around 15:12?",
+      "family": "timestamp",
+      "domain": "mathematics",
+      "split": "test",
+      "sourceType": "video",
+      "requiredEvidenceGroups": [["mit-sgd-heart"]]
+    },
+    {
+      "id": "q-v03-time-sgd-minibatch",
+      "text": "Which SGD variant is introduced at about 44:28?",
+      "family": "timestamp",
+      "domain": "mathematics",
+      "split": "test",
+      "sourceType": "video",
+      "requiredEvidenceGroups": [["mit-sgd-minibatch"]]
+    },
+    {
+      "id": "q-v03-time-sgd-batch-one",
+      "text": "What does a mini-batch of size one reduce to near 45:19?",
+      "family": "timestamp",
+      "domain": "mathematics",
+      "split": "test",
+      "sourceType": "video",
+      "requiredEvidenceGroups": [["mit-sgd-batch-one"]]
+    },
+    {
+      "id": "q-v03-time-sgd-large-batch",
+      "text": "What batch-size choice is discussed around 46:56?",
+      "family": "timestamp",
+      "domain": "mathematics",
+      "split": "test",
+      "sourceType": "video",
+      "requiredEvidenceGroups": [["mit-sgd-large-batch"]]
+    },
+    {
+      "id": "q-v03-formula-bayes-denominator",
+      "text": "In the normalized Bayesian update, which integral forms the denominator?",
+      "family": "formula-chart",
+      "domain": "mathematics",
+      "split": "test",
+      "requiredEvidenceGroups": [["bayes-normalized-equation"]]
+    },
+    {
+      "id": "q-v03-formula-nernst-charge",
+      "text": "Where does ionic charge z appear in the Nernst expression?",
+      "family": "formula-chart",
+      "domain": "mathematics",
+      "split": "test",
+      "requiredEvidenceGroups": [["biology-nernst-equation"]]
+    },
+    {
+      "id": "q-v03-formula-relax-predecessor",
+      "text": "Write the relaxation minimum and state when the predecessor changes.",
+      "family": "formula-chart",
+      "domain": "mathematics",
+      "split": "test",
+      "requiredEvidenceGroups": [["graphs-relax-equation"]]
+    },
+    {
+      "id": "q-v03-formula-carnot-ratio",
+      "text": "Using the Carnot equation, what efficiency follows from 600 K and 300 K?",
+      "family": "formula-chart",
+      "domain": "mathematics",
+      "split": "test",
+      "requiredEvidenceGroups": [["thermo-carnot-equation"]]
+    },
+    {
+      "id": "q-v03-cross-graphs-climate",
+      "text": "Give the graph relaxation identifier and the climate calibration identifier.",
+      "family": "cross-file",
+      "domain": "mathematics",
+      "split": "test",
+      "requiredEvidenceGroups": [["graphs-relax"], ["climate-calibration"]]
+    },
+    {
+      "id": "q-v03-cross-biology-thermo",
+      "text": "Which identifier names direct ATP transport, and which names the reversible heat-engine limit?",
+      "family": "cross-file",
+      "domain": "mathematics",
+      "split": "test",
+      "requiredEvidenceGroups": [["biology-active"], ["thermo-carnot-id"]]
+    },
+    {
+      "id": "q-v03-cross-equations-one",
+      "text": "Compare the Bayesian posterior equation with the climate proxy calibration equation.",
+      "family": "cross-file",
+      "domain": "mathematics",
+      "split": "test",
+      "requiredEvidenceGroups": [
+        ["bayes-normalized-equation"],
+        ["climate-calibration-equation"]
+      ]
+    },
+    {
+      "id": "q-v03-cross-equations-two",
+      "text": "Retrieve both the Nernst equilibrium formula and shortest-path relaxation update.",
+      "family": "cross-file",
+      "domain": "mathematics",
+      "split": "test",
+      "requiredEvidenceGroups": [
+        ["biology-nernst-equation"],
+        ["graphs-relax-equation"]
+      ]
+    },
+    {
+      "id": "q-v03-cross-method-caveats",
+      "text": "What caveat applies to prior choice and what caveat applies to repeated wire reports?",
+      "family": "cross-file",
+      "domain": "mathematics",
+      "split": "test",
+      "requiredEvidenceGroups": [
+        ["bayes-prior-sensitivity"],
+        ["history-wire-dependence"]
+      ]
+    },
+    {
+      "id": "q-v03-cross-energy-paths",
+      "text": "Relate secondary active transport's energy source to the Carnot temperature limit.",
+      "family": "cross-file",
+      "domain": "mathematics",
+      "split": "test",
+      "requiredEvidenceGroups": [
+        ["biology-secondary-active"],
+        ["thermo-carnot-equation"]
+      ]
+    },
+    {
+      "id": "q-v03-cross-ordering-evidence",
+      "text": "Find the DAG ordering condition and the warning about source proximity.",
+      "family": "cross-file",
+      "domain": "mathematics",
+      "split": "test",
+      "requiredEvidenceGroups": [["graphs-dag-negative"], ["history-criticism"]]
+    },
+    {
+      "id": "q-v03-cross-office-eval",
+      "text": "Use the Word allocation target together with the presentation's distinction between MRR and nDCG.",
+      "family": "cross-file",
+      "domain": "mathematics",
+      "split": "test",
+      "requiredEvidenceGroups": [
+        ["office-docx-allocation"],
+        ["office-pptx-metrics"]
+      ]
+    },
+    {
+      "id": "q-v03-cross-colbert-sheet",
+      "text": "Combine ColBERT residual compression with the spreadsheet's recorded run score.",
+      "family": "cross-file",
+      "domain": "mathematics",
+      "split": "test",
+      "requiredEvidenceGroups": [
+        ["external-colbert-compression"],
+        ["office-xlsx-apollo-score"]
+      ]
+    },
+    {
+      "id": "q-v03-hop-gradient-transport",
+      "text": "How do indirectly powered transport and sensitivity to assumptions each depend on upstream state?",
+      "family": "multi-hop",
+      "domain": "mathematics",
+      "split": "test",
+      "requiredEvidenceGroups": [
+        ["biology-secondary-active"],
+        ["bayes-prior-sensitivity"]
+      ]
+    },
+    {
+      "id": "q-v03-hop-dag-corroboration",
+      "text": "Connect topological ordering in a DAG with independence when corroborating reports.",
+      "family": "multi-hop",
+      "domain": "mathematics",
+      "split": "test",
+      "requiredEvidenceGroups": [
+        ["graphs-dag-negative"],
+        ["history-wire-dependence"]
+      ]
+    },
+    {
+      "id": "q-v03-hop-proxy-prior",
+      "text": "How do calibration uncertainty and prior sensitivity play analogous roles?",
+      "family": "multi-hop",
+      "domain": "mathematics",
+      "split": "test",
+      "requiredEvidenceGroups": [
+        ["climate-calibration-equation"],
+        ["bayes-prior-sensitivity"]
+      ]
+    },
+    {
+      "id": "q-v03-hop-entropy-membrane",
+      "text": "Combine the isolated-system entropy direction with membrane transport's energy source.",
+      "family": "multi-hop",
+      "domain": "mathematics",
+      "split": "test",
+      "requiredEvidenceGroups": [
+        ["thermo-entropy"],
+        ["biology-secondary-active"]
+      ]
+    },
+    {
+      "id": "q-v03-hop-colbert-graph",
+      "text": "Relate ColBERT residual compression to retaining evidence for graph relaxation.",
+      "family": "multi-hop",
+      "domain": "mathematics",
+      "split": "test",
+      "requiredEvidenceGroups": [
+        ["external-colbert-compression"],
+        ["graphs-relax-equation"]
+      ]
+    },
+    {
+      "id": "q-v03-hop-office-ranking",
+      "text": "Use the spreadsheet score and slide definitions to explain what that run number can show.",
+      "family": "multi-hop",
+      "domain": "mathematics",
+      "split": "test",
+      "requiredEvidenceGroups": [
+        ["office-xlsx-apollo-score"],
+        ["office-pptx-metrics"]
+      ]
+    },
+    {
+      "id": "q-v03-hop-climate-history",
+      "text": "Why must proxy records and repeated newspaper reports both be checked for dependence?",
+      "family": "multi-hop",
+      "domain": "mathematics",
+      "split": "test",
+      "requiredEvidenceGroups": [["climate-tree"], ["history-wire-dependence"]]
+    },
+    {
+      "id": "q-v03-hop-screening-source-two",
+      "text": "What shared reasoning error affects a medical test and a source close to an event?",
+      "family": "multi-hop",
+      "domain": "mathematics",
+      "split": "test",
+      "requiredEvidenceGroups": [["bayes-screening"], ["history-criticism"]]
+    },
+    {
+      "id": "q-v03-para-bayes-two",
+      "text": "How can an analyst test whether posterior conclusions hinge on the assumed prior?",
+      "family": "paraphrase",
+      "domain": "mathematics",
+      "split": "test",
+      "requiredEvidenceGroups": [["bayes-prior-sensitivity"]]
+    },
+    {
+      "id": "q-v03-para-dag-two",
+      "text": "Which acyclic ordering lets shortest paths tolerate edges below zero?",
+      "family": "paraphrase",
+      "domain": "mathematics",
+      "split": "test",
+      "requiredEvidenceGroups": [["graphs-dag-negative"]]
+    },
+    {
+      "id": "q-v03-para-wire-two",
+      "text": "Why do many papers carrying the same dispatch not count as independent witnesses?",
+      "family": "paraphrase",
+      "domain": "mathematics",
+      "split": "test",
+      "requiredEvidenceGroups": [["history-wire-dependence"]]
+    },
+    {
+      "id": "q-v03-unanswerable-1",
+      "text": "What value does the corpus give for the Hubble constant?",
+      "family": "unanswerable",
+      "domain": "mathematics",
+      "split": "test",
+      "requiredEvidenceGroups": []
+    },
+    {
+      "id": "q-v03-unanswerable-2",
+      "text": "Which treaty ended the Thirty Years War?",
+      "family": "unanswerable",
+      "domain": "mathematics",
+      "split": "test",
+      "requiredEvidenceGroups": []
+    },
+    {
+      "id": "q-v03-unanswerable-3",
+      "text": "What dosage of amoxicillin is recommended?",
+      "family": "unanswerable",
+      "domain": "mathematics",
+      "split": "test",
+      "requiredEvidenceGroups": []
+    },
+    {
+      "id": "q-v03-unanswerable-4",
+      "text": "Who won the 2032 Olympic marathon?",
+      "family": "unanswerable",
+      "domain": "mathematics",
+      "split": "test",
+      "requiredEvidenceGroups": []
+    },
+    {
+      "id": "q-v03-unanswerable-5",
+      "text": "What is the ISBN of the cited topology textbook?",
+      "family": "unanswerable",
+      "domain": "mathematics",
+      "split": "test",
+      "requiredEvidenceGroups": []
+    },
+    {
+      "id": "q-v03-unanswerable-6",
+      "text": "Which volcano erupted on 14 March 1847?",
+      "family": "unanswerable",
+      "domain": "mathematics",
+      "split": "test",
+      "requiredEvidenceGroups": []
+    },
+    {
+      "id": "q-v03-unanswerable-7",
+      "text": "What password protects the allocation spreadsheet?",
+      "family": "unanswerable",
+      "domain": "mathematics",
+      "split": "test",
+      "requiredEvidenceGroups": []
+    },
+    {
+      "id": "q-v03-unanswerable-8",
+      "text": "What was the closing price of AAPL yesterday?",
+      "family": "unanswerable",
+      "domain": "mathematics",
+      "split": "test",
+      "requiredEvidenceGroups": []
+    },
+    {
+      "id": "q-v03-unanswerable-9",
+      "text": "Which lecture explains the Krebs cycle?",
+      "family": "unanswerable",
+      "domain": "mathematics",
+      "split": "test",
+      "requiredEvidenceGroups": []
+    }
+  ],
+  "judgments": [
+    {
+      "queryId": "q-bayes-product",
+      "evidenceId": "bayes-product",
+      "grade": 3,
+      "assessor": "benchmark-team",
+      "rationale": "Directly states the update relationship."
+    },
+    {
+      "queryId": "q-bayes-screening",
+      "evidenceId": "bayes-screening",
+      "grade": 3,
+      "assessor": "benchmark-team",
+      "rationale": "Explains sensitivity, specificity, and base-rate effects."
+    },
+    {
+      "queryId": "q-bayes-ppc",
+      "evidenceId": "bayes-ppc",
+      "grade": 3,
+      "assessor": "benchmark-team",
+      "rationale": "Contains the exact identifier and definition."
+    },
+    {
+      "queryId": "q-biology-bilayer",
+      "evidenceId": "biology-bilayer",
+      "grade": 3,
+      "assessor": "benchmark-team",
+      "rationale": "Directly identifies bilayer orientation."
+    },
+    {
+      "queryId": "q-biology-aquaporin",
+      "evidenceId": "biology-aquaporin",
+      "grade": 3,
+      "assessor": "benchmark-team",
+      "rationale": "States channel behavior and that it is not active pumping."
+    },
+    {
+      "queryId": "q-biology-active",
+      "evidenceId": "biology-active",
+      "grade": 3,
+      "assessor": "benchmark-team",
+      "rationale": "Contains the exact identifier."
+    },
+    {
+      "queryId": "q-climate-ice",
+      "evidenceId": "climate-ice",
+      "grade": 3,
+      "assessor": "benchmark-team",
+      "rationale": "Identifies trapped air in ice cores."
+    },
+    {
+      "queryId": "q-climate-tree",
+      "evidenceId": "climate-tree",
+      "grade": 3,
+      "assessor": "benchmark-team",
+      "rationale": "Lists multiple influences on ring width."
+    },
+    {
+      "queryId": "q-climate-calibration",
+      "evidenceId": "climate-calibration",
+      "grade": 3,
+      "assessor": "benchmark-team",
+      "rationale": "Contains the exact identifier and calibration meaning."
+    },
+    {
+      "queryId": "q-graphs-bfs",
+      "evidenceId": "graphs-bfs",
+      "grade": 3,
+      "assessor": "benchmark-team",
+      "rationale": "Explains BFS ordering by edge count."
+    },
+    {
+      "queryId": "q-graphs-negative",
+      "evidenceId": "graphs-negative",
+      "grade": 3,
+      "assessor": "benchmark-team",
+      "rationale": "Contrasts Dijkstra with Bellman-Ford."
+    },
+    {
+      "queryId": "q-graphs-relax",
+      "evidenceId": "graphs-relax",
+      "grade": 3,
+      "assessor": "benchmark-team",
+      "rationale": "Contains the exact identifier."
+    },
+    {
+      "queryId": "q-history-primary",
+      "evidenceId": "history-primary",
+      "grade": 3,
+      "assessor": "benchmark-team",
+      "rationale": "Defines a primary source."
+    },
+    {
+      "queryId": "q-history-criticism",
+      "evidenceId": "history-criticism",
+      "grade": 3,
+      "assessor": "benchmark-team",
+      "rationale": "Directly rejects proximity as a guarantee."
+    },
+    {
+      "queryId": "q-history-corroborate",
+      "evidenceId": "history-corroborate",
+      "grade": 3,
+      "assessor": "benchmark-team",
+      "rationale": "Contains the exact identifier and practice."
+    },
+    {
+      "queryId": "q-thermo-entropy",
+      "evidenceId": "thermo-entropy",
+      "grade": 3,
+      "assessor": "benchmark-team",
+      "rationale": "Describes entropy and isolated spontaneous change."
+    },
+    {
+      "queryId": "q-thermo-carnot-id",
+      "evidenceId": "thermo-carnot-id",
+      "grade": 3,
+      "assessor": "benchmark-team",
+      "rationale": "Contains the exact identifier."
+    },
+    {
+      "queryId": "q-thermo-efficiency",
+      "evidenceId": "thermo-efficiency",
+      "grade": 3,
+      "assessor": "benchmark-team",
+      "rationale": "States the one-half efficiency."
+    },
+    {
+      "queryId": "q-multihop-inference",
+      "evidenceId": "bayes-screening",
+      "grade": 3,
+      "assessor": "benchmark-team",
+      "rationale": "Required medical-screening evidence."
+    },
+    {
+      "queryId": "q-multihop-inference",
+      "evidenceId": "history-criticism",
+      "grade": 3,
+      "assessor": "benchmark-team",
+      "rationale": "Required historical-source evidence."
+    },
+    {
+      "queryId": "q-cross-file-methods",
+      "evidenceId": "bayes-ppc",
+      "grade": 3,
+      "assessor": "benchmark-team",
+      "rationale": "Required model-checking identifier."
+    },
+    {
+      "queryId": "q-cross-file-methods",
+      "evidenceId": "history-corroborate",
+      "grade": 3,
+      "assessor": "benchmark-team",
+      "rationale": "Required corroboration identifier."
+    },
+    {
+      "queryId": "q-external-colbert-compression",
+      "evidenceId": "external-colbert-compression",
+      "grade": 3,
+      "assessor": "benchmark-team",
+      "rationale": "The method section explains residual compression."
+    },
+    {
+      "queryId": "q-external-colbert-supervision",
+      "evidenceId": "external-colbert-supervision",
+      "grade": 3,
+      "assessor": "benchmark-team",
+      "rationale": "The abstract identifies denoised supervision."
+    },
+    {
+      "queryId": "q-external-colbert-supervision",
+      "evidenceId": "external-colbert-compression",
+      "grade": 3,
+      "assessor": "benchmark-team",
+      "rationale": "The method section identifies residual compression."
+    },
+    {
+      "queryId": "q-external-membrane-visual",
+      "evidenceId": "external-membrane-diagram",
+      "grade": 3,
+      "assessor": "benchmark-team",
+      "rationale": "The requested labels are visible only in the diagram."
+    },
+    {
+      "queryId": "q-external-video-sdgs",
+      "evidenceId": "external-climate-sdg-slide",
+      "grade": 3,
+      "assessor": "benchmark-team",
+      "rationale": "The campaign overview slide visually lists the SDGs."
+    },
+    {
+      "queryId": "q-external-video-strategies",
+      "evidenceId": "external-climate-strategies-slide",
+      "grade": 3,
+      "assessor": "benchmark-team",
+      "rationale": "The lessons and strategies slide appears in this time range."
+    },
+    {
+      "queryId": "q-external-garvey-audio",
+      "evidenceId": "external-garvey-speech",
+      "grade": 3,
+      "assessor": "benchmark-team",
+      "rationale": "The recording is Garvey's explanation of the UNIA's objects."
+    },
+    {
+      "queryId": "q-bayes-equation",
+      "evidenceId": "bayes-normalized-equation",
+      "grade": 3,
+      "assessor": "benchmark-team",
+      "rationale": "Contains the normalized posterior and defines its denominator."
+    },
+    {
+      "queryId": "q-biology-nernst",
+      "evidenceId": "biology-nernst-equation",
+      "grade": 3,
+      "assessor": "benchmark-team",
+      "rationale": "Contains the Nernst equation and symbol definitions."
+    },
+    {
+      "queryId": "q-climate-calibration-equation",
+      "evidenceId": "climate-calibration-equation",
+      "grade": 3,
+      "assessor": "benchmark-team",
+      "rationale": "Contains the calibration model and variable interpretation."
+    },
+    {
+      "queryId": "q-graphs-relax-equation",
+      "evidenceId": "graphs-relax-equation",
+      "grade": 3,
+      "assessor": "benchmark-team",
+      "rationale": "Contains the relaxation update and predecessor condition."
+    },
+    {
+      "queryId": "q-thermo-carnot-equation",
+      "evidenceId": "thermo-carnot-equation",
+      "grade": 3,
+      "assessor": "benchmark-team",
+      "rationale": "Contains the Carnot formula and the 600 K to 300 K substitution."
+    },
+    {
+      "queryId": "q-bayes-prior-robustness",
+      "evidenceId": "bayes-prior-sensitivity",
+      "grade": 3,
+      "assessor": "benchmark-team",
+      "rationale": "Recommends sensitivity analysis across plausible priors."
+    },
+    {
+      "queryId": "q-biology-secondary-energy",
+      "evidenceId": "biology-secondary-active",
+      "grade": 3,
+      "assessor": "benchmark-team",
+      "rationale": "Distinguishes the immediate transporter from the ATP-powered gradient source."
+    },
+    {
+      "queryId": "q-climate-gas-age",
+      "evidenceId": "climate-gas-ice-age",
+      "grade": 3,
+      "assessor": "benchmark-team",
+      "rationale": "Explains porous firn and delayed bubble closure."
+    },
+    {
+      "queryId": "q-graphs-dag-negative",
+      "evidenceId": "graphs-dag-negative",
+      "grade": 3,
+      "assessor": "benchmark-team",
+      "rationale": "Identifies directed acyclic graphs and topological ordering."
+    },
+    {
+      "queryId": "q-history-repeated-wire",
+      "evidenceId": "history-wire-dependence",
+      "grade": 3,
+      "assessor": "benchmark-team",
+      "rationale": "Explains why repeated dependent publication is not independent corroboration."
+    },
+    {
+      "queryId": "q-office-docx-allocation",
+      "evidenceId": "office-docx-allocation",
+      "grade": 3,
+      "assessor": "benchmark-team",
+      "rationale": "The Word memo binds ALPHA-27 to the 18 percent target."
+    },
+    {
+      "queryId": "q-office-docx-revision",
+      "evidenceId": "office-docx-allocation",
+      "grade": 3,
+      "assessor": "benchmark-team",
+      "rationale": "The approved target is required to resolve the revision conflict."
+    },
+    {
+      "queryId": "q-office-docx-revision",
+      "evidenceId": "office-docx-archived-proposal",
+      "grade": 3,
+      "assessor": "benchmark-team",
+      "rationale": "The archived proposal is required to resolve the revision conflict."
+    },
+    {
+      "queryId": "q-office-pptx-metrics",
+      "evidenceId": "office-pptx-metrics",
+      "grade": 3,
+      "assessor": "benchmark-team",
+      "rationale": "Slide two states the distinguishing behavior of MRR and nDCG."
+    },
+    {
+      "queryId": "q-office-xlsx-score",
+      "evidenceId": "office-xlsx-apollo-score",
+      "grade": 3,
+      "assessor": "benchmark-team",
+      "rationale": "The spreadsheet row pairs RUN-SHEET-842 with 0.842."
+    },
+    {
+      "queryId": "q-v03-time-column-space",
+      "evidenceId": "mit-column-space",
+      "grade": 3,
+      "assessor": "benchmark-team-v0.3",
+      "rationale": "Adjudicated evidence for the version 0.3 benchmark expansion."
+    },
+    {
+      "queryId": "q-v03-time-independent-columns",
+      "evidenceId": "mit-independent-columns",
+      "grade": 3,
+      "assessor": "benchmark-team-v0.3",
+      "rationale": "Adjudicated evidence for the version 0.3 benchmark expansion."
+    },
+    {
+      "queryId": "q-v03-time-column-basis",
+      "evidenceId": "mit-column-basis",
+      "grade": 3,
+      "assessor": "benchmark-team-v0.3",
+      "rationale": "Adjudicated evidence for the version 0.3 benchmark expansion."
+    },
+    {
+      "queryId": "q-v03-time-svd-start",
+      "evidenceId": "mit-svd-start",
+      "grade": 3,
+      "assessor": "benchmark-team-v0.3",
+      "rationale": "Adjudicated evidence for the version 0.3 benchmark expansion."
+    },
+    {
+      "queryId": "q-v03-time-svd-orthogonal",
+      "evidenceId": "mit-svd-orthogonal",
+      "grade": 3,
+      "assessor": "benchmark-team-v0.3",
+      "rationale": "Adjudicated evidence for the version 0.3 benchmark expansion."
+    },
+    {
+      "queryId": "q-v03-time-svd-rank-one",
+      "evidenceId": "mit-svd-rank-one",
+      "grade": 3,
+      "assessor": "benchmark-team-v0.3",
+      "rationale": "Adjudicated evidence for the version 0.3 benchmark expansion."
+    },
+    {
+      "queryId": "q-v03-time-sgd-heart",
+      "evidenceId": "mit-sgd-heart",
+      "grade": 3,
+      "assessor": "benchmark-team-v0.3",
+      "rationale": "Adjudicated evidence for the version 0.3 benchmark expansion."
+    },
+    {
+      "queryId": "q-v03-time-sgd-minibatch",
+      "evidenceId": "mit-sgd-minibatch",
+      "grade": 3,
+      "assessor": "benchmark-team-v0.3",
+      "rationale": "Adjudicated evidence for the version 0.3 benchmark expansion."
+    },
+    {
+      "queryId": "q-v03-time-sgd-batch-one",
+      "evidenceId": "mit-sgd-batch-one",
+      "grade": 3,
+      "assessor": "benchmark-team-v0.3",
+      "rationale": "Adjudicated evidence for the version 0.3 benchmark expansion."
+    },
+    {
+      "queryId": "q-v03-time-sgd-large-batch",
+      "evidenceId": "mit-sgd-large-batch",
+      "grade": 3,
+      "assessor": "benchmark-team-v0.3",
+      "rationale": "Adjudicated evidence for the version 0.3 benchmark expansion."
+    },
+    {
+      "queryId": "q-v03-formula-bayes-denominator",
+      "evidenceId": "bayes-normalized-equation",
+      "grade": 3,
+      "assessor": "benchmark-team-v0.3",
+      "rationale": "Adjudicated evidence for the version 0.3 benchmark expansion."
+    },
+    {
+      "queryId": "q-v03-formula-nernst-charge",
+      "evidenceId": "biology-nernst-equation",
+      "grade": 3,
+      "assessor": "benchmark-team-v0.3",
+      "rationale": "Adjudicated evidence for the version 0.3 benchmark expansion."
+    },
+    {
+      "queryId": "q-v03-formula-relax-predecessor",
+      "evidenceId": "graphs-relax-equation",
+      "grade": 3,
+      "assessor": "benchmark-team-v0.3",
+      "rationale": "Adjudicated evidence for the version 0.3 benchmark expansion."
+    },
+    {
+      "queryId": "q-v03-formula-carnot-ratio",
+      "evidenceId": "thermo-carnot-equation",
+      "grade": 3,
+      "assessor": "benchmark-team-v0.3",
+      "rationale": "Adjudicated evidence for the version 0.3 benchmark expansion."
+    },
+    {
+      "queryId": "q-v03-cross-graphs-climate",
+      "evidenceId": "graphs-relax",
+      "grade": 3,
+      "assessor": "benchmark-team-v0.3",
+      "rationale": "Adjudicated evidence for the version 0.3 benchmark expansion."
+    },
+    {
+      "queryId": "q-v03-cross-graphs-climate",
+      "evidenceId": "climate-calibration",
+      "grade": 3,
+      "assessor": "benchmark-team-v0.3",
+      "rationale": "Adjudicated evidence for the version 0.3 benchmark expansion."
+    },
+    {
+      "queryId": "q-v03-cross-biology-thermo",
+      "evidenceId": "biology-active",
+      "grade": 3,
+      "assessor": "benchmark-team-v0.3",
+      "rationale": "Adjudicated evidence for the version 0.3 benchmark expansion."
+    },
+    {
+      "queryId": "q-v03-cross-biology-thermo",
+      "evidenceId": "thermo-carnot-id",
+      "grade": 3,
+      "assessor": "benchmark-team-v0.3",
+      "rationale": "Adjudicated evidence for the version 0.3 benchmark expansion."
+    },
+    {
+      "queryId": "q-v03-cross-equations-one",
+      "evidenceId": "bayes-normalized-equation",
+      "grade": 3,
+      "assessor": "benchmark-team-v0.3",
+      "rationale": "Adjudicated evidence for the version 0.3 benchmark expansion."
+    },
+    {
+      "queryId": "q-v03-cross-equations-one",
+      "evidenceId": "climate-calibration-equation",
+      "grade": 3,
+      "assessor": "benchmark-team-v0.3",
+      "rationale": "Adjudicated evidence for the version 0.3 benchmark expansion."
+    },
+    {
+      "queryId": "q-v03-cross-equations-two",
+      "evidenceId": "biology-nernst-equation",
+      "grade": 3,
+      "assessor": "benchmark-team-v0.3",
+      "rationale": "Adjudicated evidence for the version 0.3 benchmark expansion."
+    },
+    {
+      "queryId": "q-v03-cross-equations-two",
+      "evidenceId": "graphs-relax-equation",
+      "grade": 3,
+      "assessor": "benchmark-team-v0.3",
+      "rationale": "Adjudicated evidence for the version 0.3 benchmark expansion."
+    },
+    {
+      "queryId": "q-v03-cross-method-caveats",
+      "evidenceId": "bayes-prior-sensitivity",
+      "grade": 3,
+      "assessor": "benchmark-team-v0.3",
+      "rationale": "Adjudicated evidence for the version 0.3 benchmark expansion."
+    },
+    {
+      "queryId": "q-v03-cross-method-caveats",
+      "evidenceId": "history-wire-dependence",
+      "grade": 3,
+      "assessor": "benchmark-team-v0.3",
+      "rationale": "Adjudicated evidence for the version 0.3 benchmark expansion."
+    },
+    {
+      "queryId": "q-v03-cross-energy-paths",
+      "evidenceId": "biology-secondary-active",
+      "grade": 3,
+      "assessor": "benchmark-team-v0.3",
+      "rationale": "Adjudicated evidence for the version 0.3 benchmark expansion."
+    },
+    {
+      "queryId": "q-v03-cross-energy-paths",
+      "evidenceId": "thermo-carnot-equation",
+      "grade": 3,
+      "assessor": "benchmark-team-v0.3",
+      "rationale": "Adjudicated evidence for the version 0.3 benchmark expansion."
+    },
+    {
+      "queryId": "q-v03-cross-ordering-evidence",
+      "evidenceId": "graphs-dag-negative",
+      "grade": 3,
+      "assessor": "benchmark-team-v0.3",
+      "rationale": "Adjudicated evidence for the version 0.3 benchmark expansion."
+    },
+    {
+      "queryId": "q-v03-cross-ordering-evidence",
+      "evidenceId": "history-criticism",
+      "grade": 3,
+      "assessor": "benchmark-team-v0.3",
+      "rationale": "Adjudicated evidence for the version 0.3 benchmark expansion."
+    },
+    {
+      "queryId": "q-v03-cross-office-eval",
+      "evidenceId": "office-docx-allocation",
+      "grade": 3,
+      "assessor": "benchmark-team-v0.3",
+      "rationale": "Adjudicated evidence for the version 0.3 benchmark expansion."
+    },
+    {
+      "queryId": "q-v03-cross-office-eval",
+      "evidenceId": "office-pptx-metrics",
+      "grade": 3,
+      "assessor": "benchmark-team-v0.3",
+      "rationale": "Adjudicated evidence for the version 0.3 benchmark expansion."
+    },
+    {
+      "queryId": "q-v03-cross-colbert-sheet",
+      "evidenceId": "external-colbert-compression",
+      "grade": 3,
+      "assessor": "benchmark-team-v0.3",
+      "rationale": "Adjudicated evidence for the version 0.3 benchmark expansion."
+    },
+    {
+      "queryId": "q-v03-cross-colbert-sheet",
+      "evidenceId": "office-xlsx-apollo-score",
+      "grade": 3,
+      "assessor": "benchmark-team-v0.3",
+      "rationale": "Adjudicated evidence for the version 0.3 benchmark expansion."
+    },
+    {
+      "queryId": "q-v03-hop-gradient-transport",
+      "evidenceId": "biology-secondary-active",
+      "grade": 3,
+      "assessor": "benchmark-team-v0.3",
+      "rationale": "Adjudicated evidence for the version 0.3 benchmark expansion."
+    },
+    {
+      "queryId": "q-v03-hop-gradient-transport",
+      "evidenceId": "bayes-prior-sensitivity",
+      "grade": 3,
+      "assessor": "benchmark-team-v0.3",
+      "rationale": "Adjudicated evidence for the version 0.3 benchmark expansion."
+    },
+    {
+      "queryId": "q-v03-hop-dag-corroboration",
+      "evidenceId": "graphs-dag-negative",
+      "grade": 3,
+      "assessor": "benchmark-team-v0.3",
+      "rationale": "Adjudicated evidence for the version 0.3 benchmark expansion."
+    },
+    {
+      "queryId": "q-v03-hop-dag-corroboration",
+      "evidenceId": "history-wire-dependence",
+      "grade": 3,
+      "assessor": "benchmark-team-v0.3",
+      "rationale": "Adjudicated evidence for the version 0.3 benchmark expansion."
+    },
+    {
+      "queryId": "q-v03-hop-proxy-prior",
+      "evidenceId": "climate-calibration-equation",
+      "grade": 3,
+      "assessor": "benchmark-team-v0.3",
+      "rationale": "Adjudicated evidence for the version 0.3 benchmark expansion."
+    },
+    {
+      "queryId": "q-v03-hop-proxy-prior",
+      "evidenceId": "bayes-prior-sensitivity",
+      "grade": 3,
+      "assessor": "benchmark-team-v0.3",
+      "rationale": "Adjudicated evidence for the version 0.3 benchmark expansion."
+    },
+    {
+      "queryId": "q-v03-hop-entropy-membrane",
+      "evidenceId": "thermo-entropy",
+      "grade": 3,
+      "assessor": "benchmark-team-v0.3",
+      "rationale": "Adjudicated evidence for the version 0.3 benchmark expansion."
+    },
+    {
+      "queryId": "q-v03-hop-entropy-membrane",
+      "evidenceId": "biology-secondary-active",
+      "grade": 3,
+      "assessor": "benchmark-team-v0.3",
+      "rationale": "Adjudicated evidence for the version 0.3 benchmark expansion."
+    },
+    {
+      "queryId": "q-v03-hop-colbert-graph",
+      "evidenceId": "external-colbert-compression",
+      "grade": 3,
+      "assessor": "benchmark-team-v0.3",
+      "rationale": "Adjudicated evidence for the version 0.3 benchmark expansion."
+    },
+    {
+      "queryId": "q-v03-hop-colbert-graph",
+      "evidenceId": "graphs-relax-equation",
+      "grade": 3,
+      "assessor": "benchmark-team-v0.3",
+      "rationale": "Adjudicated evidence for the version 0.3 benchmark expansion."
+    },
+    {
+      "queryId": "q-v03-hop-office-ranking",
+      "evidenceId": "office-xlsx-apollo-score",
+      "grade": 3,
+      "assessor": "benchmark-team-v0.3",
+      "rationale": "Adjudicated evidence for the version 0.3 benchmark expansion."
+    },
+    {
+      "queryId": "q-v03-hop-office-ranking",
+      "evidenceId": "office-pptx-metrics",
+      "grade": 3,
+      "assessor": "benchmark-team-v0.3",
+      "rationale": "Adjudicated evidence for the version 0.3 benchmark expansion."
+    },
+    {
+      "queryId": "q-v03-hop-climate-history",
+      "evidenceId": "climate-tree",
+      "grade": 3,
+      "assessor": "benchmark-team-v0.3",
+      "rationale": "Adjudicated evidence for the version 0.3 benchmark expansion."
+    },
+    {
+      "queryId": "q-v03-hop-climate-history",
+      "evidenceId": "history-wire-dependence",
+      "grade": 3,
+      "assessor": "benchmark-team-v0.3",
+      "rationale": "Adjudicated evidence for the version 0.3 benchmark expansion."
+    },
+    {
+      "queryId": "q-v03-hop-screening-source-two",
+      "evidenceId": "bayes-screening",
+      "grade": 3,
+      "assessor": "benchmark-team-v0.3",
+      "rationale": "Adjudicated evidence for the version 0.3 benchmark expansion."
+    },
+    {
+      "queryId": "q-v03-hop-screening-source-two",
+      "evidenceId": "history-criticism",
+      "grade": 3,
+      "assessor": "benchmark-team-v0.3",
+      "rationale": "Adjudicated evidence for the version 0.3 benchmark expansion."
+    },
+    {
+      "queryId": "q-v03-para-bayes-two",
+      "evidenceId": "bayes-prior-sensitivity",
+      "grade": 3,
+      "assessor": "benchmark-team-v0.3",
+      "rationale": "Adjudicated evidence for the version 0.3 benchmark expansion."
+    },
+    {
+      "queryId": "q-v03-para-dag-two",
+      "evidenceId": "graphs-dag-negative",
+      "grade": 3,
+      "assessor": "benchmark-team-v0.3",
+      "rationale": "Adjudicated evidence for the version 0.3 benchmark expansion."
+    },
+    {
+      "queryId": "q-v03-para-wire-two",
+      "evidenceId": "history-wire-dependence",
+      "grade": 3,
+      "assessor": "benchmark-team-v0.3",
+      "rationale": "Adjudicated evidence for the version 0.3 benchmark expansion."
+    }
+  ]
+}
