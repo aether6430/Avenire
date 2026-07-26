@@ -87,15 +87,23 @@ async function runWorkspaceVectorSearchApi(
     return { error: null, results: [] };
   }
 
-  const response = await fetch("/api/ai/retrieval/query", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      workspaceUuid,
-      query,
-      limit: 24,
-    }),
-  });
+  let response: Response;
+  try {
+    response = await fetch("/api/ai/retrieval/query", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        workspaceUuid,
+        query,
+        limit: 24,
+      }),
+    });
+  } catch {
+    return {
+      error: "Search is temporarily unavailable. Try again.",
+      results: [],
+    };
+  }
 
   if (!response.ok) {
     const body = (await response.json().catch(() => null)) as {
@@ -251,7 +259,7 @@ const StylizedSearchBar = memo(function StylizedSearchBar({
     setResults(searchResponse.results);
     setSearchError(searchResponse.error);
     setIsSearching(false);
-    onApplyWorkspaceFilter?.(itemIds);
+    onApplyWorkspaceFilter?.(searchResponse.error ? null : itemIds);
     onSearch?.(trimmed, searchResponse.results);
   };
 

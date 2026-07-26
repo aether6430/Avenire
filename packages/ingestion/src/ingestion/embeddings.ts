@@ -28,23 +28,20 @@ const fetchWithTimeout = async (
   init: RequestInit,
   timeoutMs: number
 ): Promise<Response> => {
-  const controller = new AbortController();
-  let timeout: ReturnType<typeof setTimeout> | undefined;
-  const timeoutFailure = new Promise<never>((_resolve, reject) => {
-    timeout = setTimeout(() => {
-      controller.abort();
-      reject(new Error(`Cohere request timed out after ${timeoutMs}ms`));
-    }, timeoutMs);
-  });
+  const timeoutSignal = AbortSignal.timeout(timeoutMs);
+  const signal = init.signal
+    ? AbortSignal.any([init.signal, timeoutSignal])
+    : timeoutSignal;
+
   try {
-    return await Promise.race([
-      fetch(url, { ...init, signal: controller.signal }),
-      timeoutFailure,
-    ]);
-  } finally {
-    if (timeout) {
-      clearTimeout(timeout);
+    return await fetch(url, { ...init, signal });
+  } catch (error) {
+    if (timeoutSignal.aborted && !init.signal?.aborted) {
+      throw new Error(`Cohere request timed out after ${timeoutMs}ms`, {
+        cause: error,
+      });
     }
+    throw error;
   }
 };
 

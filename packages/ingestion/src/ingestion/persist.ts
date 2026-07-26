@@ -8,6 +8,7 @@ import {
   upsertIngestionResource,
 } from "@avenire/database";
 import { config } from "../config";
+import { runWithConcurrency } from "../utils/concurrency";
 import {
   embedMultimodal,
   type MultimodalInput,
@@ -104,34 +105,6 @@ const splitIntoBatches = <T>(values: T[], batchSize: number): T[][] => {
     out.push(values.slice(i, i + batchSize));
   }
   return out;
-};
-
-const runWithConcurrency = async <T>(
-  values: T[],
-  concurrency: number,
-  run: (value: T, index: number) => Promise<void>
-): Promise<void> => {
-  if (values.length === 0) {
-    return;
-  }
-
-  const limit = Math.max(1, Math.floor(concurrency));
-  let cursor = 0;
-  const workers = Array.from(
-    { length: Math.min(limit, values.length) },
-    async () => {
-      while (true) {
-        const current = cursor;
-        cursor += 1;
-        if (current >= values.length) {
-          return;
-        }
-        await run(values[current] as T, current);
-      }
-    }
-  );
-
-  await Promise.all(workers);
 };
 
 const logPersistStageTiming = (params: {

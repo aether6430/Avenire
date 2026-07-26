@@ -62,7 +62,7 @@ describe("video helpers", () => {
   it("parses SRT and WebVTT cues into timestamped transcript segments", () => {
     expect(
       parseSubtitleSegments(
-        "WEBVTT\n\n00:00:01.500 --> 00:00:03.250 align:start\nFirst <b>matrix</b> point.\n\n2\n00:00:04,000 --> 00:00:06,500\nSecond point."
+        "WEBVTT\n\n00:00:01.500\t-->\t00:00:03.250 align:start\nFirst <b>matrix</b> point.\n\n2\n00:00:04,000 --> 00:00:06,500\nSecond point."
       )
     ).toEqual([
       { startMs: 1500, endMs: 3250, text: "First matrix point" },

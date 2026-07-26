@@ -327,9 +327,6 @@ const normalizeUploadThingStorageUrl = (
   }
 
   const host = parsed.hostname.toLowerCase();
-  if (host.endsWith(".ufs.sh")) {
-    return storageUrl;
-  }
   if (host !== "utfs.io") {
     return storageUrl;
   }
@@ -600,6 +597,11 @@ export const ingestStoredFile = async (input: {
   ) {
     const transcript = await fetchRemoteText(resolvedStorageUrl);
     const transcriptSegments = parseSubtitleSegments(transcript);
+    if (transcriptSegments.length === 0) {
+      throw new Error(
+        "Subtitle ingestion requires at least one valid timestamped cue."
+      );
+    }
     resources = [
       await ingestVideo({
         source: resolvedStorageUrl,

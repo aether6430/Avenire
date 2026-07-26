@@ -58,10 +58,10 @@ import {
   isFragmentaryChunk,
   isLikelyNoisyText,
   lexicalOverlapScore,
-  shouldAbstainFromRetrieval,
   type RetrievalTraceSnapshot,
   retrieveRelevantChunks,
   retrieveRelevantChunksAdaptive,
+  shouldAbstainFromRetrieval,
   temporalProximityMultiplier,
 } from "./retrieve";
 
@@ -388,7 +388,11 @@ describe("retrieveRelevantChunks", () => {
       }
     );
     expect(mocks.embedMultimodal).toHaveBeenCalledTimes(1);
-    expect(searchLexical).toHaveBeenCalledTimes(2);
+    expect(searchLexical).toHaveBeenCalledTimes(1);
+    expect(searchLexical).toHaveBeenCalledWith(
+      "show the cell membrane diagram",
+      expect.any(Object)
+    );
     expect(searchTrigram).not.toHaveBeenCalled();
     expect(
       search.mock.calls.some((call) => call[1]?.filter?.sourceType === "video")

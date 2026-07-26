@@ -191,13 +191,7 @@ export const semanticChunkText = (params: {
       continue;
     }
 
-    const words = paragraph.split(" ");
-    if (words.length <= MAX_CHUNK_WORDS) {
-      appendText(paragraph);
-      continue;
-    }
-
-    chunks.push(...splitChunkByWords(paragraph, buildChunk));
+    appendText(paragraph);
   }
 
   chunks.forEach((chunk, index) => {

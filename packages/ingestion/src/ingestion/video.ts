@@ -118,7 +118,7 @@ export const parseSubtitleSegments = (value: string): TranscriptSegment[] =>
         .split(/\r?\n/)
         .map((line) => line.trim())
         .filter(Boolean);
-      const timingIndex = lines.findIndex((line) => line.includes(" --> "));
+      const timingIndex = lines.findIndex((line) => /\s*-->\s*/.test(line));
       if (timingIndex < 0) {
         return [];
       }

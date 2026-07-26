@@ -207,6 +207,14 @@ export const config = {
     process.env.INGESTION_PDF_FETCH_TIMEOUT_MS ?? "20000",
     10
   ),
+  pdfFetchConcurrency: Number.parseInt(
+    process.env.INGESTION_PDF_FETCH_CONCURRENCY ?? "2",
+    10
+  ),
+  remotePdfMaxBytes: Number.parseInt(
+    process.env.INGESTION_REMOTE_PDF_MAX_BYTES ?? "52428800",
+    10
+  ),
 };
 
 export const assertRequiredSecrets = (): void => {

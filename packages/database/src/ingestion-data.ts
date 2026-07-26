@@ -626,9 +626,7 @@ export async function updateLinkPreviewMetadataAfterIngestion(input: {
       ? existing.metadata
       : {};
     const page = isMetadataRecord(metadata.page) ? metadata.page : {};
-    const properties = isMetadataRecord(page.properties)
-      ? page.properties
-      : {};
+    const properties = isMetadataRecord(page.properties) ? page.properties : {};
     const pendingFavicon = new URL("/favicon.ico", input.sourceUrl).toString();
     const currentIcon = page.icon;
     const canReplaceIcon =
@@ -1431,15 +1429,15 @@ export async function retrieveWorkspaceChunksTrigram(input: {
       c.content AS "content",
       c.metadata AS "metadata",
       CASE
-        WHEN regexp_replace(translate(lower(c.content), '−–—', '---'), '\\s+', '', 'g') LIKE lower(${pattern}) ESCAPE '\\' THEN 1
+        WHEN regexp_replace(translate(lower(normalize(c.content, NFKC)), '−–—', '---'), '\\s+', '', 'g') LIKE lower(${pattern}) ESCAPE '\\' THEN 1
         ELSE 0
-      END + similarity(regexp_replace(translate(c.content, '−–—', '---'), '\\s+', '', 'g'), ${query}) AS "score"
+      END + similarity(regexp_replace(translate(normalize(c.content, NFKC), '−–—', '---'), '\\s+', '', 'g'), ${query}) AS "score"
     FROM ingestion_chunk c
     INNER JOIN ingestion_resource r ON r.id = c.resource_id
     LEFT JOIN file_asset f ON f.id = r.file_id
     WHERE ${whereClause}
       AND (r.file_id IS NULL OR f.deleted_at IS NULL)
-      AND regexp_replace(translate(c.content, '−–—', '---'), '\\s+', '', 'g') ILIKE ${pattern} ESCAPE '\\'
+      AND regexp_replace(translate(normalize(c.content, NFKC), '−–—', '---'), '\\s+', '', 'g') ILIKE ${pattern} ESCAPE '\\'
     ORDER BY "score" DESC, c.chunk_index ASC
     LIMIT ${Math.max(1, input.limit)}
   `);

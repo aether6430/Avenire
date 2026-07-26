@@ -94,14 +94,22 @@ export const ingestImage = async (input: {
     image_base64: string;
     mimeType?: string;
   };
-  let remoteImageUrl: string | undefined;
-
   if (input.url) {
     const imageUrl = assertSafeUrl(input.url).toString();
-    remoteImageUrl = imageUrl;
-    const response = await safeRemoteFetch(imageUrl);
+    const response = await safeRemoteFetch(imageUrl, {
+      timeoutMs: config.remoteFetchTimeoutMs,
+    });
     if (!response.ok) {
       throw new Error(`Unable to fetch image (${response.status})`);
+    }
+    const mimeType =
+      response.headers
+        .get("content-type")
+        ?.split(";")[0]
+        ?.trim()
+        .toLowerCase() || "image/jpeg";
+    if (!mimeType.startsWith("image/")) {
+      throw new Error(`Unexpected image content type: ${mimeType}`);
     }
     const bytes = new Uint8Array(await response.arrayBuffer());
     assertMaxSize(
@@ -109,9 +117,6 @@ export const ingestImage = async (input: {
       bytes.byteLength,
       config.maxInlineBytes
     );
-    const mimeType =
-      response.headers.get("content-type")?.split(";")[0]?.trim() ||
-      "image/jpeg";
     imagePart = {
       type: "image_base64",
       image_base64: Buffer.from(bytes).toString("base64"),
@@ -139,11 +144,7 @@ export const ingestImage = async (input: {
   }
 
   const imageDescription = await describeImageWithMistral({
-    imageDataUrl:
-      remoteImageUrl === undefined
-        ? `data:${imagePart.mimeType || "image/jpeg"};base64,${imagePart.image_base64}`
-        : undefined,
-    imageUrl: remoteImageUrl,
+    imageDataUrl: `data:${imagePart.mimeType || "image/jpeg"};base64,${imagePart.image_base64}`,
     title: input.title,
     contextText: input.contextText,
   });

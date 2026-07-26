@@ -1,6 +1,7 @@
 import { Mistral } from "@mistralai/mistralai";
 import { config } from "../config";
-import { assertSafeUrl, safeRemoteFetch } from "../utils/safety";
+import { mapWithConcurrency } from "../utils/concurrency";
+import { assertMaxSize, assertSafeUrl, safeRemoteFetch } from "../utils/safety";
 import { semanticChunkText } from "./chunking";
 import type { CanonicalResource } from "./types";
 
@@ -151,7 +152,25 @@ const extractNativePdfResource = async (
     }
 
     const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
+    if (!pdfjs.GlobalWorkerOptions.workerSrc) {
+      pdfjs.GlobalWorkerOptions.workerSrc = import.meta.resolve(
+        "pdfjs-dist/legacy/build/pdf.worker.mjs"
+      );
+    }
+    const contentLength = response.headers.get("content-length");
+    if (contentLength) {
+      assertMaxSize(
+        "remote PDF payload",
+        Number(contentLength),
+        config.remotePdfMaxBytes
+      );
+    }
     const bytes = new Uint8Array(await response.arrayBuffer());
+    assertMaxSize(
+      "remote PDF payload",
+      bytes.byteLength,
+      config.remotePdfMaxBytes
+    );
     const document = await pdfjs.getDocument({ data: bytes }).promise;
 
     try {
@@ -649,8 +668,10 @@ export const ingestPdfs = async (
   includeImageBase64 = false
 ): Promise<CanonicalResource[]> => {
   const safeUrls = urls.map((url) => assertSafeUrl(url).toString());
-  const nativeResources = await Promise.all(
-    safeUrls.map((source) => extractNativePdfResource(source))
+  const nativeResources = await mapWithConcurrency(
+    safeUrls,
+    config.pdfFetchConcurrency,
+    extractNativePdfResource
   );
   const ocrFallbacks = safeUrls.flatMap((source, index) =>
     nativeResources[index]
@@ -674,13 +695,9 @@ export const ingestPdfs = async (
   }
 
   const fallbackResources = new Map<number, CanonicalResource>();
-  for (let index = 0; index < ocrFallbacks.length; index += 1) {
-    const fallback = ocrFallbacks[index];
-    if (!fallback) {
-      continue;
-    }
+  for (const [batchPosition, fallback] of ocrFallbacks.entries()) {
     const ocr =
-      batchResults?.get(`pdf-${index}`) ??
+      batchResults?.get(`pdf-${batchPosition}`) ??
       (await ocrSingleDocument(fallback.document, includeImageBase64));
     fallbackResources.set(
       fallback.index,
