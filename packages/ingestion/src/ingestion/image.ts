@@ -81,6 +81,69 @@ const describeImageWithMistral = async (input: {
   }
 };
 
+interface ImageByteResponse {
+  body: {
+    getReader: () => {
+      cancel: () => Promise<void>;
+      read: () => Promise<{ done: boolean; value?: Uint8Array }>;
+      releaseLock: () => void;
+    };
+  } | null;
+  headers: {
+    get: (name: string) => string | null;
+  };
+}
+
+const readBoundedImageBytes = async (
+  response: ImageByteResponse,
+  maxBytes: number
+): Promise<Uint8Array> => {
+  const contentLength = response.headers.get("content-length");
+  if (contentLength) {
+    const declaredBytes = Number(contentLength);
+    if (Number.isFinite(declaredBytes) && declaredBytes >= 0) {
+      assertMaxSize("remote image payload", declaredBytes, maxBytes);
+    }
+  }
+
+  if (!response.body) {
+    return new Uint8Array();
+  }
+
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let totalBytes = 0;
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) {
+        break;
+      }
+      if (!value) {
+        continue;
+      }
+
+      totalBytes += value.byteLength;
+      assertMaxSize("remote image payload", totalBytes, maxBytes);
+      chunks.push(value);
+    }
+  } catch (error) {
+    await reader.cancel().catch(() => undefined);
+    throw error;
+  } finally {
+    reader.releaseLock();
+  }
+
+  const bytes = new Uint8Array(totalBytes);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return bytes;
+};
+
 export const ingestImage = async (input: {
   url?: string;
   base64?: string;
@@ -111,12 +174,7 @@ export const ingestImage = async (input: {
     if (!mimeType.startsWith("image/")) {
       throw new Error(`Unexpected image content type: ${mimeType}`);
     }
-    const bytes = new Uint8Array(await response.arrayBuffer());
-    assertMaxSize(
-      "remote image payload",
-      bytes.byteLength,
-      config.maxInlineBytes
-    );
+    const bytes = await readBoundedImageBytes(response, config.maxInlineBytes);
     imagePart = {
       type: "image_base64",
       image_base64: Buffer.from(bytes).toString("base64"),
