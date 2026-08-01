@@ -27,7 +27,8 @@
   },
   "pnpm": {
     "patchedDependencies": {
-      "@anaralabs/lector@3.8.0": "patches/@anaralabs__lector@3.8.0.patch"
+      "@anaralabs/lector@3.8.0": "patches/@anaralabs__lector@3.8.0.patch",
+      "officeparser@7.2.3": "patches/officeparser@7.2.3.patch"
     },
     "overrides": {
       "@xmldom/xmldom": "0.8.13",

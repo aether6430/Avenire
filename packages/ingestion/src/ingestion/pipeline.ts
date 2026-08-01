@@ -14,7 +14,7 @@ import { ingestPdfs } from "./ocr";
 import { ingestOfficeDocument } from "./office";
 import { persistCanonicalResource } from "./persist";
 import type { CanonicalResource, IngestResponse } from "./types";
-import { ingestVideo } from "./video";
+import { ingestVideo, parseSubtitleSegments } from "./video";
 
 const logCorpusGrowth = async (
   before: Awaited<ReturnType<PostgresVectorStore["corpusStats"]>>,
@@ -129,6 +129,12 @@ const inferMimeTypeFromName = (fileName: string): string | null => {
   }
   if (normalizedName.endsWith(".txt")) {
     return "text/plain";
+  }
+  if (normalizedName.endsWith(".srt")) {
+    return "application/x-subrip";
+  }
+  if (normalizedName.endsWith(".vtt")) {
+    return "text/vtt";
   }
   if (normalizedName.endsWith(".url")) {
     return "application/url";
@@ -321,8 +327,7 @@ const normalizeUploadThingStorageUrl = (
   }
 
   const host = parsed.hostname.toLowerCase();
-  const isUploadThingHost = host === "utfs.io" || host.endsWith(".ufs.sh");
-  if (!isUploadThingHost) {
+  if (host !== "utfs.io") {
     return storageUrl;
   }
 
@@ -364,7 +369,13 @@ async function readTextResponseWithLimit(
 ): Promise<string> {
   const stream = response.body;
   if (!stream) {
-    return await response.text();
+    const content = await response.text();
+    if (content.length > maxChars) {
+      throw new Error(
+        `Remote text payload exceeds limit (${content.length} > ${maxChars} chars).`
+      );
+    }
+    return content;
   }
 
   const reader = stream.getReader();
@@ -372,7 +383,7 @@ async function readTextResponseWithLimit(
   let content = "";
 
   try {
-    while (content.length < maxChars) {
+    while (content.length <= maxChars) {
       const { done, value } = await reader.read();
       if (done) {
         break;
@@ -382,7 +393,7 @@ async function readTextResponseWithLimit(
       }
 
       content += decoder.decode(value, { stream: true });
-      if (content.length >= maxChars) {
+      if (content.length > maxChars) {
         break;
       }
     }
@@ -392,7 +403,12 @@ async function readTextResponseWithLimit(
   }
 
   content += decoder.decode();
-  return content.slice(0, maxChars);
+  if (content.length > maxChars) {
+    throw new Error(
+      `Remote text payload exceeds limit (${content.length} > ${maxChars} chars).`
+    );
+  }
+  return content;
 }
 
 async function fetchRemoteText(url: string) {
@@ -543,7 +559,7 @@ export const ingestStoredFile = async (input: {
   } else if (typeof input.content === "string") {
     resources = [
       ingestMarkdown({
-        markdown: input.content.slice(0, config.maxMarkdownChars),
+        markdown: input.content,
         source: `note:${input.fileId}`,
         title: input.fileName,
       }),
@@ -570,6 +586,27 @@ export const ingestStoredFile = async (input: {
     resources = [
       await ingestImage({
         url: resolvedStorageUrl,
+        title: input.fileName,
+      }),
+    ];
+  } else if (
+    mime === "application/x-subrip" ||
+    mime === "text/vtt" ||
+    input.fileName.toLowerCase().endsWith(".srt") ||
+    input.fileName.toLowerCase().endsWith(".vtt")
+  ) {
+    const transcript = await fetchRemoteText(resolvedStorageUrl);
+    const transcriptSegments = parseSubtitleSegments(transcript);
+    if (transcriptSegments.length === 0) {
+      throw new Error(
+        "Subtitle ingestion requires at least one valid timestamped cue."
+      );
+    }
+    resources = [
+      await ingestVideo({
+        source: resolvedStorageUrl,
+        transcript: transcriptSegments.map((segment) => segment.text).join(" "),
+        transcriptSegments,
         title: input.fileName,
       }),
     ];
@@ -603,7 +640,7 @@ export const ingestStoredFile = async (input: {
     const markdown = await fetchRemoteText(resolvedStorageUrl);
     resources = [
       ingestMarkdown({
-        markdown: markdown.slice(0, config.maxMarkdownChars),
+        markdown,
         source: resolvedStorageUrl,
         title: input.fileName,
       }),

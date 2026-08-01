@@ -57,6 +57,11 @@ interface StylizedSearchBarProps {
   workspaceUuid: string;
 }
 
+interface WorkspaceSearchApiResponse {
+  error: string | null;
+  results: WorkspaceSearchResult[];
+}
+
 const sanitizeSnippet = (value: string): string => {
   const cleaned = value
     .replace(/\[https?:\/\/[^\]\s]+,\s*p\.?\s*\d+\]\s*/gi, "")
@@ -76,31 +81,48 @@ async function runWorkspaceVectorSearchApi(
   searchQuery: string,
   workspaceUuid: string,
   items: WorkspaceSearchItem[]
-): Promise<WorkspaceSearchResult[]> {
+): Promise<WorkspaceSearchApiResponse> {
   const query = searchQuery.trim();
   if (!query) {
-    return [];
+    return { error: null, results: [] };
   }
 
-  const response = await fetch("/api/ai/retrieval/query", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      workspaceUuid,
-      query,
-      limit: 24,
-    }),
-  });
+  let response: Response;
+  try {
+    response = await fetch("/api/ai/retrieval/query", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        workspaceUuid,
+        query,
+        limit: 24,
+      }),
+    });
+  } catch {
+    return {
+      error: "Search is temporarily unavailable. Try again.",
+      results: [],
+    };
+  }
 
   if (!response.ok) {
-    return [];
+    const body = (await response.json().catch(() => null)) as {
+      error?: string;
+    } | null;
+    return {
+      error: body?.error ?? "Search is temporarily unavailable. Try again.",
+      results: [],
+    };
   }
 
   const payload = retrievalQueryResponseSchema.safeParse(
     await response.json().catch(() => null)
   );
   if (!payload.success) {
-    return [];
+    return {
+      error: "Search returned an invalid response. Try again.",
+      results: [],
+    };
   }
 
   const filesById = new Map(
@@ -114,35 +136,34 @@ async function runWorkspaceVectorSearchApi(
       continue;
     }
     const item = filesById.get(fileId);
-    if (!item) {
-      continue;
-    }
-
-    const snippet = sanitizeSnippet(result.content || item.snippet);
+    const snippet = sanitizeSnippet(result.content || item?.snippet || "");
     if (!snippet) {
       continue;
     }
 
     mapped.push({
       chunkId: result.chunkId,
-      description: item.description,
+      description: item?.description ?? result.sourceType ?? "Indexed file",
       endMs: result.endMs ?? null,
       fileId,
       highlightText: (result.content || "").trim(),
-      id: item.id,
+      id: item?.id ?? fileId,
       page: result.page ?? null,
       score: result.rerankScore ?? result.score ?? 0,
       snippet,
       sourceType: result.sourceType,
       startMs: result.startMs ?? null,
-      title: item.title,
+      title: item?.title ?? result.title?.trim() ?? "Indexed file",
       type: "file",
     });
   }
 
-  return mapped.sort(
-    (a, b) => b.score - a.score || a.title.localeCompare(b.title)
-  );
+  return {
+    error: null,
+    results: mapped.toSorted(
+      (a, b) => b.score - a.score || a.title.localeCompare(b.title)
+    ),
+  };
 }
 
 const StylizedSearchBar = memo(function StylizedSearchBar({
@@ -158,6 +179,7 @@ const StylizedSearchBar = memo(function StylizedSearchBar({
 }: StylizedSearchBarProps) {
   const [query, setQuery] = useState(initialQuery);
   const [isSearching, setIsSearching] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
   const [results, setResults] =
     useState<WorkspaceSearchResult[]>(initialResults);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -196,6 +218,7 @@ const StylizedSearchBar = memo(function StylizedSearchBar({
 
     latestSearchRequestRef.current += 1;
     setResults([]);
+    setSearchError(null);
     setIsSearching(false);
     onApplyWorkspaceFilterRef.current?.(null);
     onSearchRef.current?.("", []);
@@ -206,6 +229,7 @@ const StylizedSearchBar = memo(function StylizedSearchBar({
     if (!trimmed) {
       latestSearchRequestRef.current += 1;
       setResults([]);
+      setSearchError(null);
       setIsSearching(false);
       onApplyWorkspaceFilter?.(null);
       onSearch?.("", []);
@@ -216,7 +240,7 @@ const StylizedSearchBar = memo(function StylizedSearchBar({
     latestSearchRequestRef.current = requestId;
     setIsSearching(true);
 
-    const vectorResults = await runWorkspaceVectorSearchApi(
+    const searchResponse = await runWorkspaceVectorSearchApi(
       trimmed,
       workspaceUuid,
       items
@@ -227,13 +251,16 @@ const StylizedSearchBar = memo(function StylizedSearchBar({
     }
 
     const itemIds = Array.from(
-      new Set(vectorResults.map((result) => result.fileId ?? result.id))
+      new Set(
+        searchResponse.results.map((result) => result.fileId ?? result.id)
+      )
     );
 
-    setResults(vectorResults);
+    setResults(searchResponse.results);
+    setSearchError(searchResponse.error);
     setIsSearching(false);
-    onApplyWorkspaceFilter?.(itemIds);
-    onSearch?.(trimmed, vectorResults);
+    onApplyWorkspaceFilter?.(searchResponse.error ? null : itemIds);
+    onSearch?.(trimmed, searchResponse.results);
   };
 
   return (
@@ -292,7 +319,8 @@ const StylizedSearchBar = memo(function StylizedSearchBar({
                     <span>
                       {isSearching
                         ? "Searching indexed workspace content"
-                        : `${matchingFileCount} matching file${matchingFileCount === 1 ? "" : "s"}`}
+                        : (searchError ??
+                          `${matchingFileCount} matching file${matchingFileCount === 1 ? "" : "s"}`)}
                     </span>
                   </div>
                 ) : null}

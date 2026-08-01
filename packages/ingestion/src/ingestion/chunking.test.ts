@@ -150,6 +150,22 @@ describe("semanticChunkText", () => {
     expect(chunks[1]?.content.includes("word340")).toBe(true);
   });
 
+  it("splits oversized heading sections instead of creating an outlier chunk", () => {
+    const chunks = semanticChunkText({
+      text: `## Long section\n\n${makeWordSequence(700)}`,
+      sourceType: "markdown",
+      source: "long-section.md",
+    });
+
+    expect(chunks.length).toBeGreaterThan(2);
+    expect(
+      chunks.every((chunk) => chunk.content.split(" ").length <= 315)
+    ).toBe(true);
+    expect(chunks.map((chunk) => chunk.chunkIndex)).toEqual(
+      chunks.map((_, index) => index)
+    );
+  });
+
   it("allows public 172.200.x.x urls while still blocking private 172.20.x.x ingestion hosts", () => {
     expect(assertSafeUrl("https://172.200.10.5/resource").toString()).toBe(
       "https://172.200.10.5/resource"

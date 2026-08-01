@@ -23,6 +23,28 @@ const sleep = async (ms: number): Promise<void> =>
     setTimeout(resolve, ms);
   });
 
+const fetchWithTimeout = async (
+  url: string,
+  init: RequestInit,
+  timeoutMs: number
+): Promise<Response> => {
+  const timeoutSignal = AbortSignal.timeout(timeoutMs);
+  const signal = init.signal
+    ? AbortSignal.any([init.signal, timeoutSignal])
+    : timeoutSignal;
+
+  try {
+    return await fetch(url, { ...init, signal });
+  } catch (error) {
+    if (timeoutSignal.aborted && !init.signal?.aborted) {
+      throw new Error(`Cohere request timed out after ${timeoutMs}ms`, {
+        cause: error,
+      });
+    }
+    throw error;
+  }
+};
+
 const estimateInputTokens = (value: MultimodalInput): number => {
   let total = 0;
 
@@ -32,7 +54,9 @@ const estimateInputTokens = (value: MultimodalInput): number => {
       continue;
     }
 
-    total += config.cohereImageTokenEstimate;
+    total += Number.isFinite(config.cohereImageTokenEstimate)
+      ? Math.max(1, config.cohereImageTokenEstimate)
+      : 1200;
   }
 
   const safetyFactor = Number.isFinite(config.cohereTokenEstimateSafetyFactor)
@@ -275,22 +299,26 @@ const fetchCohereEmbeddings = async (params: {
   let trialRateLimitRetries = 0;
   for (let attempt = 1; ; attempt += 1) {
     await reserveCohereRequest();
-    const response = await fetch(COHERE_EMBED_URL, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${config.cohereApiKey}`,
-        "Content-Type": "application/json",
+    const response = await fetchWithTimeout(
+      COHERE_EMBED_URL,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${config.cohereApiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: config.cohereEmbedModel,
+          input_type: params.inputType,
+          embedding_types: ["float"],
+          output_dimension: config.embeddingDimensions,
+          inputs: params.values.map((value) => ({
+            content: toCohereContent(value),
+          })),
+        }),
       },
-      body: JSON.stringify({
-        model: config.cohereEmbedModel,
-        input_type: params.inputType,
-        embedding_types: ["float"],
-        output_dimension: config.embeddingDimensions,
-        inputs: params.values.map((value) => ({
-          content: toCohereContent(value),
-        })),
-      }),
-    });
+      Math.max(1000, config.cohereRequestTimeoutMs)
+    );
 
     if (response.status !== 429) {
       if (config.cohereTestSafeMode && config.cohereTestAdaptiveMode) {
@@ -363,10 +391,24 @@ export const embedMultimodal = async (
   const embeddings: number[][] = [];
 
   for (const batch of batches) {
-    let response = await fetchCohereEmbeddings({
-      values: batch,
-      inputType,
-    });
+    let response: Response;
+    try {
+      response = await fetchCohereEmbeddings({
+        values: batch,
+        inputType,
+      });
+    } catch (error) {
+      if (!batchHasImageContent(batch)) {
+        throw error;
+      }
+      console.warn(
+        `Cohere multimodal embedding request failed before a response: ${error instanceof Error ? error.message : String(error)}; retrying batch with text-only fallback.`
+      );
+      response = await fetchCohereEmbeddings({
+        values: batch.map(toTextOnlyInput),
+        inputType,
+      });
+    }
 
     if (!response.ok) {
       const detail = await response.text();

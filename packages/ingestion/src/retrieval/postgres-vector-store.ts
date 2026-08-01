@@ -16,6 +16,55 @@ import type {
   VectorStore,
 } from "./vector-store";
 
+const TRANSIENT_DATABASE_ERROR =
+  /timeout exceeded when trying to connect|connection terminated unexpectedly|connection reset|econnreset|econnrefused|ehostunreach|etimedout/i;
+const DATABASE_READ_ATTEMPTS = 2;
+
+const wait = (durationMs: number): Promise<void> =>
+  new Promise((resolve) => setTimeout(resolve, durationMs));
+
+function isTransientDatabaseError(error: unknown): boolean {
+  let current: unknown = error;
+
+  while (current && typeof current === "object") {
+    const message =
+      current instanceof Error
+        ? current.message
+        : "message" in current && typeof current.message === "string"
+          ? current.message
+          : "";
+    if (TRANSIENT_DATABASE_ERROR.test(message)) {
+      return true;
+    }
+    current = "cause" in current ? current.cause : null;
+  }
+
+  return false;
+}
+
+async function withTransientDatabaseRetry<T>(
+  operation: () => Promise<T>
+): Promise<T> {
+  let lastError: unknown;
+
+  for (let attempt = 1; attempt <= DATABASE_READ_ATTEMPTS; attempt += 1) {
+    try {
+      return await operation();
+    } catch (error) {
+      lastError = error;
+      if (
+        attempt >= DATABASE_READ_ATTEMPTS ||
+        !isTransientDatabaseError(error)
+      ) {
+        throw error;
+      }
+      await wait(150 * attempt);
+    }
+  }
+
+  throw lastError;
+}
+
 function mapSearchResult(
   row: Awaited<ReturnType<typeof retrieveWorkspaceChunks>>[number]
 ): VectorSearchResult {
@@ -49,13 +98,15 @@ export class PostgresVectorStore implements VectorStore {
     queryEmbedding: number[],
     options: SearchOptions
   ): Promise<VectorSearchResult[]> {
-    const rows = await retrieveWorkspaceChunks({
-      workspaceId: this.workspaceId,
-      queryEmbedding,
-      limit: options.limit,
-      sourceType: options.filter?.sourceType,
-      provider: options.filter?.provider,
-    });
+    const rows = await withTransientDatabaseRetry(() =>
+      retrieveWorkspaceChunks({
+        workspaceId: this.workspaceId,
+        queryEmbedding,
+        limit: options.limit,
+        sourceType: options.filter?.sourceType,
+        provider: options.filter?.provider,
+      })
+    );
 
     return rows.map(mapSearchResult);
   }
@@ -64,13 +115,15 @@ export class PostgresVectorStore implements VectorStore {
     query: string,
     options: SearchOptions
   ): Promise<VectorSearchResult[]> {
-    const rows = await retrieveWorkspaceChunksLexical({
-      workspaceId: this.workspaceId,
-      query,
-      limit: options.limit,
-      sourceType: options.filter?.sourceType,
-      provider: options.filter?.provider,
-    });
+    const rows = await withTransientDatabaseRetry(() =>
+      retrieveWorkspaceChunksLexical({
+        workspaceId: this.workspaceId,
+        query,
+        limit: options.limit,
+        sourceType: options.filter?.sourceType,
+        provider: options.filter?.provider,
+      })
+    );
 
     return rows.map((row) => ({
       resourceId: String(row.resourceId),
@@ -95,13 +148,15 @@ export class PostgresVectorStore implements VectorStore {
     query: string,
     options: SearchOptions
   ): Promise<VectorSearchResult[]> {
-    const rows = await retrieveWorkspaceChunksTrigram({
-      workspaceId: this.workspaceId,
-      query,
-      limit: options.limit,
-      sourceType: options.filter?.sourceType,
-      provider: options.filter?.provider,
-    });
+    const rows = await withTransientDatabaseRetry(() =>
+      retrieveWorkspaceChunksTrigram({
+        workspaceId: this.workspaceId,
+        query,
+        limit: options.limit,
+        sourceType: options.filter?.sourceType,
+        provider: options.filter?.provider,
+      })
+    );
 
     return rows.map((row) => ({
       resourceId: String(row.resourceId),
@@ -128,13 +183,15 @@ export class PostgresVectorStore implements VectorStore {
     chunkIndex: number;
     resourceId: string;
   }): Promise<VectorSearchResult[]> {
-    const rows = await retrieveAdjacentChunksForResource({
-      after: input.after,
-      before: input.before,
-      chunkIndex: input.chunkIndex,
-      resourceId: input.resourceId,
-      workspaceId: this.workspaceId,
-    });
+    const rows = await withTransientDatabaseRetry(() =>
+      retrieveAdjacentChunksForResource({
+        after: input.after,
+        before: input.before,
+        chunkIndex: input.chunkIndex,
+        resourceId: input.resourceId,
+        workspaceId: this.workspaceId,
+      })
+    );
 
     return rows.map((row) => ({
       resourceId: String(row.resourceId),

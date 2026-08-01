@@ -19,7 +19,9 @@ const RETRIEVAL_CONTEXT_TOKEN_BUDGET = 2400;
 const FAST_PATH_CONTEXT_TOKEN_BUDGET = 1200;
 const FAST_PATH_CONFIDENCE_THRESHOLD = 0.82;
 const DEFAULT_CALIBRATION_SHADOW_SAMPLE_RATE = 0.15;
-const MAX_RESOURCE_DIVERSITY = 3;
+const BASE_RESOURCE_DIVERSITY = 3;
+const MAX_RESOURCE_DIVERSITY = 8;
+const DENSE_PRESERVATION_RATIO = 0.4;
 
 const VISUAL_INTENT_PATTERN =
   /\b(video|image|frame|scene|look|see|show|visual|picture|skyline|diagram|screen)\b/i;
@@ -27,6 +29,8 @@ const AUDIO_INTENT_PATTERN =
   /\b(audio|sound|voice|spoken|speech|podcast|music|transcript|listen|hear)\b/i;
 const DOCUMENT_INTENT_PATTERN =
   /(?:\b(?:pdf|document|paper|chapter|page|citation|quote|paragraph|text|spreadsheet|libreoffice|opendocument|word document|word file|microsoft word document|microsoft word file|powerpoint deck|powerpoint presentation|powerpoint file|excel sheet|excel workbook|excel file)\b|\.(?:docx?|pptx?|xlsx?|od[tpmsgfb]|ot[tpmsg])\b)/i;
+const SYNTHESIS_INTENT_PATTERN =
+  /\b(compare|contrast|relate|combine|across|both|shared|analog(?:y|ous)|synthesi[sz]e|together)\b/i;
 const TOKEN_SPLIT_PATTERN = /\s+/;
 const NOISY_TEXT_PATTERN =
   /(x264|mpeg-4|h\.264|cabac|deblock|bframes|keyint|qcomp|rc_lookahead|threads=)/i;
@@ -53,6 +57,42 @@ type RetrievedCandidate = VectorSearchResult & {
   rerankScore: number;
 };
 
+export type RetrievalTraceStage =
+  | "dense"
+  | "lexical"
+  | "trigram"
+  | "modality-dense"
+  | "query-fusion"
+  | "global-fusion"
+  | "scored-pre-rerank"
+  | "rerank-input"
+  | "rerank-output"
+  | "final";
+
+export interface RetrievalTraceCandidate {
+  chunkId: string;
+  endMs: number | null;
+  fileId: string | null;
+  fusionScore: number | null;
+  rerankScore: number | null;
+  resourceId: string;
+  score: number;
+  sourceType: VectorSearchResult["sourceType"];
+  startMs: number | null;
+}
+
+export interface RetrievalTraceSnapshot {
+  candidates: RetrievalTraceCandidate[];
+  path: "fast" | "full";
+  query: string;
+  queryKind: "original" | "expanded" | "decomposed" | "hyde";
+  stage: RetrievalTraceStage;
+}
+
+export type RetrievalTraceCollector = (
+  snapshot: RetrievalTraceSnapshot
+) => void;
+
 interface TimedQueryEnhancement {
   latencyMs: number;
   value: string | null;
@@ -63,6 +103,39 @@ interface QueryEnhancementTasks {
   hyde: Promise<TimedQueryEnhancement>;
   wasHydeFallbackUsed: () => boolean;
 }
+
+export const createStaticQueryEnhancementTasks = (input: {
+  expandedQuery: string | null;
+  hydeDocument: string | null;
+}): QueryEnhancementTasks => ({
+  expansion: Promise.resolve({ latencyMs: 0, value: input.expandedQuery }),
+  hyde: Promise.resolve({ latencyMs: 0, value: input.hydeDocument }),
+  wasHydeFallbackUsed: () => false,
+});
+
+const emitRetrievalTrace = (
+  trace: RetrievalTraceCollector | undefined,
+  input: Omit<RetrievalTraceSnapshot, "candidates"> & {
+    candidates: Array<
+      VectorSearchResult & { fusionScore?: number; rerankScore?: number }
+    >;
+  }
+) => {
+  trace?.({
+    ...input,
+    candidates: input.candidates.map((candidate) => ({
+      chunkId: candidate.chunkId,
+      fileId: candidate.fileId,
+      fusionScore: candidate.fusionScore ?? null,
+      rerankScore: candidate.rerankScore ?? null,
+      resourceId: candidate.resourceId,
+      score: candidate.score,
+      sourceType: candidate.sourceType,
+      startMs: candidate.startMs,
+      endMs: candidate.endMs,
+    })),
+  });
+};
 
 interface RetrievalPathResult {
   ambiguityReasons: string[];
@@ -220,11 +293,14 @@ function startQueryEnhancementTasks(
 ): QueryEnhancementTasks {
   let hydeFallbackUsed = false;
   const expansionStartedAt = performance.now();
-  const expansion = observeRetrievalProviderCall({
-    operation: "query_expansion",
-    provider: "apollo",
-    run: () => expandQuery(normalizedQuery, { abortSignal }),
-  })
+  const expansionProviderCall = config.retrievalQueryExpansionEnabled
+    ? observeRetrievalProviderCall({
+        operation: "query_expansion",
+        provider: "apollo",
+        run: () => expandQuery(normalizedQuery, { abortSignal }),
+      })
+    : Promise.resolve(null);
+  const expansion = expansionProviderCall
     .catch((error) => {
       if (!abortSignal?.aborted) {
         logWarn({
@@ -303,19 +379,78 @@ export const diversifyByResource = <T extends { resourceId: string }>(
   maxPerResource: number
 ): T[] => {
   const counts = new Map<string, number>();
-  const out: T[] = [];
-
+  const output: T[] = [];
   for (const row of rows) {
     const used = counts.get(row.resourceId) ?? 0;
     if (used >= maxPerResource) {
       continue;
     }
-
     counts.set(row.resourceId, used + 1);
-    out.push(row);
+    output.push(row);
   }
+  return output;
+};
 
-  return out;
+export const adaptiveResourceDiversity = (input: {
+  candidateCount: number;
+  decomposedQueryCount: number;
+}): number =>
+  Math.min(
+    MAX_RESOURCE_DIVERSITY,
+    BASE_RESOURCE_DIVERSITY +
+      Math.min(2, input.decomposedQueryCount) +
+      (input.candidateCount >= 100 ? 2 : input.candidateCount >= 40 ? 1 : 0)
+  );
+
+export const preserveCandidateFloor = <T extends { chunkId: string }>(input: {
+  fused: readonly T[];
+  preserved: readonly T[];
+  total: number;
+  preservationRatio?: number;
+}): T[] => {
+  const preservationCount = Math.min(
+    input.total,
+    Math.ceil(
+      input.total * (input.preservationRatio ?? DENSE_PRESERVATION_RATIO)
+    )
+  );
+  const seen = new Set<string>();
+  const output: T[] = [];
+  for (const candidate of [
+    ...input.preserved.slice(0, preservationCount),
+    ...input.fused,
+  ]) {
+    if (seen.has(candidate.chunkId) || output.length >= input.total) {
+      continue;
+    }
+    seen.add(candidate.chunkId);
+    output.push(candidate);
+  }
+  return output;
+};
+
+export const interleaveByResource = <T extends { resourceId: string }>(
+  rows: readonly T[]
+): T[] => {
+  const queues = new Map<string, T[]>();
+  for (const row of rows) {
+    const queue = queues.get(row.resourceId) ?? [];
+    queue.push(row);
+    queues.set(row.resourceId, queue);
+  }
+  const output: T[] = [];
+  let added = true;
+  while (added) {
+    added = false;
+    for (const queue of queues.values()) {
+      const row = queue.shift();
+      if (row) {
+        output.push(row);
+        added = true;
+      }
+    }
+  }
+  return output;
 };
 
 export const fuseCandidatesByRrf = (
@@ -413,6 +548,60 @@ export const lexicalOverlapScore = (query: string, content: string): number => {
   ).length;
   return matched / queryTokens.length;
 };
+
+export const extractQueryTimestampMs = (query: string): number | null => {
+  const match = query.match(/\b(\d{1,2}):(\d{2})(?::(\d{2}))?\b/);
+  if (!match) {
+    return null;
+  }
+  const first = Number(match[1]);
+  const second = Number(match[2]);
+  const third = match[3] === undefined ? null : Number(match[3]);
+  return third === null
+    ? (first * 60 + second) * 1000
+    : (first * 3600 + second * 60 + third) * 1000;
+};
+
+export const temporalProximityMultiplier = (
+  query: string,
+  candidate: Pick<VectorSearchResult, "startMs" | "endMs">
+): number => {
+  const targetMs = extractQueryTimestampMs(query);
+  if (targetMs === null || candidate.startMs === null) {
+    return 1;
+  }
+  const endMs = candidate.endMs ?? candidate.startMs;
+  if (candidate.startMs <= targetMs && endMs >= targetMs) {
+    return 3;
+  }
+  const distanceMs = Math.min(
+    Math.abs(targetMs - candidate.startMs),
+    Math.abs(targetMs - endMs)
+  );
+  if (distanceMs <= 15_000) {
+    return 2.2;
+  }
+  if (distanceMs <= 45_000) {
+    return 1.35;
+  }
+  return 0.65;
+};
+
+export const shouldAbstainFromRetrieval = (input: {
+  audioIntent: boolean;
+  decomposedQueryCount: number;
+  sourceType?: string;
+  synthesisIntent: boolean;
+  topRerankScore: number | null;
+  visualIntent: boolean;
+}): boolean =>
+  input.topRerankScore !== null &&
+  input.topRerankScore < config.retrievalAbstentionScore &&
+  input.decomposedQueryCount < 2 &&
+  !input.audioIntent &&
+  !input.synthesisIntent &&
+  !input.visualIntent &&
+  input.sourceType === undefined;
 
 export const exactPhraseScore = (query: string, content: string): number => {
   const normalizedQuery = query.trim().toLowerCase();
@@ -573,7 +762,7 @@ export const buildContextAwareResults = (
 
     if (results.length > 0 && tokenCount + contentTokens > tokenBudget) {
       truncated = true;
-      break;
+      continue;
     }
 
     if (results.length === 0 && contentTokens > tokenBudget) {
@@ -938,7 +1127,10 @@ const searchForQuery = async (params: {
     provider?: string;
   };
   query: string;
+  queryKind: RetrievalTraceSnapshot["queryKind"];
   queryEmbedding: number[];
+  trace?: RetrievalTraceCollector;
+  tracePath: RetrievalTraceSnapshot["path"];
   vectorStore: VectorStore;
 }): Promise<Array<VectorSearchResult & { fusionScore: number }>> => {
   const searchOptions = {
@@ -951,14 +1143,36 @@ const searchForQuery = async (params: {
 
   const trigramQuery = extractTrigramQuery(params.query);
   const includeLexical = params.includeLexical ?? true;
+  const optionalSearch = async (
+    signal: "lexical" | "trigram",
+    search: () => Promise<VectorSearchResult[]>
+  ): Promise<VectorSearchResult[]> => {
+    try {
+      return await search();
+    } catch (error) {
+      logWarn({
+        eventName: "retrieval.optional_search_fallback",
+        payload: {
+          error: safeError(error),
+          query: params.query,
+          signal,
+        },
+      });
+      return [];
+    }
+  };
   const [baseCandidates, lexicalCandidates, trigramCandidates] =
     await Promise.all([
       params.vectorStore.search(params.queryEmbedding, searchOptions),
       includeLexical
-        ? params.vectorStore.searchLexical(params.query, searchOptions)
+        ? optionalSearch("lexical", () =>
+            params.vectorStore.searchLexical(params.query, searchOptions)
+          )
         : Promise.resolve([]),
       includeLexical && trigramQuery
-        ? params.vectorStore.searchTrigram(trigramQuery, searchOptions)
+        ? optionalSearch("trigram", () =>
+            params.vectorStore.searchTrigram(trigramQuery, searchOptions)
+          )
         : Promise.resolve([]),
     ]);
 
@@ -985,7 +1199,36 @@ const searchForQuery = async (params: {
       : []
   );
 
-  return fuseCandidatesByRrf([
+  emitRetrievalTrace(params.trace, {
+    candidates: baseCandidates,
+    path: params.tracePath,
+    query: params.query,
+    queryKind: params.queryKind,
+    stage: "dense",
+  });
+  emitRetrievalTrace(params.trace, {
+    candidates: lexicalCandidates,
+    path: params.tracePath,
+    query: params.query,
+    queryKind: params.queryKind,
+    stage: "lexical",
+  });
+  emitRetrievalTrace(params.trace, {
+    candidates: trigramCandidates,
+    path: params.tracePath,
+    query: params.query,
+    queryKind: params.queryKind,
+    stage: "trigram",
+  });
+  emitRetrievalTrace(params.trace, {
+    candidates: modalityCandidateLists.flat(),
+    path: params.tracePath,
+    query: params.query,
+    queryKind: params.queryKind,
+    stage: "modality-dense",
+  });
+
+  const fused = fuseCandidatesByRrf([
     baseCandidates.map((candidate) => ({
       ...candidate,
       score:
@@ -1014,6 +1257,14 @@ const searchForQuery = async (params: {
     })),
     ...modalityCandidateLists,
   ]).sort((a, b) => b.fusionScore - a.fusionScore);
+  emitRetrievalTrace(params.trace, {
+    candidates: fused,
+    path: params.tracePath,
+    query: params.query,
+    queryKind: params.queryKind,
+    stage: "query-fusion",
+  });
+  return fused;
 };
 
 export const retrieveRelevantChunks = async (
@@ -1038,6 +1289,7 @@ export const retrieveRelevantChunks = async (
       VectorSearchResult & { fusionScore: number }
     >;
     queryEnhancementTasks?: QueryEnhancementTasks;
+    trace?: RetrievalTraceCollector;
   }
 ): Promise<{
   context: string;
@@ -1077,6 +1329,7 @@ export const retrieveRelevantChunks = async (
   const visualIntent = hasVisualIntent(normalizedQuery);
   const audioIntent = hasAudioIntent(normalizedQuery);
   const documentIntent = hasDocumentIntent(normalizedQuery);
+  const synthesisIntent = SYNTHESIS_INTENT_PATTERN.test(normalizedQuery);
   const preferredSourceTypes = getPreferredSourceTypes({
     visual: visualIntent,
     audio: audioIntent,
@@ -1084,11 +1337,6 @@ export const retrieveRelevantChunks = async (
   });
 
   const limit = options?.limit ?? config.retrievalDefaultLimit;
-  const candidateLimit = Math.max(
-    limit,
-    limit * config.retrievalCandidateMultiplier
-  );
-
   const queryEnhancementTasks =
     options?.queryEnhancementTasks ??
     startQueryEnhancementTasks(normalizedQuery);
@@ -1103,6 +1351,11 @@ export const retrieveRelevantChunks = async (
     decomposeQuery(normalizedQuery)
   ).slice(0, 4);
   const decomposedQueryCount = decomposedQueries.length;
+  const coverageQuery = synthesisIntent || decomposedQueryCount > 1;
+  const candidateLimit = Math.max(
+    limit,
+    limit * config.retrievalCandidateMultiplier * (coverageQuery ? 2 : 1)
+  );
   const searchQueries = dedupeQueries([
     normalizedQuery,
     expandedQuery ?? "",
@@ -1158,9 +1411,18 @@ export const retrieveRelevantChunks = async (
 
       return searchForQuery({
         candidateLimit,
+        includeLexical: searchQuery !== expandedQuery,
         options,
         query: searchQuery,
+        queryKind:
+          searchQuery === normalizedQuery
+            ? "original"
+            : searchQuery === expandedQuery
+              ? "expanded"
+              : "decomposed",
         queryEmbedding,
+        trace: options?.trace,
+        tracePath: "full",
         vectorStore,
       });
     })
@@ -1188,7 +1450,10 @@ export const retrieveRelevantChunks = async (
           },
           options,
           query: hydeDocument,
+          queryKind: "hyde",
           queryEmbedding: embeddingByQuery.get(hydeDocument) ?? [],
+          trace: options?.trace,
+          tracePath: "full",
           vectorStore,
         })
       : [];
@@ -1197,12 +1462,27 @@ export const retrieveRelevantChunks = async (
   const allSearchResults = [...querySearchResults, hydeSearchResults];
 
   const fusionStartedAt = performance.now();
-  const mergedCandidates = diversifyByResource(
-    fuseCandidatesByRrf(allSearchResults).sort(
-      (a, b) => b.fusionScore - a.fusionScore
-    ),
-    MAX_RESOURCE_DIVERSITY
+  const fusedCandidates = fuseCandidatesByRrf(allSearchResults).sort(
+    (a, b) => b.fusionScore - a.fusionScore
   );
+  const mergedCandidates = diversifyByResource(
+    preserveCandidateFloor({
+      fused: fusedCandidates,
+      preserved: querySearchResults[0] ?? [],
+      total: fusedCandidates.length,
+    }),
+    adaptiveResourceDiversity({
+      candidateCount: fusedCandidates.length,
+      decomposedQueryCount,
+    })
+  );
+  emitRetrievalTrace(options?.trace, {
+    candidates: mergedCandidates,
+    path: "full",
+    query: normalizedQuery,
+    queryKind: "original",
+    stage: "global-fusion",
+  });
   const fusionLatencyMs = Math.round(performance.now() - fusionStartedAt);
   const learnerSignalsStartedAt = performance.now();
   const learnerSignalBoosts =
@@ -1218,11 +1498,6 @@ export const retrieveRelevantChunks = async (
   );
 
   const sortedCandidates: FusionCandidate[] = mergedCandidates
-    .filter(
-      (candidate) =>
-        candidate.score >= config.retrievalMinScore ||
-        candidate.fusionScore >= 0.01
-    )
     .map((candidate) =>
       scoreRetrievedCandidate(candidate, {
         audioIntent,
@@ -1247,15 +1522,31 @@ export const retrieveRelevantChunks = async (
           ),
         ]
       : sortedCandidates;
+  emitRetrievalTrace(options?.trace, {
+    candidates: sortedByModalityPreference,
+    path: "full",
+    query: normalizedQuery,
+    queryKind: "original",
+    stage: "scored-pre-rerank",
+  });
 
-  const rerankCandidateCount = Math.max(
-    limit * 2,
-    Math.min(config.retrievalRerankCandidateLimit, candidateLimit)
-  );
-  const rerankCandidates = sortedByModalityPreference.slice(
-    0,
-    rerankCandidateCount
-  );
+  const rerankCandidates = preserveCandidateFloor({
+    fused: sortedByModalityPreference,
+    preserved: querySearchResults[0] ?? [],
+    total: Math.max(
+      limit * 2,
+      coverageQuery
+        ? config.retrievalRerankExhaustiveLimit
+        : config.retrievalRerankCandidateLimit
+    ),
+  });
+  emitRetrievalTrace(options?.trace, {
+    candidates: rerankCandidates,
+    path: "full",
+    query: normalizedQuery,
+    queryKind: "original",
+    stage: "rerank-input",
+  });
   const fusionScoreByChunkId = new Map(
     rerankCandidates.map((candidate) => [
       candidate.chunkId,
@@ -1327,6 +1618,13 @@ export const retrieveRelevantChunks = async (
       },
     });
     recordRetrievalQualityTelemetry({ decision: telemetry, path: "slow" });
+    emitRetrievalTrace(options?.trace, {
+      candidates: [],
+      path: "full",
+      query: normalizedQuery,
+      queryKind: "original",
+      stage: "final",
+    });
 
     return {
       context: "",
@@ -1344,7 +1642,11 @@ export const retrieveRelevantChunks = async (
     run: () =>
       rerank({
         model: apollo.rerankingModel("apollo-reranking"),
-        documents: rerankCandidates.map((candidate) => candidate.content),
+        documents: rerankCandidates.map((candidate) =>
+          candidate.startMs === null
+            ? candidate.content
+            : `[${formatDuration(candidate.startMs)}-${formatDuration(candidate.endMs ?? candidate.startMs)}] ${candidate.content}`
+        ),
         query: normalizedQuery,
         topN: limit,
       }),
@@ -1394,11 +1696,27 @@ export const retrieveRelevantChunks = async (
       }));
     });
   const rerankLatencyMs = Math.round(performance.now() - rerankStartedAt);
+  emitRetrievalTrace(options?.trace, {
+    candidates: reranked,
+    path: "full",
+    query: normalizedQuery,
+    queryKind: "original",
+    stage: "rerank-output",
+  });
 
   const responseShapingStartedAt = performance.now();
+  const shouldAbstain = shouldAbstainFromRetrieval({
+    audioIntent,
+    decomposedQueryCount,
+    sourceType: options?.sourceType,
+    synthesisIntent,
+    topRerankScore: reranked[0]?.rerankScore ?? null,
+    visualIntent,
+  });
+  const acceptedReranked = shouldAbstain ? [] : reranked;
   const adjacentByChunkId = new Map<string, VectorSearchResult[]>(
     await Promise.all(
-      reranked
+      acceptedReranked
         .filter((candidate) => isFragmentaryChunk(candidate.content))
         .map(
           async (candidate): Promise<[string, VectorSearchResult[]]> => [
@@ -1415,7 +1733,7 @@ export const retrieveRelevantChunks = async (
   );
 
   const assembled = buildContextAwareResults(
-    reranked,
+    acceptedReranked,
     adjacentByChunkId,
     RETRIEVAL_CONTEXT_TOKEN_BUDGET
   );
@@ -1442,7 +1760,7 @@ export const retrieveRelevantChunks = async (
     lexicalCandidateCount,
     rerankCandidates,
     rerankFallbackUsed,
-    reranked,
+    reranked: acceptedReranked,
     hydeCandidateCount,
     hydeDocument,
     hydeFallbackUsed,
@@ -1470,6 +1788,13 @@ export const retrieveRelevantChunks = async (
     },
   });
   recordRetrievalQualityTelemetry({ decision: telemetry, path: "slow" });
+  emitRetrievalTrace(options?.trace, {
+    candidates: assembled.results,
+    path: "full",
+    query: normalizedQuery,
+    queryKind: "original",
+    stage: "final",
+  });
 
   return {
     context: assembled.context,
@@ -1746,6 +2071,7 @@ export const retrieveRelevantChunksAdaptive = async (
       | "link";
     userId?: string;
     workspaceId?: string;
+    trace?: RetrievalTraceCollector;
   }
 ): Promise<RetrievalPathResult> => {
   const start = performance.now();
@@ -1793,7 +2119,10 @@ export const retrieveRelevantChunksAdaptive = async (
     candidateLimit,
     options,
     query: normalizedQuery,
+    queryKind: "original",
     queryEmbedding: fastEmbedding,
+    trace: options?.trace,
+    tracePath: "fast",
     vectorStore,
   });
   const fastPreview = buildQueryResultPreview({
@@ -1816,6 +2145,13 @@ export const retrieveRelevantChunksAdaptive = async (
         : confidence >= FAST_PATH_CONFIDENCE_THRESHOLD &&
           routeReasons.length === 0;
   const fastLatencyMs = Math.round(performance.now() - start);
+  emitRetrievalTrace(options?.trace, {
+    candidates: fastPreview.scoredCandidates,
+    path: "fast",
+    query: normalizedQuery,
+    queryKind: "original",
+    stage: "scored-pre-rerank",
+  });
 
   if (shouldUseFast) {
     queryEnhancementAbortController.abort(
@@ -1867,6 +2203,13 @@ export const retrieveRelevantChunksAdaptive = async (
       decision: fastPreview.decision,
       path: "fast",
     });
+    emitRetrievalTrace(options?.trace, {
+      candidates: fastPreview.results,
+      path: "fast",
+      query: normalizedQuery,
+      queryKind: "original",
+      stage: "final",
+    });
 
     return {
       ambiguityReasons: routeReasons,
@@ -1892,6 +2235,7 @@ export const retrieveRelevantChunksAdaptive = async (
       initialQueryCandidates: fastQueryCandidates,
       initialQueryEmbedding: fastEmbedding,
       queryEnhancementTasks,
+      trace: options?.trace,
     }
   );
   const slowLatencyMs = Math.round(performance.now() - start);

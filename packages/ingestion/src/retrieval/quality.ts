@@ -55,12 +55,16 @@ function inferChunkUsage(
 
   return candidates
     .map((candidate, index) => {
-      const contentTokens = Array.from(new Set(tokenize(candidate.content ?? "")));
+      const contentTokens = Array.from(
+        new Set(tokenize(candidate.content ?? ""))
+      );
       if (contentTokens.length === 0) {
         return null;
       }
 
-      const matched = contentTokens.filter((token) => responseTokens.has(token));
+      const matched = contentTokens.filter((token) =>
+        responseTokens.has(token)
+      );
       const overlap = matched.length / Math.min(80, contentTokens.length);
       const exactSnippet =
         candidate.content && candidate.content.length >= 48
@@ -86,13 +90,11 @@ export function computeRetrievalQualitySignal(
   input: RetrievalQualitySignalInput
 ): RetrievalQualitySignal {
   const dedupedCandidates = Array.from(
-    new Map(input.candidates.map((candidate) => [candidate.chunkId, candidate]))
-      .values()
+    new Map(
+      input.candidates.map((candidate) => [candidate.chunkId, candidate])
+    ).values()
   ).filter((candidate) => candidate.chunkId);
-  const inferredUsage = inferChunkUsage(
-    input.assistantText,
-    dedupedCandidates
-  );
+  const inferredUsage = inferChunkUsage(input.assistantText, dedupedCandidates);
   const usedChunkIds = new Set(inferredUsage.map((usage) => usage.chunkId));
   const usedChunkCount = usedChunkIds.size;
   const precisionAtK: Record<string, number> = {};
@@ -100,7 +102,9 @@ export function computeRetrievalQualitySignal(
 
   for (const k of [1, 3, 5, 10]) {
     const topK = dedupedCandidates.slice(0, k);
-    const hits = topK.filter((candidate) => usedChunkIds.has(candidate.chunkId));
+    const hits = topK.filter((candidate) =>
+      usedChunkIds.has(candidate.chunkId)
+    );
     precisionAtK[`p@${k}`] = topK.length > 0 ? hits.length / topK.length : 0;
     recallAtK[`recall@${k}`] =
       usedChunkCount > 0 ? hits.length / usedChunkCount : 0;

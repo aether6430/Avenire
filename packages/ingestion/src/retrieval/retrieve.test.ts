@@ -48,16 +48,21 @@ vi.mock("./learner-signals", () => ({
 import {
   decomposeQuery,
   exactPhraseScore,
+  extractQueryTimestampMs,
   extractTrigramQuery,
   formatChunkHeader,
   formatChunkLocation,
   formatDuration,
   getPreferredSourceTypes,
+  interleaveByResource,
   isFragmentaryChunk,
   isLikelyNoisyText,
   lexicalOverlapScore,
+  type RetrievalTraceSnapshot,
   retrieveRelevantChunks,
   retrieveRelevantChunksAdaptive,
+  shouldAbstainFromRetrieval,
+  temporalProximityMultiplier,
 } from "./retrieve";
 
 const makeCandidate = (
@@ -96,6 +101,74 @@ const makeVectorStore = (results: VectorSearchResult[] = []): VectorStore => ({
 });
 
 describe("retrieve helpers", () => {
+  it("abstains on weak simple queries but preserves compound and modality queries", () => {
+    expect(
+      shouldAbstainFromRetrieval({
+        audioIntent: false,
+        decomposedQueryCount: 1,
+        synthesisIntent: false,
+        topRerankScore: 0.08,
+        visualIntent: false,
+      })
+    ).toBe(true);
+    expect(
+      shouldAbstainFromRetrieval({
+        audioIntent: false,
+        decomposedQueryCount: 2,
+        synthesisIntent: false,
+        topRerankScore: 0.08,
+        visualIntent: false,
+      })
+    ).toBe(false);
+    expect(
+      shouldAbstainFromRetrieval({
+        audioIntent: false,
+        decomposedQueryCount: 1,
+        sourceType: "video",
+        synthesisIntent: false,
+        topRerankScore: 0.08,
+        visualIntent: false,
+      })
+    ).toBe(false);
+    expect(
+      shouldAbstainFromRetrieval({
+        audioIntent: false,
+        decomposedQueryCount: 1,
+        synthesisIntent: true,
+        topRerankScore: 0.08,
+        visualIntent: false,
+      })
+    ).toBe(false);
+  });
+
+  it("interleaves resources for multi-source evidence coverage", () => {
+    expect(
+      interleaveByResource([
+        { chunkId: "a1", resourceId: "a" },
+        { chunkId: "a2", resourceId: "a" },
+        { chunkId: "b1", resourceId: "b" },
+        { chunkId: "c1", resourceId: "c" },
+      ]).map((row) => row.chunkId)
+    ).toEqual(["a1", "b1", "c1", "a2"]);
+  });
+
+  it("extracts explicit timestamps and boosts overlapping transcript windows", () => {
+    expect(extractQueryTimestampMs("What happens around 46:56?")).toBe(
+      2_816_000
+    );
+    expect(
+      temporalProximityMultiplier("What happens around 46:56?", {
+        startMs: 2_800_000,
+        endMs: 2_820_000,
+      })
+    ).toBe(3);
+    expect(
+      temporalProximityMultiplier("What happens around 46:56?", {
+        startMs: 1_000_000,
+        endMs: 1_020_000,
+      })
+    ).toBe(0.65);
+  });
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.expandQuery.mockResolvedValue(null);
@@ -179,7 +252,6 @@ describe("retrieve helpers", () => {
     ).toBe(true);
     expect(isFragmentaryChunk("Short unfinished fragment")).toBe(false);
   });
-
 });
 
 describe("retrieveRelevantChunks", () => {
@@ -290,11 +362,13 @@ describe("retrieveRelevantChunks", () => {
       searchTrigram,
     };
 
+    const trace: RetrievalTraceSnapshot[] = [];
     const result = await retrieveRelevantChunks(
       vectorStore,
       "show the cell membrane diagram",
       {
         limit: 2,
+        trace: (snapshot) => trace.push(snapshot),
         userId: "user-1",
         workspaceId: "workspace-1",
       }
@@ -314,7 +388,11 @@ describe("retrieveRelevantChunks", () => {
       }
     );
     expect(mocks.embedMultimodal).toHaveBeenCalledTimes(1);
-    expect(searchLexical).toHaveBeenCalledTimes(2);
+    expect(searchLexical).toHaveBeenCalledTimes(1);
+    expect(searchLexical).toHaveBeenCalledWith(
+      "show the cell membrane diagram",
+      expect.any(Object)
+    );
     expect(searchTrigram).not.toHaveBeenCalled();
     expect(
       search.mock.calls.some((call) => call[1]?.filter?.sourceType === "video")
@@ -341,6 +419,20 @@ describe("retrieveRelevantChunks", () => {
       "Previous complete sentence about the membrane."
     );
     expect(result.context).toContain("[Cell lecture, 0:05-0:15]");
+    expect(trace.map((snapshot) => snapshot.stage)).toEqual(
+      expect.arrayContaining([
+        "dense",
+        "lexical",
+        "query-fusion",
+        "global-fusion",
+        "rerank-input",
+        "rerank-output",
+        "final",
+      ])
+    );
+    expect(
+      trace.find((snapshot) => snapshot.stage === "final")?.candidates[0]
+    ).toMatchObject({ chunkId: "video-1", rerankScore: 0.98 });
   });
 
   it("falls back to the normalized query when query expansion throws", async () => {

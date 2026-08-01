@@ -1,6 +1,7 @@
 import { Mistral } from "@mistralai/mistralai";
 import { config } from "../config";
-import { assertSafeUrl } from "../utils/safety";
+import { mapWithConcurrency } from "../utils/concurrency";
+import { assertMaxSize, assertSafeUrl, safeRemoteFetch } from "../utils/safety";
 import { semanticChunkText } from "./chunking";
 import type { CanonicalResource } from "./types";
 
@@ -14,6 +15,11 @@ interface OcrPage {
 interface OcrResponse {
   model?: string;
   pages: OcrPage[];
+}
+
+interface NativePdfPage {
+  page: number;
+  text: string;
 }
 
 type OcrDocument =
@@ -50,6 +56,7 @@ const withTablesAndImages = (page: OcrPage): string => {
 const normalizePdfPageText = (text: string): string => {
   const lines = text
     .replace(/\r/g, "\n")
+    .replace(/[−–—]/g, "-")
     .replace(/-\n(?=[a-z])/g, "")
     .split("\n")
     .map((line) => line.replace(/[ \t]+/g, " ").trim());
@@ -86,6 +93,117 @@ const normalizePdfPageText = (text: string): string => {
     .join("\n")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
+};
+
+const normalizeNativePdfPageText = (text: string): string =>
+  normalizePdfPageText(text)
+    .replace(/([A-Za-z])\s+\(\s*([A-Za-z0-9])\s*\)/g, "$1($2)")
+    .replace(/\s+([,.;:!?])/g, "$1");
+
+const isNativePdfExtractionUsable = (pages: NativePdfPage[]): boolean => {
+  if (pages.length === 0 || pages.length > config.pdfFastPathMaxPages) {
+    return false;
+  }
+
+  return (
+    pages.reduce((total, page) => total + page.text.length, 0) >=
+    config.pdfFastPathMinChars
+  );
+};
+
+const canonicalResourceFromNativePdfPages = (input: {
+  pages: NativePdfPage[];
+  source: string;
+}): CanonicalResource => {
+  const rawChunks = input.pages.flatMap((page) =>
+    semanticChunkText({
+      text: normalizeNativePdfPageText(page.text),
+      sourceType: "pdf",
+      source: input.source,
+      page: page.page,
+      baseMetadata: { extraction: "pdfjs-native" },
+    })
+  );
+
+  return {
+    sourceType: "pdf",
+    source: input.source,
+    metadata: {
+      extraction: "pdfjs-native",
+      pages: input.pages.length,
+    },
+    chunks: mergeShortChunks(rawChunks),
+  };
+};
+
+const extractNativePdfResource = async (
+  source: string
+): Promise<CanonicalResource | null> => {
+  if (!config.pdfFastPathEnabled) {
+    return null;
+  }
+
+  try {
+    const response = await safeRemoteFetch(source, {
+      timeoutMs: config.pdfFetchTimeoutMs,
+    });
+    if (!response.ok) {
+      return null;
+    }
+
+    const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
+    if (!pdfjs.GlobalWorkerOptions.workerSrc) {
+      pdfjs.GlobalWorkerOptions.workerSrc = import.meta.resolve(
+        "pdfjs-dist/legacy/build/pdf.worker.mjs"
+      );
+    }
+    const contentLength = response.headers.get("content-length");
+    if (contentLength) {
+      assertMaxSize(
+        "remote PDF payload",
+        Number(contentLength),
+        config.remotePdfMaxBytes
+      );
+    }
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    assertMaxSize(
+      "remote PDF payload",
+      bytes.byteLength,
+      config.remotePdfMaxBytes
+    );
+    const document = await pdfjs.getDocument({ data: bytes }).promise;
+
+    try {
+      if (document.numPages > config.pdfFastPathMaxPages) {
+        return null;
+      }
+
+      const pages: NativePdfPage[] = [];
+      for (
+        let pageNumber = 1;
+        pageNumber <= document.numPages;
+        pageNumber += 1
+      ) {
+        const page = await document.getPage(pageNumber);
+        const textContent = await page.getTextContent();
+        pages.push({
+          page: pageNumber,
+          text: textContent.items
+            .map((item) => ("str" in item ? item.str : ""))
+            .join(" "),
+        });
+      }
+
+      return isNativePdfExtractionUsable(pages)
+        ? canonicalResourceFromNativePdfPages({ pages, source })
+        : null;
+    } finally {
+      await document.destroy();
+    }
+  } catch {
+    // Scans and malformed PDFs remain on the OCR path.
+    return null;
+  }
 };
 
 const mergeShortChunks = (
@@ -550,28 +668,50 @@ export const ingestPdfs = async (
   includeImageBase64 = false
 ): Promise<CanonicalResource[]> => {
   const safeUrls = urls.map((url) => assertSafeUrl(url).toString());
-  const docs: OcrDocument[] = safeUrls.map((documentUrl) => ({
-    type: "document_url",
-    documentUrl,
-  }));
+  const nativeResources = await mapWithConcurrency(
+    safeUrls,
+    config.pdfFetchConcurrency,
+    extractNativePdfResource
+  );
+  const ocrFallbacks = safeUrls.flatMap((source, index) =>
+    nativeResources[index]
+      ? []
+      : [
+          {
+            index,
+            source,
+            document: {
+              type: "document_url" as const,
+              documentUrl: source,
+            },
+          },
+        ]
+  );
+  const docs = ocrFallbacks.map((fallback) => fallback.document);
 
   let batchResults: Map<string, OcrResponse> | null = null;
-  if (safeUrls.length > 1) {
+  if (docs.length > 1) {
     batchResults = await ocrBatchDocuments(docs, includeImageBase64);
   }
 
-  const resources: CanonicalResource[] = [];
-
-  for (let index = 0; index < safeUrls.length; index += 1) {
-    const source = safeUrls[index] as string;
+  const fallbackResources = new Map<number, CanonicalResource>();
+  for (const [batchPosition, fallback] of ocrFallbacks.entries()) {
     const ocr =
-      batchResults?.get(`pdf-${index}`) ??
-      (await ocrSingleDocument(docs[index] as OcrDocument, includeImageBase64));
-
-    resources.push(toCanonicalResource(source, ocr, includeImageBase64));
+      batchResults?.get(`pdf-${batchPosition}`) ??
+      (await ocrSingleDocument(fallback.document, includeImageBase64));
+    fallbackResources.set(
+      fallback.index,
+      toCanonicalResource(fallback.source, ocr, includeImageBase64)
+    );
   }
 
-  return resources;
+  return safeUrls.map((source, index) => {
+    const resource = nativeResources[index] ?? fallbackResources.get(index);
+    if (!resource) {
+      throw new Error(`PDF ingestion produced no resource for ${source}.`);
+    }
+    return resource;
+  });
 };
 
 export const ingestPdfFiles = async (

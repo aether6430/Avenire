@@ -58,25 +58,40 @@ describe("file contract", () => {
 
   it("detects binary signatures and rejects MIME spoofing", () => {
     const pdf = new TextEncoder().encode("%PDF-1.7\n");
-    const png = Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+    const png = Uint8Array.from([
+      0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+    ]);
     expect(detectFileMimeTypeFromMagicBytes(pdf)).toBe("application/pdf");
-    expect(fileMagicBytesMatchMimeType({ bytes: pdf, mimeType: "application/pdf" })).toBe(true);
-    expect(fileMagicBytesMatchMimeType({ bytes: png, mimeType: "application/pdf" })).toBe(false);
+    expect(
+      fileMagicBytesMatchMimeType({ bytes: pdf, mimeType: "application/pdf" })
+    ).toBe(true);
+    expect(
+      fileMagicBytesMatchMimeType({ bytes: png, mimeType: "application/pdf" })
+    ).toBe(false);
   });
 
   it("validates shared-container and bounded text formats", () => {
     const zip = Uint8Array.from([0x50, 0x4b, 0x03, 0x04, 0x00]);
-    expect(fileMagicBytesMatchMimeType({
-      bytes: zip,
-      mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    })).toBe(true);
-    expect(fileMagicBytesMatchMimeType({
-      bytes: new TextEncoder().encode("<svg xmlns=\"http://www.w3.org/2000/svg\"></svg>"),
-      mimeType: "image/svg+xml",
-    })).toBe(true);
-    expect(fileMagicBytesMatchMimeType({
-      bytes: Uint8Array.from([0x61, 0, 0x62]),
-      mimeType: "text/plain",
-    })).toBe(false);
+    expect(
+      fileMagicBytesMatchMimeType({
+        bytes: zip,
+        mimeType:
+          "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      })
+    ).toBe(true);
+    expect(
+      fileMagicBytesMatchMimeType({
+        bytes: new TextEncoder().encode(
+          '<svg xmlns="http://www.w3.org/2000/svg"></svg>'
+        ),
+        mimeType: "image/svg+xml",
+      })
+    ).toBe(true);
+    expect(
+      fileMagicBytesMatchMimeType({
+        bytes: Uint8Array.from([0x61, 0, 0x62]),
+        mimeType: "text/plain",
+      })
+    ).toBe(false);
   });
 });

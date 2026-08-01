@@ -61,6 +61,8 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     await apiLogger.requestFailed(500, error);
+    const message = error instanceof Error ? error.message : String(error);
+    console.error("Retrieval error:", message);
     return NextResponse.json(
       { error: "Failed to query retrieval index" },
       { status: 500 }

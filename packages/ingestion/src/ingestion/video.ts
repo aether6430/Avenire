@@ -94,12 +94,104 @@ export const cleanTranscriptText = (value: string): string => {
   return cleanedWords.join(" ").trim();
 };
 
+const subtitleTimestampMs = (value: string): number | null => {
+  const match = value
+    .trim()
+    .match(/^(?:(\d{1,2}):)?(\d{2}):(\d{2})[,.](\d{3})$/);
+  if (!match) {
+    return null;
+  }
+  return (
+    Number(match[1] ?? 0) * 3_600_000 +
+    Number(match[2]) * 60_000 +
+    Number(match[3]) * 1000 +
+    Number(match[4])
+  );
+};
+
+export const parseSubtitleSegments = (value: string): TranscriptSegment[] =>
+  value
+    .replace(/^WEBVTT[^\n]*\n+/i, "")
+    .split(/\r?\n\s*\r?\n/)
+    .flatMap((block) => {
+      const lines = block
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter(Boolean);
+      const timingIndex = lines.findIndex((line) => /\s*-->\s*/.test(line));
+      if (timingIndex < 0) {
+        return [];
+      }
+      const [rawStart, rawEndWithSettings] = lines[timingIndex]?.split(
+        /\s+-->\s+/
+      ) ?? ["", ""];
+      const rawEnd = rawEndWithSettings?.split(/\s+/)[0] ?? "";
+      const startMs = subtitleTimestampMs(rawStart ?? "");
+      const endMs = subtitleTimestampMs(rawEnd);
+      const text = cleanTranscriptText(
+        lines
+          .slice(timingIndex + 1)
+          .join(" ")
+          .replace(/<[^>]+>/g, "")
+      );
+      return startMs === null || endMs === null || !text
+        ? []
+        : [{ startMs, endMs, text }];
+    });
+
+export const windowTranscriptSegments = (
+  segments: readonly TranscriptSegment[],
+  options?: { maxChars?: number; windowMs?: number; overlapMs?: number }
+): TranscriptSegment[] => {
+  const maxChars = options?.maxChars ?? 900;
+  const windowMs = options?.windowMs ?? 30_000;
+  const overlapMs = options?.overlapMs ?? 5000;
+  const cleaned = segments
+    .map((segment) => ({ ...segment, text: cleanTranscriptText(segment.text) }))
+    .filter((segment) => segment.text.length > 0)
+    .sort((left, right) => left.startMs - right.startMs);
+  const windows: TranscriptSegment[] = [];
+  let startIndex = 0;
+  while (startIndex < cleaned.length) {
+    const first = cleaned[startIndex];
+    if (!first) {
+      break;
+    }
+    let endIndex = startIndex;
+    let text = first.text;
+    let endMs = first.endMs;
+    while (endIndex + 1 < cleaned.length) {
+      const next = cleaned[endIndex + 1];
+      if (
+        !next ||
+        next.endMs - first.startMs > windowMs ||
+        text.length + next.text.length + 1 > maxChars
+      ) {
+        break;
+      }
+      endIndex += 1;
+      endMs = next.endMs;
+      text = `${text} ${next.text}`;
+    }
+    windows.push({ startMs: first.startMs, endMs, text });
+    if (endIndex === cleaned.length - 1) {
+      break;
+    }
+    const nextStart = cleaned.findIndex(
+      (segment, index) =>
+        index > startIndex && segment.startMs >= endMs - overlapMs
+    );
+    startIndex = nextStart > startIndex ? nextStart : endIndex + 1;
+  }
+  return windows;
+};
+
 export const splitTranscriptByTime = (
   transcript: string,
   transcriptSegments?: TranscriptSegment[]
 ): Array<{ startMs: number; endMs: number; text: string }> => {
   if (transcriptSegments && transcriptSegments.length > 0) {
-    return transcriptSegments
+    return windowTranscriptSegments(transcriptSegments)
       .map((segment) => ({
         startMs: Math.max(0, segment.startMs),
         endMs: Math.max(segment.endMs, segment.startMs + 1000),
@@ -566,8 +658,10 @@ const extractKeyframesFromResolvedMedia = async (
 };
 
 export const ingestVideo = async (input: {
+  source?: string;
   url?: string;
   transcript?: string;
+  transcriptSegments?: TranscriptSegment[];
   title?: string;
   keyframes?: Array<{
     timestampMs: number;
@@ -578,14 +672,17 @@ export const ingestVideo = async (input: {
   }>;
 }): Promise<CanonicalResource> => {
   const normalizedUrl = input.url?.trim();
-  const source = normalizedUrl || `video:inline:${crypto.randomUUID()}`;
+  const source =
+    input.source?.trim() ||
+    normalizedUrl ||
+    `video:inline:${crypto.randomUUID()}`;
   const startedAtMs = Date.now();
   if (normalizedUrl) {
     assertSafeUrl(normalizedUrl);
   }
 
   let transcript = input.transcript?.trim() ?? "";
-  let transcriptSegments: TranscriptSegment[] = [];
+  let transcriptSegments: TranscriptSegment[] = input.transcriptSegments ?? [];
   let keyframes = input.keyframes;
   let transcriptionError: string | undefined;
 

@@ -124,7 +124,9 @@ export function detectFileMimeTypeFromMagicBytes(
   if (startsWithBytes(bytes, [0x25, 0x50, 0x44, 0x46, 0x2d])) {
     return "application/pdf";
   }
-  if (startsWithBytes(bytes, [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) {
+  if (
+    startsWithBytes(bytes, [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
+  ) {
     return "image/png";
   }
   if (startsWithBytes(bytes, [0xff, 0xd8, 0xff])) {
@@ -148,7 +150,10 @@ export function detectFileMimeTypeFromMagicBytes(
   if (ascii(bytes, 0, 4) === "fLaC") {
     return "audio/flac";
   }
-  if (ascii(bytes, 0, 3) === "ID3" || (bytes[0] === 0xff && (bytes[1] ?? 0) >= 0xe0)) {
+  if (
+    ascii(bytes, 0, 3) === "ID3" ||
+    (bytes[0] === 0xff && (bytes[1] ?? 0) >= 0xe0)
+  ) {
     return "audio/mpeg";
   }
   if (startsWithBytes(bytes, [0x1a, 0x45, 0xdf, 0xa3])) {
@@ -165,7 +170,9 @@ export function detectFileMimeTypeFromMagicBytes(
   if (startsWithBytes(bytes, [0x50, 0x4b, 0x03, 0x04])) {
     return null; // OOXML and OpenDocument are ZIP containers.
   }
-  if (startsWithBytes(bytes, [0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1])) {
+  if (
+    startsWithBytes(bytes, [0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1])
+  ) {
     return null; // Legacy Office formats share the OLE compound signature.
   }
   return null;
@@ -213,9 +220,15 @@ export function fileMagicBytesMatchMimeType(input: {
     return startsWithBytes(input.bytes, [0x50, 0x4b, 0x03, 0x04]);
   }
   if (OLE_CONTAINER_MIME_TYPES.has(input.mimeType)) {
-    return startsWithBytes(input.bytes, [0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]);
+    return startsWithBytes(
+      input.bytes,
+      [0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]
+    );
   }
-  if (input.mimeType === "video/webm" || input.mimeType === "video/x-matroska") {
+  if (
+    input.mimeType === "video/webm" ||
+    input.mimeType === "video/x-matroska"
+  ) {
     return startsWithBytes(input.bytes, [0x1a, 0x45, 0xdf, 0xa3]);
   }
   if (input.mimeType === "video/x-m4v") {
@@ -235,7 +248,8 @@ export function fileMagicBytesMatchMimeType(input: {
       return false;
     }
     if (input.mimeType === "application/rtf") return text.startsWith("{\\rtf");
-    if (input.mimeType === "image/svg+xml") return /^(?:<\?xml[^>]*>\s*)?<svg[\s>]/i.test(text);
+    if (input.mimeType === "image/svg+xml")
+      return /^(?:<\?xml[^>]*>\s*)?<svg[\s>]/i.test(text);
     return true;
   }
   return false;
