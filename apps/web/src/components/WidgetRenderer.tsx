@@ -46,33 +46,287 @@ export const CANVAS_WIDGET_CSP = [
 // ---------------------------------------------------------------------------
 
 /**
- * Reads all CSS custom properties from the host document's :root
- * and returns them as a flat object: { "--background": "...", ... }
+ * Theme tokens the canvas iframe must receive. Explicit names matter: some
+ * Android browsers omit custom properties when iterating CSSStyleDeclaration,
+ * which left widgets with black SVG fills and unreadable control text.
  */
-function extractThemeVars(): Record<string, string> {
+export const CANVAS_THEME_VAR_NAMES = [
+  "--background",
+  "--foreground",
+  "--card",
+  "--card-foreground",
+  "--popover",
+  "--popover-foreground",
+  "--primary",
+  "--primary-foreground",
+  "--secondary",
+  "--secondary-foreground",
+  "--muted",
+  "--muted-foreground",
+  "--accent",
+  "--accent-foreground",
+  "--destructive",
+  "--destructive-foreground",
+  "--border",
+  "--input",
+  "--ring",
+  "--hover",
+  "--active",
+  "--info",
+  "--info-foreground",
+  "--success",
+  "--success-foreground",
+  "--warning",
+  "--warning-foreground",
+  "--chart-1",
+  "--chart-2",
+  "--chart-3",
+  "--chart-4",
+  "--chart-5",
+  "--radius",
+  "--font-sans",
+  "--font-serif",
+  "--font-mono",
+  "--color-text-default",
+  "--color-bg-default",
+  "--color-pill-default",
+  "--color-text-gray",
+  "--color-bg-gray",
+  "--color-pill-gray",
+  "--color-text-brown",
+  "--color-bg-brown",
+  "--color-pill-brown",
+  "--color-text-orange",
+  "--color-bg-orange",
+  "--color-pill-orange",
+  "--color-text-yellow",
+  "--color-bg-yellow",
+  "--color-pill-yellow",
+  "--color-text-green",
+  "--color-bg-green",
+  "--color-pill-green",
+  "--color-text-blue",
+  "--color-bg-blue",
+  "--color-pill-blue",
+  "--color-text-purple",
+  "--color-bg-purple",
+  "--color-pill-purple",
+  "--color-text-pink",
+  "--color-bg-pink",
+  "--color-pill-pink",
+  "--color-text-red",
+  "--color-bg-red",
+  "--color-pill-red",
+] as const;
+
+const LIGHT_THEME_FALLBACKS: Record<string, string> = {
+  "--background": "#fcfcfc",
+  "--foreground": "rgba(20, 20, 20, 0.94)",
+  "--card": "#fcfcfc",
+  "--card-foreground": "rgba(20, 20, 20, 0.94)",
+  "--popover": "#fcfcfc",
+  "--popover-foreground": "rgba(20, 20, 20, 0.94)",
+  "--primary": "#abc4ff",
+  "--primary-foreground": "rgba(20, 20, 20, 0.94)",
+  "--secondary": "#f8f8f8",
+  "--secondary-foreground": "rgba(20, 20, 20, 0.74)",
+  "--muted": "#f8f8f8",
+  "--muted-foreground": "rgba(20, 20, 20, 0.54)",
+  "--accent": "rgba(20, 20, 20, 0.08)",
+  "--accent-foreground": "rgba(20, 20, 20, 0.94)",
+  "--destructive": "#cf2d56",
+  "--destructive-foreground": "#fcfcfc",
+  "--border": "rgba(20, 20, 20, 0.08)",
+  "--input": "rgba(20, 20, 20, 0.12)",
+  "--ring": "#abc4ff",
+  "--hover": "rgba(20, 20, 20, 0.04)",
+  "--active": "rgba(20, 20, 20, 0.08)",
+  "--info": "#0b6e99",
+  "--info-foreground": "#0b6e99",
+  "--success": "#0f7b6c",
+  "--success-foreground": "#0f7b6c",
+  "--warning": "#dfab01",
+  "--warning-foreground": "#dfab01",
+  "--chart-1": "#e89a62",
+  "--chart-2": "#71b8c9",
+  "--chart-3": "#d982b5",
+  "--chart-4": "#b88f78",
+  "--chart-5": "#9b8ac4",
+  "--radius": "0.375rem",
+  "--font-sans":
+    '"Inter", ui-sans-serif, -apple-system, "Segoe UI", sans-serif',
+  "--color-text-default": "#37352f",
+  "--color-bg-default": "#ffffff",
+  "--color-pill-default": "rgba(206, 205, 202, 0.5)",
+  "--color-text-gray": "#9b9a97",
+  "--color-bg-gray": "#ebeced",
+  "--color-pill-gray": "rgba(155, 154, 151, 0.4)",
+  "--color-text-brown": "#64473a",
+  "--color-bg-brown": "#e9e5e3",
+  "--color-pill-brown": "rgba(140, 46, 0, 0.2)",
+  "--color-text-orange": "#d9730d",
+  "--color-bg-orange": "#faebdd",
+  "--color-pill-orange": "rgba(245, 93, 0, 0.2)",
+  "--color-text-yellow": "#dfab01",
+  "--color-bg-yellow": "#fbf3db",
+  "--color-pill-yellow": "rgba(233, 168, 0, 0.2)",
+  "--color-text-green": "#0f7b6c",
+  "--color-bg-green": "#ddedea",
+  "--color-pill-green": "rgba(0, 135, 107, 0.2)",
+  "--color-text-blue": "#0b6e99",
+  "--color-bg-blue": "#ddebf1",
+  "--color-pill-blue": "rgba(0, 120, 223, 0.2)",
+  "--color-text-purple": "#6940a5",
+  "--color-bg-purple": "#eae4f2",
+  "--color-pill-purple": "rgba(103, 36, 222, 0.2)",
+  "--color-text-pink": "#ad1a72",
+  "--color-bg-pink": "#f4dfeb",
+  "--color-pill-pink": "rgba(221, 0, 129, 0.2)",
+  "--color-text-red": "#e03e3e",
+  "--color-bg-red": "#fbe4e4",
+  "--color-pill-red": "rgba(255, 0, 26, 0.2)",
+};
+
+const DARK_THEME_FALLBACKS: Record<string, string> = {
+  "--background": "#141414",
+  "--foreground": "rgba(228, 228, 228, 0.92)",
+  "--card": "#181818",
+  "--card-foreground": "rgba(228, 228, 228, 0.92)",
+  "--popover": "#181818",
+  "--popover-foreground": "rgba(228, 228, 228, 0.92)",
+  "--primary": "#abc4ff",
+  "--primary-foreground": "#191919",
+  "--secondary": "#181818",
+  "--secondary-foreground": "rgba(228, 228, 228, 0.55)",
+  "--muted": "#181818",
+  "--muted-foreground": "rgba(228, 228, 228, 0.37)",
+  "--accent": "rgba(228, 228, 228, 0.07)",
+  "--accent-foreground": "rgba(228, 228, 228, 0.92)",
+  "--destructive": "#fc6b83",
+  "--destructive-foreground": "#191919",
+  "--border": "rgba(228, 228, 228, 0.08)",
+  "--input": "rgba(228, 228, 228, 0.12)",
+  "--ring": "#abc4ff",
+  "--hover": "rgba(228, 228, 228, 0.04)",
+  "--active": "rgba(228, 228, 228, 0.08)",
+  "--info": "#529cca",
+  "--info-foreground": "#529cca",
+  "--success": "#4dab9a",
+  "--success-foreground": "#4dab9a",
+  "--warning": "#ffdc49",
+  "--warning-foreground": "#ffdc49",
+  "--chart-1": "#f0a873",
+  "--chart-2": "#78c4d5",
+  "--chart-3": "#ed84bd",
+  "--chart-4": "#c39a82",
+  "--chart-5": "#a99ad1",
+  "--radius": "0.5rem",
+  "--font-sans":
+    '"Inter", ui-sans-serif, -apple-system, "Segoe UI", sans-serif',
+  "--color-text-default": "rgba(255, 255, 255, 0.9)",
+  "--color-bg-default": "#2f3437",
+  "--color-pill-default": "rgba(206, 205, 202, 0.5)",
+  "--color-text-gray": "rgba(151, 154, 155, 0.95)",
+  "--color-bg-gray": "#454b4e",
+  "--color-pill-gray": "rgba(151, 154, 155, 0.5)",
+  "--color-text-brown": "#937264",
+  "--color-bg-brown": "#434040",
+  "--color-pill-brown": "rgba(147, 114, 100, 0.5)",
+  "--color-text-orange": "#ffa344",
+  "--color-bg-orange": "#594a3a",
+  "--color-pill-orange": "rgba(255, 163, 68, 0.5)",
+  "--color-text-yellow": "#ffdc49",
+  "--color-bg-yellow": "#59563b",
+  "--color-pill-yellow": "rgba(255, 220, 73, 0.5)",
+  "--color-text-green": "#4dab9a",
+  "--color-bg-green": "#354c4b",
+  "--color-pill-green": "rgba(77, 171, 154, 0.5)",
+  "--color-text-blue": "#529cca",
+  "--color-bg-blue": "#364954",
+  "--color-pill-blue": "rgba(82, 156, 202, 0.5)",
+  "--color-text-purple": "#9a6dd7",
+  "--color-bg-purple": "#443f57",
+  "--color-pill-purple": "rgba(154, 109, 215, 0.5)",
+  "--color-text-pink": "#e255a1",
+  "--color-bg-pink": "#533b4c",
+  "--color-pill-pink": "rgba(226, 85, 161, 0.5)",
+  "--color-text-red": "#ff7369",
+  "--color-bg-red": "#594141",
+  "--color-pill-red": "rgba(255, 115, 105, 0.5)",
+};
+
+/**
+ * Convert #RRGGBBAA (and equivalent forms) to rgba() for Android WebView /
+ * Chrome versions that mishandle 8-digit hex inside sandboxed srcdoc iframes.
+ */
+export function normalizeCssColorValue(value: string): string {
+  const trimmed = value.trim();
+  const hex8 = /^#([0-9a-f]{8})$/i.exec(trimmed);
+  if (hex8?.[1]) {
+    const hex = hex8[1];
+    const r = Number.parseInt(hex.slice(0, 2), 16);
+    const g = Number.parseInt(hex.slice(2, 4), 16);
+    const b = Number.parseInt(hex.slice(4, 6), 16);
+    const a = Number.parseInt(hex.slice(6, 8), 16) / 255;
+    const alpha = Math.round(a * 1000) / 1000;
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  }
+  return trimmed;
+}
+
+function serializeCssVarBlock(vars: Record<string, string>): string {
+  const declarations = Object.entries(vars)
+    .map(([k, v]) => `  ${k}: ${v};`)
+    .join("\n");
+  return `:root {\n${declarations}\n}`;
+}
+
+export function buildFallbackThemeBlock(isDark: boolean): string {
+  return serializeCssVarBlock(
+    isDark ? DARK_THEME_FALLBACKS : LIGHT_THEME_FALLBACKS
+  );
+}
+
+/**
+ * Reads theme CSS custom properties from the host document's :root.
+ * Uses an explicit token list first (Android-safe), then merges any extra
+ * custom properties discovered via iteration.
+ */
+export function extractThemeVars(): Record<string, string> {
   const style = getComputedStyle(document.documentElement);
   const vars: Record<string, string> = {};
+
+  for (const name of CANVAS_THEME_VAR_NAMES) {
+    const val = style.getPropertyValue(name).trim();
+    if (val) {
+      vars[name] = normalizeCssColorValue(val);
+    }
+  }
+
+  // Best-effort: pick up any additional custom properties on engines that
+  // expose them through CSSStyleDeclaration indexing.
   for (let i = 0; i < style.length; i += 1) {
     const name = style[i];
-    if (!name?.startsWith("--")) {
+    if (!name?.startsWith("--") || name in vars) {
       continue;
     }
     const val = style.getPropertyValue(name).trim();
     if (val) {
-      vars[name] = val;
+      vars[name] = normalizeCssColorValue(val);
     }
   }
+
   return vars;
 }
 
 /**
  * Serializes CSS vars into a :root { ... } block to inject into the iframe.
  */
-function buildCssVarBlock(vars: Record<string, string>): string {
-  const declarations = Object.entries(vars)
-    .map(([k, v]) => `  ${k}: ${v};`)
-    .join("\n");
-  return `:root {\n${declarations}\n}`;
+export function buildCssVarBlock(vars: Record<string, string>): string {
+  const normalized = Object.fromEntries(
+    Object.entries(vars).map(([k, v]) => [k, normalizeCssColorValue(v)])
+  );
+  return serializeCssVarBlock(normalized);
 }
 
 function buildCanvasThemeBlock(isDark: boolean): string {
@@ -86,12 +340,13 @@ function buildCanvasThemeBlock(isDark: boolean): string {
     "--canvas-primary-foreground": "var(--primary-foreground)",
     "--canvas-accent": "var(--secondary)",
     "--canvas-accent-foreground": "var(--secondary-foreground)",
+    // Prefer srgb color-mix — oklch mixes are less reliable in Android WebViews.
     "--canvas-grid": isDark
-      ? "color-mix(in oklch, var(--foreground), transparent 88%)"
-      : "color-mix(in oklch, var(--foreground), transparent 92%)",
+      ? "color-mix(in srgb, var(--foreground) 12%, transparent)"
+      : "color-mix(in srgb, var(--foreground) 8%, transparent)",
     "--canvas-grid-strong": isDark
-      ? "color-mix(in oklch, var(--foreground), transparent 80%)"
-      : "color-mix(in oklch, var(--foreground), transparent 84%)",
+      ? "color-mix(in srgb, var(--foreground) 20%, transparent)"
+      : "color-mix(in srgb, var(--foreground) 16%, transparent)",
     "--p": "var(--primary)",
     "--s": "var(--secondary)",
     "--t": "var(--foreground)",
@@ -126,10 +381,7 @@ function buildCanvasThemeBlock(isDark: boolean): string {
       "color-mix(in srgb, var(--warning) 35%, transparent)",
   };
 
-  const declarations = Object.entries(canvasVars)
-    .map(([k, v]) => `  ${k}: ${v};`)
-    .join("\n");
-  return `:root {\n${declarations}\n}`;
+  return serializeCssVarBlock(canvasVars);
 }
 
 // ---------------------------------------------------------------------------
@@ -313,18 +565,23 @@ export function buildCanvasWidgetDocument(
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="${isDark ? "dark" : "light"}">
 <meta http-equiv="Content-Security-Policy" content="${CANVAS_WIDGET_CSP}">
+<style id="avenire-theme-fallbacks">
+/* Concrete tokens so Android still paints if host var extraction is empty. */
+${buildFallbackThemeBlock(isDark)}
+</style>
 <style>
 /* ── Base reset ── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  color-scheme: light dark;
+  color-scheme: ${isDark ? "dark" : "light"};
 }
 
 html, body {
-  background: var(--canvas-background, var(--card));
-  color: var(--canvas-text, var(--foreground));
+  background: var(--canvas-background, var(--card, ${isDark ? "#181818" : "#fcfcfc"}));
+  color: var(--canvas-text, var(--foreground, ${isDark ? "rgba(228, 228, 228, 0.92)" : "rgba(20, 20, 20, 0.94)"}));
   font-family: var(--font-sans, system-ui, sans-serif);
   font-size: 14px;
   line-height: 1.6;
@@ -333,6 +590,9 @@ html, body {
   overflow-x: auto;
   overflow-y: hidden;
   padding: 12px;
+  /* Prevent Android forced-colors from wiping widget fills/text. */
+  forced-color-adjust: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 /* ── Form element defaults matching shadcn aesthetic ── */
@@ -388,7 +648,7 @@ input[type="text"]:focus,
 input[type="number"]:focus,
 textarea:focus {
   border-color: var(--ring) !important;
-  box-shadow: 0 0 0 2px color-mix(in oklch, var(--ring), transparent 70%) !important;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--ring) 30%, transparent) !important;
 }
 
 select {
@@ -416,7 +676,7 @@ button {
   font-family: var(--font-sans, sans-serif);
   background: var(--secondary) !important;
   color: var(--foreground) !important;
-  border: 1px solid color-mix(in oklch, var(--foreground), transparent 82%) !important;
+  border: 1px solid color-mix(in srgb, var(--foreground) 18%, transparent) !important;
   cursor: pointer;
   transition: opacity .15s, background .15s, transform .1s;
 }
