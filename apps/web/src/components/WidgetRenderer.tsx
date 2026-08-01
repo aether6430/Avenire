@@ -119,7 +119,9 @@ export const CANVAS_THEME_VAR_NAMES = [
   "--color-pill-red",
 ] as const;
 
-const LIGHT_THEME_FALLBACKS: Record<string, string> = {
+type CanvasThemeVarName = (typeof CANVAS_THEME_VAR_NAMES)[number];
+
+const LIGHT_THEME_FALLBACKS: Partial<Record<CanvasThemeVarName, string>> = {
   "--background": "#fcfcfc",
   "--foreground": "rgba(20, 20, 20, 0.94)",
   "--card": "#fcfcfc",
@@ -187,7 +189,7 @@ const LIGHT_THEME_FALLBACKS: Record<string, string> = {
   "--color-pill-red": "rgba(255, 0, 26, 0.2)",
 };
 
-const DARK_THEME_FALLBACKS: Record<string, string> = {
+const DARK_THEME_FALLBACKS: Partial<Record<CanvasThemeVarName, string>> = {
   "--background": "#141414",
   "--foreground": "rgba(228, 228, 228, 0.92)",
   "--card": "#181818",
@@ -256,14 +258,21 @@ const DARK_THEME_FALLBACKS: Record<string, string> = {
 };
 
 /**
- * Convert #RRGGBBAA (and equivalent forms) to rgba() for Android WebView /
- * Chrome versions that mishandle 8-digit hex inside sandboxed srcdoc iframes.
+ * Convert #RRGGBBAA / #RGBA hex-with-alpha to rgba() for Android WebView /
+ * Chrome versions that mishandle alpha hex inside sandboxed srcdoc iframes.
  */
 export function normalizeCssColorValue(value: string): string {
   const trimmed = value.trim();
-  const hex8 = /^#([0-9a-f]{8})$/i.exec(trimmed);
-  if (hex8?.[1]) {
-    const hex = hex8[1];
+  const hexAlpha = /^#(?:([0-9a-f]{8})|([0-9a-f]{4}))$/i.exec(trimmed);
+  const raw = hexAlpha?.[1] ?? hexAlpha?.[2];
+  if (raw) {
+    const hex =
+      raw.length === 4
+        ? raw
+            .split("")
+            .map((channel) => channel + channel)
+            .join("")
+        : raw;
     const r = Number.parseInt(hex.slice(0, 2), 16);
     const g = Number.parseInt(hex.slice(2, 4), 16);
     const b = Number.parseInt(hex.slice(4, 6), 16);
@@ -274,8 +283,11 @@ export function normalizeCssColorValue(value: string): string {
   return trimmed;
 }
 
-function serializeCssVarBlock(vars: Record<string, string>): string {
+function serializeCssVarBlock(
+  vars: Record<string, string | undefined>
+): string {
   const declarations = Object.entries(vars)
+    .filter((entry): entry is [string, string] => typeof entry[1] === "string")
     .map(([k, v]) => `  ${k}: ${v};`)
     .join("\n");
   return `:root {\n${declarations}\n}`;
@@ -590,9 +602,16 @@ html, body {
   overflow-x: auto;
   overflow-y: hidden;
   padding: 12px;
-  /* Prevent Android forced-colors from wiping widget fills/text. */
-  forced-color-adjust: none;
   -webkit-tap-highlight-color: transparent;
+}
+
+/* Keep theme fills/text when forced-colors is active (Android/high-contrast). */
+@media (forced-colors: active) {
+  html, body {
+    forced-color-adjust: none;
+    background: var(--canvas-background, var(--card));
+    color: var(--canvas-text, var(--foreground));
+  }
 }
 
 /* ── Form element defaults matching shadcn aesthetic ── */

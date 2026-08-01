@@ -42,11 +42,12 @@ describe("canvas widget isolation", () => {
 });
 
 describe("canvas widget theme colors", () => {
-  it("normalizes 8-digit hex colors to rgba for Android-safe injection", () => {
+  it("normalizes hex-with-alpha colors to rgba for Android-safe injection", () => {
     expect(normalizeCssColorValue("#e4e4e4eb")).toBe(
       "rgba(228, 228, 228, 0.922)"
     );
     expect(normalizeCssColorValue("#141414f0")).toBe("rgba(20, 20, 20, 0.941)");
+    expect(normalizeCssColorValue("#fff8")).toBe("rgba(255, 255, 255, 0.533)");
     expect(normalizeCssColorValue("#abc4ff")).toBe("#abc4ff");
     expect(normalizeCssColorValue("  rgba(1, 2, 3, 0.5) ")).toBe(
       "rgba(1, 2, 3, 0.5)"
@@ -71,16 +72,24 @@ describe("canvas widget theme colors", () => {
     expect(darkDoc).toContain('class="dark"');
     expect(darkDoc).toContain('name="color-scheme" content="dark"');
     expect(darkDoc).toContain("color-scheme: dark;");
+    expect(darkDoc).toContain("@media (forced-colors: active)");
     expect(darkDoc).toContain("forced-color-adjust: none");
     expect(darkDoc).toContain(buildFallbackThemeBlock(true));
     expect(darkDoc).toContain("--color-bg-blue: #364954;");
     expect(darkDoc).toContain("--foreground: rgba(228, 228, 228, 0.92);");
     expect(darkDoc).not.toContain("color-mix(in oklch");
+    // Host vars must win over fallbacks via later source order.
+    expect(darkDoc.indexOf('id="avenire-theme-fallbacks"')).toBeLessThan(
+      darkDoc.indexOf('id="avenire-css-vars"')
+    );
 
     expect(lightDoc).toContain('content="light"');
     expect(lightDoc).toContain("color-scheme: light;");
     expect(lightDoc).toContain(buildFallbackThemeBlock(false));
     expect(lightDoc).toContain("--color-bg-blue: #ddebf1;");
+    expect(lightDoc.indexOf('id="avenire-theme-fallbacks"')).toBeLessThan(
+      lightDoc.indexOf('id="avenire-css-vars"')
+    );
   });
 
   it("reads explicit theme tokens even when style iteration is empty", () => {
@@ -112,6 +121,8 @@ describe("canvas widget theme colors", () => {
           "length",
           originalLength
         );
+      } else {
+        Reflect.deleteProperty(CSSStyleDeclaration.prototype, "length");
       }
       document.documentElement.style.removeProperty("--foreground");
       document.documentElement.style.removeProperty("--background");
