@@ -1,13 +1,12 @@
 "use client"
 
 import * as React from "react"
-import { AnimatePresence, m } from "framer-motion"
+import { m } from "framer-motion"
 
 import { cn } from "../lib/utils"
 import {
   ContextMenu,
   ContextMenuContent,
-  ContextMenuItem,
   ContextMenuTrigger,
 } from "./context-menu"
 
@@ -37,8 +36,6 @@ type ExpandableTabsProps = {
   persistenceKey?: string
   contextMenuContent?: (item: ExpandableTabItem) => React.ReactNode
 }
-
-const lastMountedValueByPersistenceKey = new Map<string, string | null>()
 
 function getNextIndex(
   startIndex: number,
@@ -71,31 +68,11 @@ export function ExpandableTabs({
     defaultValue
   )
   const currentValue = isControlled ? value : internalValue
-  const [hasMounted, setHasMounted] = React.useState(false)
-  const initialPersistedValue = React.useMemo(
-    () =>
-      persistenceKey
-        ? (lastMountedValueByPersistenceKey.get(persistenceKey) ?? null)
-        : null,
-    [persistenceKey]
-  )
-  const shouldAnimateOnInitialMount = persistenceKey
-    ? initialPersistedValue !== null && initialPersistedValue !== currentValue
-    : true
 
   const tabRefs = React.useRef<Array<HTMLButtonElement | null>>([])
-
-  React.useEffect(() => {
-    setHasMounted(true)
-  }, [])
-
-  React.useEffect(() => {
-    if (!persistenceKey) {
-      return
-    }
-
-    lastMountedValueByPersistenceKey.set(persistenceKey, currentValue ?? null)
-  }, [currentValue, persistenceKey])
+  const bubbleLayoutId = persistenceKey
+    ? `expandable-tabs-bubble-${persistenceKey}`
+    : "expandable-tabs-bubble"
 
   const setValue = React.useCallback(
     (nextValue: string | null) => {
@@ -156,7 +133,7 @@ export function ExpandableTabs({
         const isSelected = currentValue === item.value
 
         const button = (
-          <m.button
+          <button
             ref={(node) => {
               tabRefs.current[index] = node
             }}
@@ -181,46 +158,35 @@ export function ExpandableTabs({
             onMouseEnter={() => onItemHover?.(item)}
             onKeyDown={(event) => onKeyDown(event, index)}
             className={cn(
-              "text-sidebar-foreground ring-sidebar-ring focus-visible:ring-2 relative inline-flex flex-1 items-center justify-center gap-2 rounded-lg px-2 py-1.5 text-xs font-medium outline-hidden transition-colors cursor-pointer",
+              "text-sidebar-foreground ring-sidebar-ring focus-visible:ring-2 relative inline-flex flex-1 items-center justify-center rounded-lg px-2 py-1.5 text-xs font-medium outline-hidden transition-colors cursor-pointer",
               isSelected
-                ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                : "text-sidebar-foreground/70 hover:bg-sidebar-accent/40 hover:text-sidebar-foreground",
+                ? "text-sidebar-accent-foreground"
+                : "text-sidebar-foreground/70 hover:text-sidebar-foreground",
               item.disabled && "pointer-events-none opacity-50"
             )}
-            animate={{
-              paddingInline: isSelected ? "0.75rem" : "0.5rem",
-            }}
-            transition={{ duration: 0.2, ease: "easeOut" }}
           >
-            <Icon className="size-3.5 shrink-0" aria-hidden="true" />
-            <AnimatePresence initial={false}>
-              {isSelected && (
-                <m.span
-                  initial={
-                    hasMounted || shouldAnimateOnInitialMount
-                      ? { width: 0, opacity: 0 }
-                      : false
-                  }
-                  animate={{ width: "auto", opacity: 1 }}
-                  exit={{ width: 0, opacity: 0 }}
-                  transition={{ duration: 0.2, ease: "easeOut" }}
-                  className="overflow-hidden whitespace-nowrap"
-                >
-                  {item.label}
-                </m.span>
-              )}
-            </AnimatePresence>
+            {isSelected ? (
+              <m.span
+                layoutId={bubbleLayoutId}
+                className="absolute inset-0 rounded-lg bg-sidebar-accent"
+                transition={{
+                  type: "spring",
+                  stiffness: 420,
+                  damping: 34,
+                  mass: 0.8,
+                }}
+              />
+            ) : null}
+            <Icon className="relative z-10 size-3.5 shrink-0" aria-hidden="true" />
             <span className="sr-only">{item.label}</span>
-          </m.button>
+          </button>
         )
 
         const menuContent = contextMenuContent?.(item)
         if (menuContent) {
           return (
             <ContextMenu key={item.value}>
-              <ContextMenuTrigger
-                render={<div className="contents" />}
-              >
+              <ContextMenuTrigger render={<div className="contents" />}>
                 {button}
               </ContextMenuTrigger>
               <ContextMenuContent side="bottom" align="start">
@@ -230,7 +196,7 @@ export function ExpandableTabs({
           )
         }
 
-        return button
+        return <React.Fragment key={item.value}>{button}</React.Fragment>
       })}
     </div>
   )
