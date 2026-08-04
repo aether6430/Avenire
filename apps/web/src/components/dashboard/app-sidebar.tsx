@@ -85,17 +85,17 @@ import { ChatIcon } from "@/components/chat/chat-icon";
 import { useHaptics } from "@/hooks/use-haptics";
 import type { ChatSummary } from "@/lib/chat-data";
 import {
-  readIndexedCachedChats,
-  writeIndexedCachedChats,
-} from "@/lib/chat-list-indexed-cache";
-import { deleteCachedChatMessages } from "@/lib/chat-message-cache";
-import {
   CHAT_NAME_UPDATED_EVENT,
   CHAT_STREAM_STATUS_EVENT,
   type ChatNameUpdatedDetail,
   type ChatStreamStatusDetail,
 } from "@/lib/chat-events";
 import { isChatIconName } from "@/lib/chat-icons";
+import {
+  readIndexedCachedChats,
+  writeIndexedCachedChats,
+} from "@/lib/chat-list-indexed-cache";
+import { deleteCachedChatMessages } from "@/lib/chat-message-cache";
 import {
   readCachedChats,
   readCachedWorkspaces,
@@ -1000,6 +1000,8 @@ export function DashboardSidebar({
   const sessionCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
     null
   );
+  const chatHistoryLoadedRef = useRef(false);
+  const chatHistoryRequestRef = useRef(0);
   let routeView:
     | "chat"
     | "flashcards"
@@ -1256,9 +1258,12 @@ export function DashboardSidebar({
     if (!workspaceUuid) {
       return;
     }
+    if (chatHistoryLoadedRef.current) {
+      return;
+    }
     let cancelled = false;
     void readIndexedCachedChats(workspaceUuid).then((indexedChats) => {
-      if (cancelled || !indexedChats) {
+      if (cancelled || !indexedChats || chatHistoryLoadedRef.current) {
         return;
       }
       setChats(indexedChats);
@@ -1273,6 +1278,7 @@ export function DashboardSidebar({
       return;
     }
     chatsWorkspaceRef.current = workspaceUuid;
+    chatHistoryLoadedRef.current = false;
     const cachedChats = workspaceUuid ? readCachedChats(workspaceUuid) : null;
     setChats(cachedChats ?? []);
     if (workspaceUuid) {
@@ -1404,6 +1410,7 @@ export function DashboardSidebar({
   }, [activeChatSlug, routeView]);
 
   const loadChats = useCallback(async () => {
+    const requestId = ++chatHistoryRequestRef.current;
     try {
       const response = await fetch("/api/chat/history", {
         cache: "no-store",
@@ -1413,6 +1420,10 @@ export function DashboardSidebar({
       }
       const payload = (await response.json()) as { chats?: ChatSummary[] };
       const nextChats = payload.chats ?? [];
+      if (requestId !== chatHistoryRequestRef.current) {
+        return;
+      }
+      chatHistoryLoadedRef.current = true;
       setChats(nextChats);
       if (workspaceUuid && chatsWorkspaceRef.current === workspaceUuid) {
         writeCachedChats(workspaceUuid, nextChats);
@@ -1675,7 +1686,10 @@ export function DashboardSidebar({
     return () => {
       window.removeEventListener(CHAT_NAME_UPDATED_EVENT, onChatNameUpdated);
       window.removeEventListener(CHAT_STREAM_STATUS_EVENT, onChatStreamStatus);
-      window.removeEventListener("avenire:chat-message-sent", onChatMessageSent);
+      window.removeEventListener(
+        "avenire:chat-message-sent",
+        onChatMessageSent
+      );
     };
   }, [loadChats, workspaceUuid]);
 
@@ -1908,6 +1922,16 @@ export function DashboardSidebar({
     chatSlug: string,
     updates: { title?: string; pinned?: boolean }
   ) => {
+    const previousChats = chats;
+    const optimisticChats = chats.map((chat) =>
+      chat.slug === chatSlug ? { ...chat, ...updates } : chat
+    );
+    setChats(optimisticChats);
+    if (workspaceUuid) {
+      writeCachedChats(workspaceUuid, optimisticChats);
+      void writeIndexedCachedChats(workspaceUuid, optimisticChats);
+    }
+
     const data = await parseResponse<{ chat: ChatSummary }>(
       await fetch(`/api/chats/${chatSlug}`, {
         method: "PATCH",
@@ -1917,12 +1941,24 @@ export function DashboardSidebar({
     );
 
     if (!data?.chat) {
+      setChats(previousChats);
+      if (workspaceUuid) {
+        writeCachedChats(workspaceUuid, previousChats);
+        void writeIndexedCachedChats(workspaceUuid, previousChats);
+      }
       return;
     }
 
-    setChats((prev) =>
-      prev.map((chat) => (chat.slug === chatSlug ? data.chat : chat))
-    );
+    setChats((prev) => {
+      const nextChats = prev.map((chat) =>
+        chat.slug === chatSlug ? data.chat : chat
+      );
+      if (workspaceUuid) {
+        writeCachedChats(workspaceUuid, nextChats);
+        void writeIndexedCachedChats(workspaceUuid, nextChats);
+      }
+      return nextChats;
+    });
   };
 
   const deleteChat = async (chatSlug: string) => {
@@ -2488,9 +2524,7 @@ export function DashboardSidebar({
                           contextMenuContent={
                             <>
                               <ContextMenuItem
-                                onClick={() =>
-                                  navigate(createNewChatHref())
-                                }
+                                onClick={() => navigate(createNewChatHref())}
                               >
                                 <MessageSquare className="mr-2 size-3.5" />
                                 Open
@@ -2712,7 +2746,7 @@ export function DashboardSidebar({
                     aria-hidden={sidebarView !== "chat"}
                     className={
                       mountedViews.has("chat")
-                        ? `absolute inset-0 overflow-y-auto ${
+                        ? `absolute inset-0 flex flex-col overflow-hidden ${
                             sidebarView === "chat"
                               ? ""
                               : "pointer-events-none hidden"
