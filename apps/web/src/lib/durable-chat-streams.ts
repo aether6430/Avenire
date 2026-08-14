@@ -1,3 +1,5 @@
+import { resolveAppBaseUrl } from "@/lib/app-base-url";
+
 type DurableStreamHeaders = Record<string, string>;
 
 const CHAT_STREAM_PATH_PREFIX = "chat";
@@ -133,7 +135,7 @@ export function buildDurableChatStreamReadProxyUrl(
   request: Request,
   path: string
 ) {
-  const url = new URL("/api/chat-stream", request.url);
+  const url = new URL("/api/chat-stream", resolveAppBaseUrl(request));
   url.searchParams.set("path", path);
   return url.toString();
 }
