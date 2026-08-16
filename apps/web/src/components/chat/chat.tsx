@@ -1109,7 +1109,6 @@ export function Chat({
     >
       <MultimodalInput
         attachments={attachments}
-        centered={centered}
         handleSubmit={handleSubmit}
         input={input}
         onTurboChange={setTurboEnabled}

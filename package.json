@@ -18,6 +18,8 @@
   },
   "devDependencies": {
     "@biomejs/biome": "latest",
+    "@oxlint/plugins": "1.78.0",
+    "oxlint": "1.78.0",
     "turbo": "latest",
     "typescript": "5.9.3",
     "ultracite": "latest"

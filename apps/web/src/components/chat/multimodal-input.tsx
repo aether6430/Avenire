@@ -71,6 +71,8 @@ const ERROR_MESSAGES: Record<InputErrorType, string> = {
 
 const MAX_MENTION_RESULTS = 20;
 const TEXTAREA_MAX_HEIGHT = 160;
+const COMPACT_ROW_GAP = 6;
+const COLLAPSE_DEBOUNCE_MS = 200;
 const WHITESPACE_REGEX = /\s/;
 const MOBILE_CHAT_VOICE_START_EVENT = "avenire:mobile-chat-voice-start";
 
@@ -265,7 +267,6 @@ function PureMultimodalInput({
   onTurboChange,
   workspaceUuid,
   className,
-  centered = false,
 }: {
   input: string;
   setInput: (input: string) => void;
@@ -281,9 +282,17 @@ function PureMultimodalInput({
   onTurboChange: (enabled: boolean) => void;
   workspaceUuid: string;
   className?: string;
-  centered?: boolean;
 }) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const composerRef = useRef<HTMLDivElement>(null);
+  const attachmentsRef = useRef<HTMLButtonElement>(null);
+  const composerControlsRef = useRef<HTMLDivElement>(null);
+  const measureRef = useRef<HTMLDivElement>(null);
+  const compactWidthRef = useRef<{
+    windowWidth: number;
+    compactWidth: number;
+  } | null>(null);
+  const collapseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const mentionItemRefs = useRef<Array<HTMLDivElement | null>>([]);
   const latestInputRef = useRef(input);
@@ -529,14 +538,99 @@ function PureMultimodalInput({
         : "What do you want to learn?";
   const isVoiceInputActive = isRecording || isTranscribing;
 
+  const measureWantsMultiLine = useCallback(
+    (windowWidth: number) => {
+      const measureEl = measureRef.current;
+      const textareaEl = textareaRef.current;
+      const composerEl = composerRef.current;
+      const attachmentsEl = attachmentsRef.current;
+      const controlsEl = composerControlsRef.current;
+      if (!(measureEl && textareaEl && composerEl)) {
+        return false;
+      }
+
+      const cached = compactWidthRef.current;
+      let compactWidth =
+        cached !== null && cached.windowWidth === windowWidth
+          ? cached.compactWidth
+          : textareaEl.clientWidth;
+
+      if (attachmentsEl && controlsEl) {
+        const composerStyle = getComputedStyle(composerEl);
+        const contentWidth =
+          composerEl.clientWidth -
+          Number.parseFloat(composerStyle.paddingLeft) -
+          Number.parseFloat(composerStyle.paddingRight);
+        compactWidth = Math.max(
+          0,
+          contentWidth -
+            attachmentsEl.offsetWidth -
+            controlsEl.offsetWidth -
+            COMPACT_ROW_GAP * 2
+        );
+        compactWidthRef.current = { windowWidth, compactWidth };
+      }
+
+      const textareaStyle = getComputedStyle(textareaEl);
+      const lineHeight = Number.parseFloat(textareaStyle.lineHeight);
+
+      measureEl.style.fontFamily = textareaStyle.fontFamily;
+      measureEl.style.fontSize = textareaStyle.fontSize;
+      measureEl.style.lineHeight = textareaStyle.lineHeight;
+      measureEl.style.letterSpacing = textareaStyle.letterSpacing;
+      measureEl.style.paddingLeft = textareaStyle.paddingLeft;
+      measureEl.style.paddingRight = textareaStyle.paddingRight;
+      measureEl.style.width = `${Math.max(0, compactWidth)}px`;
+      measureEl.textContent = input;
+
+      return measureEl.scrollHeight > lineHeight + 1;
+    },
+    [input]
+  );
+
   useLayoutEffect(() => {
     latestInputRef.current = input;
     if (!textareaRef.current) {
       return;
     }
     syncTextareaHeight(textareaRef.current);
-    setIsMultiLine(textareaRef.current.scrollHeight > 40);
-  }, [input, width]);
+    if (isVoiceInputActive) {
+      return;
+    }
+
+    const wantsMultiLine = measureWantsMultiLine(width);
+
+    if (wantsMultiLine) {
+      if (collapseTimerRef.current) {
+        clearTimeout(collapseTimerRef.current);
+        collapseTimerRef.current = null;
+      }
+      setIsMultiLine(true);
+      return;
+    }
+
+    if (!isMultiLine) {
+      return;
+    }
+
+    if (collapseTimerRef.current) {
+      return;
+    }
+    collapseTimerRef.current = setTimeout(() => {
+      collapseTimerRef.current = null;
+      setIsMultiLine(false);
+    }, COLLAPSE_DEBOUNCE_MS);
+  }, [input, isMultiLine, isVoiceInputActive, measureWantsMultiLine, width]);
+
+  useEffect(
+    () => () => {
+      if (collapseTimerRef.current) {
+        clearTimeout(collapseTimerRef.current);
+        collapseTimerRef.current = null;
+      }
+    },
+    []
+  );
 
   useEffect(() => {
     if (hasHydratedInputRef.current) {
@@ -1097,7 +1191,6 @@ function PureMultimodalInput({
   );
 
   const shouldStackComposerControls = isMultiLine;
-  const composerShapeClassName = "rounded-[28px]";
 
   return (
     <div
@@ -1105,13 +1198,22 @@ function PureMultimodalInput({
       data-empty={!canSend}
       data-running={isRunning}
     >
-      <div
+      <motion.div
         className={cn(
-          "relative flex w-full grow flex-col overflow-visible p-2 transition-[box-shadow,color] duration-150 ease-out focus-within:ring-1 focus-within:ring-ring",
-          composerShapeClassName,
+          "relative flex w-full grow flex-col overflow-visible p-2 transition-[box-shadow,color,border-radius] duration-150 ease-out focus-within:ring-1 focus-within:ring-ring",
+          isMultiLine ? "rounded-[24px]" : "rounded-[28px]",
           surfaceClasses(2, 2)
         )}
+        layout
+        ref={composerRef}
+        transition={{ ...springs.fast, bounce: 0 }}
       >
+        <div
+          aria-hidden="true"
+          className="pointer-events-none invisible absolute inset-x-0 top-0 -z-10 box-border overflow-hidden"
+          ref={measureRef}
+          style={{ whiteSpace: "pre-wrap", overflowWrap: "break-word" }}
+        />
         <input
           aria-label="Attach files"
           className="pointer-events-none fixed -top-4 -left-4 size-0.5 opacity-0"
@@ -1222,14 +1324,21 @@ function PureMultimodalInput({
                 "relative z-10 flex min-h-9 gap-1.5",
                 shouldStackComposerControls
                   ? "flex-col items-stretch"
-                  : "items-end"
+                  : "items-center"
               )}
             >
               {shouldStackComposerControls ? null : (
-                <AttachmentsButton
-                  onClick={() => fileInputRef.current?.click()}
-                  status={status}
-                />
+                <motion.div
+                  className="shrink-0"
+                  layoutId="composer-attachments-button"
+                  transition={{ ...springs.fast, bounce: 0 }}
+                >
+                  <AttachmentsButton
+                    onClick={() => fileInputRef.current?.click()}
+                    ref={attachmentsRef}
+                    status={status}
+                  />
+                </motion.div>
               )}
 
               {isVoiceInputActive ? (
@@ -1238,18 +1347,11 @@ function PureMultimodalInput({
                   levels={meterLevels}
                 />
               ) : (
-                <div
-                  className={cn(
-                    "flex min-w-0 flex-1 overflow-hidden",
-                    shouldStackComposerControls || centered
-                      ? "items-center"
-                      : "items-end"
-                  )}
-                >
+                <div className="flex min-w-0 flex-1 items-center overflow-hidden">
                   <Textarea
                     autoFocus
                     className={cn(
-                      "max-h-40 min-h-9 w-full flex-1 resize-none overflow-y-hidden border-none! bg-transparent! px-2 py-2 text-[14px] text-foreground leading-5 shadow-none! outline-none ring-0! transition-[height] duration-150 ease-out placeholder:text-muted-foreground focus-visible:border-transparent! focus-visible:ring-0!",
+                      "max-h-40 min-h-9 w-full flex-1 resize-none overflow-y-hidden break-words border-none! bg-transparent! px-2 py-2 text-[14px] text-foreground leading-5 shadow-none! outline-none ring-0! placeholder:text-muted-foreground focus-visible:border-transparent! focus-visible:ring-0!",
                       className
                     )}
                     data-testid="multimodal-input"
@@ -1312,17 +1414,28 @@ function PureMultimodalInput({
 
               <div
                 className={cn(
-                  "flex h-9 shrink-0 items-end gap-1.5",
+                  "flex h-9 shrink-0 items-center gap-1.5",
                   shouldStackComposerControls && "justify-between"
                 )}
               >
                 {shouldStackComposerControls ? (
-                  <AttachmentsButton
-                    onClick={() => fileInputRef.current?.click()}
-                    status={status}
-                  />
+                  <motion.div
+                    layoutId="composer-attachments-button"
+                    transition={{ ...springs.fast, bounce: 0 }}
+                  >
+                    <AttachmentsButton
+                      onClick={() => fileInputRef.current?.click()}
+                      ref={attachmentsRef}
+                      status={status}
+                    />
+                  </motion.div>
                 ) : null}
-                <div className="flex items-end gap-1.5">
+                <motion.div
+                  className="flex items-center gap-1.5"
+                  layout
+                  ref={composerControlsRef}
+                  transition={{ ...springs.fast, bounce: 0 }}
+                >
                   {isMobile || isVoiceInputActive ? null : (
                     <ComposerTurboButton
                       disabled={isRunning}
@@ -1359,12 +1472,12 @@ function PureMultimodalInput({
                       onStop={stop}
                     />
                   )}
-                </div>
+                </motion.div>
               </div>
             </div>
           </div>
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 }
@@ -1381,9 +1494,11 @@ export const MultimodalInput = memo(
 
 function PureAttachmentsButton({
   onClick,
+  ref,
   status,
 }: {
   onClick: () => void;
+  ref?: React.Ref<HTMLButtonElement>;
   status: UseChatHelpers<UIMessage>["status"];
 }) {
   return (
@@ -1396,6 +1511,7 @@ function PureAttachmentsButton({
         event.preventDefault();
         onClick();
       }}
+      ref={ref}
       size="icon"
       type="button"
       variant="ghost"
@@ -1630,9 +1746,7 @@ function PureComposerActionButton({
 }) {
   const disabled = !(isRunning || canSend);
   const reduceMotion = useReducedMotion() ?? false;
-  const iconEnter = reduceMotion
-    ? { opacity: 0 }
-    : { opacity: 0, scale: 0.94 };
+  const iconEnter = reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.94 };
   const iconExit = reduceMotion
     ? { opacity: 0, transition: { duration: 0.06 } }
     : { opacity: 0, scale: 0.94, transition: { duration: 0.06 } };
