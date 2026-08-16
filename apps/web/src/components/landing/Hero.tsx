@@ -1431,6 +1431,7 @@ function DemoWindow({
                     priority
                     sizes="(max-width: 768px) calc(100vw - 3rem), (max-width: 1280px) 42vw, 760px"
                     src={docView.artifacts.plot.src}
+                    unoptimized
                     width={760}
                   />
                   <p className="text-[9px] text-muted-foreground leading-relaxed">
