@@ -78,11 +78,23 @@ export async function getTeachingArtifacts(input: {
     .orderBy(asc(teachingArtifact.kind), desc(teachingArtifact.updatedAt))
     .limit(input.limit ?? 50);
 
+  const [missionRow] = await db
+    .select()
+    .from(teachingArtifact)
+    .where(
+      and(
+        eq(teachingArtifact.kind, "mission"),
+        eq(teachingArtifact.userId, input.userId),
+        eq(teachingArtifact.workspaceId, input.workspaceId)
+      )
+    )
+    .orderBy(desc(teachingArtifact.updatedAt))
+    .limit(1);
+
   const artifacts = rows.map(toMetadata);
   return {
     artifacts,
-    mission:
-      artifacts.find((artifact) => artifact.kind === "mission") ?? null,
+    mission: missionRow ? toMetadata(missionRow) : null,
   };
 }
 
