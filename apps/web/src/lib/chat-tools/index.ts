@@ -33,6 +33,7 @@ import {
 import {
   executeLoadSkill,
   executeGetTeachingWorkspace,
+  executeReadTeachingArtifact,
   executeSaveTeachingArtifact,
   executeShowWidgetWithOptions,
   executeVisualizeReadMe,
@@ -260,6 +261,13 @@ export function createChatTools(ctx: ChatToolContext): ToolSet {
       inputSchema: toolSchema(chatToolSchemas.get_teaching_workspace.input),
       outputSchema: toolSchema(chatToolSchemas.get_teaching_workspace.output),
       execute: async (input) => executeGetTeachingWorkspace(ctx, input),
+    }),
+    read_teaching_artifact: tool({
+      description:
+        "Read one full teaching artifact (mission, resource, note, reference, lesson, or learning-record) by kind and slug after get_teaching_workspace identifies it. Use for targeted content reads.",
+      inputSchema: toolSchema(chatToolSchemas.read_teaching_artifact.input),
+      outputSchema: toolSchema(chatToolSchemas.read_teaching_artifact.output),
+      execute: async (input) => executeReadTeachingArtifact(ctx, input),
     }),
     save_teaching_artifact: tool({
       description:

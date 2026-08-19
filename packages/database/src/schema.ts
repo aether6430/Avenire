@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import {
   boolean,
+  check,
   customType,
   index,
   integer,
@@ -211,6 +212,14 @@ export const teachingArtifact = pgTable(
       table.workspaceId,
       table.kind,
       table.updatedAt
+    ),
+    check(
+      "teaching_artifact_kind_check",
+      sql`${table.kind} in ('mission', 'resource', 'note', 'reference', 'lesson', 'learning-record')`
+    ),
+    check(
+      "teaching_artifact_content_length_check",
+      sql`length(${table.content}) <= 100000`
     ),
   ]
 );

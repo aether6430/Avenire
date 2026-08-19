@@ -6,6 +6,7 @@ import {
 } from "@avenire/ai/skills";
 import {
   getTeachingArtifacts,
+  readTeachingArtifact,
   saveTeachingArtifact,
   type TeachingArtifactKind,
 } from "@avenire/database";
@@ -59,6 +60,9 @@ type TeachingWorkspaceInput = z.infer<
 >;
 type SaveTeachingArtifactInput = z.infer<
   typeof import("@avenire/ai/tools").chatToolSchemas["save_teaching_artifact"]["input"]
+>;
+type ReadTeachingArtifactInput = z.infer<
+  typeof import("@avenire/ai/tools").chatToolSchemas["read_teaching_artifact"]["input"]
 >;
 type VisualizeReadMeInput = z.infer<
   typeof import("@avenire/ai/tools").chatToolSchemas["visualize_read_me"]["input"]
@@ -170,6 +174,19 @@ export async function executeGetTeachingWorkspace(
     userId: ctx.userId,
     workspaceId: ctx.workspaceId,
   });
+}
+
+export async function executeReadTeachingArtifact(
+  ctx: { userId: string; workspaceId: string },
+  input: ReadTeachingArtifactInput
+) {
+  const artifact = await readTeachingArtifact({
+    ...input,
+    kind: input.kind as TeachingArtifactKind,
+    userId: ctx.userId,
+    workspaceId: ctx.workspaceId,
+  });
+  return { artifact };
 }
 
 export async function executeSaveTeachingArtifact(

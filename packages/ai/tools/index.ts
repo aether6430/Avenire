@@ -116,8 +116,7 @@ const teachingArtifactKindSchema = z.enum([
   "learning-record",
 ]);
 
-const teachingArtifactSchema = z.object({
-  content: z.string(),
+const teachingArtifactMetadataSchema = z.object({
   createdAt: z.string(),
   id: z.string(),
   kind: teachingArtifactKindSchema,
@@ -125,6 +124,12 @@ const teachingArtifactSchema = z.object({
   title: z.string(),
   updatedAt: z.string(),
 });
+
+const teachingArtifactSchema = teachingArtifactMetadataSchema.extend({
+  content: z.string(),
+});
+
+const MAX_TEACHING_ARTIFACT_CONTENT_CHARS = 100_000;
 
 const widgetToneSchema = z
   .enum(["default", "muted", "info", "success", "warning", "danger"])
@@ -594,16 +599,25 @@ export const chatToolSchemas = {
   get_teaching_workspace: {
     input: z.object({
       kind: teachingArtifactKindSchema.optional(),
-      slug: z.string().min(1).optional(),
+      limit: z.number().int().min(1).max(50).optional(),
     }),
     output: z.object({
-      artifacts: z.array(teachingArtifactSchema),
-      mission: teachingArtifactSchema.nullable(),
+      artifacts: z.array(teachingArtifactMetadataSchema),
+      mission: teachingArtifactMetadataSchema.nullable(),
+    }),
+  },
+  read_teaching_artifact: {
+    input: z.object({
+      kind: teachingArtifactKindSchema,
+      slug: z.string().min(1),
+    }),
+    output: z.object({
+      artifact: teachingArtifactSchema,
     }),
   },
   save_teaching_artifact: {
     input: z.object({
-      content: z.string().min(1),
+      content: z.string().min(1).max(MAX_TEACHING_ARTIFACT_CONTENT_CHARS),
       kind: teachingArtifactKindSchema,
       slug: z.string().min(1),
       title: z.string().min(1),
@@ -816,6 +830,10 @@ export const chatTools = {
   get_teaching_workspace: tool({
     inputSchema: chatToolSchemas.get_teaching_workspace.input,
     outputSchema: chatToolSchemas.get_teaching_workspace.output,
+  }),
+  read_teaching_artifact: tool({
+    inputSchema: chatToolSchemas.read_teaching_artifact.input,
+    outputSchema: chatToolSchemas.read_teaching_artifact.output,
   }),
   save_teaching_artifact: tool({
     inputSchema: chatToolSchemas.save_teaching_artifact.input,

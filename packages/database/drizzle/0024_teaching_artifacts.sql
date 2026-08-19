@@ -7,7 +7,9 @@ CREATE TABLE IF NOT EXISTS "teaching_artifact" (
   "title" text NOT NULL,
   "content" text NOT NULL,
   "created_at" timestamptz DEFAULT now() NOT NULL,
-  "updated_at" timestamptz DEFAULT now() NOT NULL
+  "updated_at" timestamptz DEFAULT now() NOT NULL,
+  CONSTRAINT "teaching_artifact_kind_check" CHECK ("kind" IN ('mission', 'resource', 'note', 'reference', 'lesson', 'learning-record')),
+  CONSTRAINT "teaching_artifact_content_length_check" CHECK (length("content") <= 100000)
 );
 CREATE UNIQUE INDEX IF NOT EXISTS "teaching_artifact_owner_slug_uidx"
   ON "teaching_artifact" ("user_id", "workspace_id", "kind", "slug");
