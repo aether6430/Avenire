@@ -1,8 +1,14 @@
 import {
   AVAILABLE_STUDY_SKILLS,
+  AVAILABLE_TEACHING_SKILLS,
   AVAILABLE_VISUAL_SKILLS,
   loadSkills,
 } from "@avenire/ai/skills";
+import {
+  getTeachingArtifacts,
+  saveTeachingArtifact,
+  type TeachingArtifactKind,
+} from "@avenire/database";
 import { Firecrawl } from "firecrawl";
 import { z } from "zod";
 
@@ -47,6 +53,12 @@ type WebSearchInput = z.infer<
 >;
 type LoadSkillInput = z.infer<
   typeof import("@avenire/ai/tools").chatToolSchemas["load_skill"]["input"]
+>;
+type TeachingWorkspaceInput = z.infer<
+  typeof import("@avenire/ai/tools").chatToolSchemas["get_teaching_workspace"]["input"]
+>;
+type SaveTeachingArtifactInput = z.infer<
+  typeof import("@avenire/ai/tools").chatToolSchemas["save_teaching_artifact"]["input"]
 >;
 type VisualizeReadMeInput = z.infer<
   typeof import("@avenire/ai/tools").chatToolSchemas["visualize_read_me"]["input"]
@@ -131,7 +143,9 @@ export async function executeLoadSkill(input: LoadSkillInput) {
     new Set(
       input.skills.flatMap((skillName) => {
         const normalizedName = skillName.trim();
-        return AVAILABLE_STUDY_SKILLS.some((skill) => skill === normalizedName)
+        return [...AVAILABLE_STUDY_SKILLS, ...AVAILABLE_TEACHING_SKILLS].some(
+          (skill) => skill === normalizedName
+        )
           ? [normalizedName]
           : [];
       })
@@ -143,6 +157,34 @@ export async function executeLoadSkill(input: LoadSkillInput) {
   return {
     content: loadSkills(skills),
     skills,
+  };
+}
+
+export async function executeGetTeachingWorkspace(
+  ctx: { userId: string; workspaceId: string },
+  input: TeachingWorkspaceInput
+) {
+  return getTeachingArtifacts({
+    ...input,
+    kind: input.kind as TeachingArtifactKind | undefined,
+    userId: ctx.userId,
+    workspaceId: ctx.workspaceId,
+  });
+}
+
+export async function executeSaveTeachingArtifact(
+  ctx: { userId: string; workspaceId: string },
+  input: SaveTeachingArtifactInput
+) {
+  const artifact = await saveTeachingArtifact({
+    ...input,
+    kind: input.kind as TeachingArtifactKind,
+    userId: ctx.userId,
+    workspaceId: ctx.workspaceId,
+  });
+  return {
+    artifact,
+    summary: `Saved ${artifact.kind} "${artifact.title}" in the private teaching workspace.`,
   };
 }
 

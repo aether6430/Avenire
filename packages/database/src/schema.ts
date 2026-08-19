@@ -178,6 +178,43 @@ export const sessionSummary = pgTable(
   ]
 );
 
+export const teachingArtifact = pgTable(
+  "teaching_artifact",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspace.id, { onDelete: "cascade" }),
+    kind: text("kind").notNull(),
+    slug: text("slug").notNull(),
+    title: text("title").notNull(),
+    content: text("content").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("teaching_artifact_owner_slug_uidx").on(
+      table.userId,
+      table.workspaceId,
+      table.kind,
+      table.slug
+    ),
+    index("teaching_artifact_owner_kind_idx").on(
+      table.userId,
+      table.workspaceId,
+      table.kind,
+      table.updatedAt
+    ),
+  ]
+);
+
 export const fileFolder = pgTable(
   "file_folder",
   {

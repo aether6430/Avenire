@@ -1,6 +1,10 @@
 import { type InferUITools, tool } from "ai";
 import { z } from "zod";
-import { AVAILABLE_STUDY_SKILLS, AVAILABLE_VISUAL_SKILLS } from "../skills";
+import {
+  AVAILABLE_STUDY_SKILLS,
+  AVAILABLE_TEACHING_SKILLS,
+  AVAILABLE_VISUAL_SKILLS,
+} from "../skills";
 
 const sourceTypeSchema = z
   .enum(["pdf", "image", "video", "audio", "document", "markdown", "link"])
@@ -101,6 +105,25 @@ const misconceptionScopeSchema = z.object({
   limit: z.number().int().min(1).max(50).optional(),
   subject: z.string().min(1).optional(),
   topic: z.string().min(1).optional(),
+});
+
+const teachingArtifactKindSchema = z.enum([
+  "mission",
+  "resource",
+  "note",
+  "reference",
+  "lesson",
+  "learning-record",
+]);
+
+const teachingArtifactSchema = z.object({
+  content: z.string(),
+  createdAt: z.string(),
+  id: z.string(),
+  kind: teachingArtifactKindSchema,
+  slug: z.string(),
+  title: z.string(),
+  updatedAt: z.string(),
 });
 
 const widgetToneSchema = z
@@ -554,13 +577,40 @@ export const chatToolSchemas = {
     input: z.object({
       skills: z
         .array(
-          z.enum(AVAILABLE_STUDY_SKILLS as unknown as [string, ...string[]])
+          z.enum(
+            [...AVAILABLE_STUDY_SKILLS, ...AVAILABLE_TEACHING_SKILLS] as unknown as [
+              string,
+              ...string[],
+            ]
+          )
         )
         .min(1),
     }),
     output: z.object({
       content: z.string(),
       skills: z.array(z.string()),
+    }),
+  },
+  get_teaching_workspace: {
+    input: z.object({
+      kind: teachingArtifactKindSchema.optional(),
+      slug: z.string().min(1).optional(),
+    }),
+    output: z.object({
+      artifacts: z.array(teachingArtifactSchema),
+      mission: teachingArtifactSchema.nullable(),
+    }),
+  },
+  save_teaching_artifact: {
+    input: z.object({
+      content: z.string().min(1),
+      kind: teachingArtifactKindSchema,
+      slug: z.string().min(1),
+      title: z.string().min(1),
+    }),
+    output: z.object({
+      artifact: teachingArtifactSchema,
+      summary: z.string(),
     }),
   },
   visualize_read_me: {
@@ -762,6 +812,14 @@ export const chatTools = {
   load_skill: tool({
     inputSchema: chatToolSchemas.load_skill.input,
     outputSchema: chatToolSchemas.load_skill.output,
+  }),
+  get_teaching_workspace: tool({
+    inputSchema: chatToolSchemas.get_teaching_workspace.input,
+    outputSchema: chatToolSchemas.get_teaching_workspace.output,
+  }),
+  save_teaching_artifact: tool({
+    inputSchema: chatToolSchemas.save_teaching_artifact.input,
+    outputSchema: chatToolSchemas.save_teaching_artifact.output,
   }),
   visualize_read_me: tool({
     inputSchema: chatToolSchemas.visualize_read_me.input,

@@ -2,7 +2,10 @@ import { readdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-type SkillSection = "study-guidelines" | "visual-guidelines";
+type SkillSection =
+  | "agent-guidelines"
+  | "study-guidelines"
+  | "visual-guidelines";
 
 type ParsedFrontmatter = {
   attributes: {
@@ -198,14 +201,19 @@ async function main() {
     .filter((entry) => entry.section === "study-guidelines")
     .map((entry) => entry.id)
     .sort();
+  const teachingSkillIds = entries
+    .filter((entry) => entry.section === "agent-guidelines")
+    .map((entry) => entry.id)
+    .sort();
   const lines: string[] = [];
 
   lines.push("// This file is generated. Do not edit by hand.");
   lines.push("// Run: bun packages/ai/skills/scripts/generator.ts");
   lines.push("");
-  lines.push(
-    'export type SkillSection = "study-guidelines" | "visual-guidelines";'
-  );
+  lines.push('export type SkillSection =');
+  lines.push('  | "agent-guidelines"');
+  lines.push('  | "study-guidelines"');
+  lines.push('  | "visual-guidelines";');
   lines.push("");
   lines.push("export type SkillDefinition = {");
   lines.push("  id: string;");
@@ -239,6 +247,10 @@ async function main() {
   lines.push("");
   lines.push(
     `export const AVAILABLE_STUDY_SKILLS = ${JSON.stringify(studySkillIds)} as const;`
+  );
+  lines.push("");
+  lines.push(
+    `export const AVAILABLE_TEACHING_SKILLS = ${JSON.stringify(teachingSkillIds)} as const;`
   );
   lines.push("");
   lines.push(
