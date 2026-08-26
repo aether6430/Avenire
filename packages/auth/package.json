@@ -12,7 +12,7 @@
     "./components/waitlist": "./components/waitlist.tsx",
     "./components/icons": "./components/icons.tsx",
     "./types": "./types.ts",
-    "./error_messages": "./error_messages.ts",
+    "./error_codes": "./error_codes.ts",
     "./middleware": "./middleware.ts",
     "./parse-user-agent": "./parse-user-agent.ts"
   },

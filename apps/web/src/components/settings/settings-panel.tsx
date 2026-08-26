@@ -9,6 +9,7 @@ import {
   updateUser,
   useSession,
 } from "@avenire/auth/client";
+import { getErrorMessage } from "@avenire/auth/error_codes";
 import {
   Avatar,
   AvatarFallback,
@@ -1416,7 +1417,10 @@ export function SettingsPanel({
                                 });
                                 setAccountsStatus(
                                   result.error
-                                    ? "Unable to unlink account."
+                                    ? getErrorMessage(
+                                        result.error.code ?? "",
+                                        result.error.message
+                                      ).userMessage
                                     : "Account unlinked."
                                 );
                                 await refreshAccounts();

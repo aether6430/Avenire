@@ -28,6 +28,7 @@ import { cn } from "@avenire/ui/lib/utils";
 import {
   ArrowRight,
   BookOpenText as BookOpenCheck,
+  CheckCircle,
   Files,
   FileText,
   MagnifyingGlass,
@@ -357,6 +358,30 @@ export function DashboardHome({
     if (response.ok) {
       setSelectedMisconception(null);
       router.refresh();
+    }
+  };
+
+  const [resolvingMisconception, setResolvingMisconception] = useState(false);
+
+  const resolveMisconception = async (misconception: MisconceptionRecord) => {
+    setResolvingMisconception(true);
+    try {
+      const response = await fetch("/api/misconceptions/resolve", {
+        body: JSON.stringify({
+          concept: misconception.concept,
+          subject: misconception.subject,
+          topic: misconception.topic,
+        }),
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      });
+
+      if (response.ok) {
+        setSelectedMisconception(null);
+        router.refresh();
+      }
+    } finally {
+      setResolvingMisconception(false);
     }
   };
 
@@ -954,6 +979,23 @@ export function DashboardHome({
                     >
                       <BookOpenCheck className="size-4" />
                       Generate mindset
+                    </Button>
+                    <Button
+                      className="w-full justify-start"
+                      disabled={resolvingMisconception}
+                      onClick={() => {
+                        resolveMisconception(selectedMisconception).catch(
+                          () => undefined
+                        );
+                      }}
+                      type="button"
+                    >
+                      {resolvingMisconception ? (
+                        <Spinner className="size-4" />
+                      ) : (
+                        <CheckCircle className="size-4" />
+                      )}
+                      Mark as resolved
                     </Button>
                     <Button
                       className="w-full justify-start"

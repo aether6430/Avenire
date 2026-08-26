@@ -1,2 +1,2 @@
 export * from "./client";
-export * from "./error_messages";
+export * from "./error_codes";

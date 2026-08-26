@@ -25,11 +25,13 @@ import {
 import { Input } from "@avenire/ui/components/input";
 import { Label } from "@avenire/ui/components/label";
 import { Textarea } from "@avenire/ui/components/textarea";
+import { Spinner } from "@avenire/ui/components/spinner";
 import { cn } from "@avenire/ui/lib/utils";
 import {
   BookOpenText as BookOpenCheck,
   CaretLeft,
   CaretRight,
+  CheckCircle,
   Plus,
   WarningCircle,
 } from "@phosphor-icons/react";
@@ -487,6 +489,31 @@ export function FlashcardsDashboard({
     }
   };
 
+  const [resolvingMisconception, setResolvingMisconception] = useState(false);
+
+  const resolveMisconception = async (misconception: MisconceptionRecord) => {
+    setResolvingMisconception(true);
+    try {
+      const response = await fetch("/api/misconceptions/resolve", {
+        body: JSON.stringify({
+          concept: misconception.concept,
+          subject: misconception.subject,
+          topic: misconception.topic,
+        }),
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      });
+
+      if (response.ok) {
+        setSelectedMisconception(null);
+        await overviewQuery.refetch();
+        router.refresh();
+      }
+    } finally {
+      setResolvingMisconception(false);
+    }
+  };
+
   const showAdjacentMisconception = (direction: -1 | 1) => {
     if (activeMisconceptions.length === 0) {
       return;
@@ -634,6 +661,24 @@ export function FlashcardsDashboard({
             variant="outline"
           >
             Review Related Cards
+          </Button>
+          <Button
+            className="h-9 flex-1 justify-center"
+            disabled={resolvingMisconception}
+            onClick={() => {
+              resolveMisconception(selectedMisconception).catch(
+                () => undefined
+              );
+            }}
+            type="button"
+            variant="outline"
+          >
+            {resolvingMisconception ? (
+              <Spinner className="size-4" />
+            ) : (
+              <CheckCircle className="size-4" />
+            )}
+            Mark as resolved
           </Button>
         </div>
       </>

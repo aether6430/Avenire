@@ -5,12 +5,13 @@ import { Card, CardContent } from "@avenire/ui/components/card";
 import { Input } from "@avenire/ui/components/input";
 import { Label } from "@avenire/ui/components/label";
 import { cn } from "@avenire/ui/lib/utils";
-import { ArrowRight, Lock, Sparkle as Sparkles } from "@phosphor-icons/react"
+import { ArrowRight, Lock, Sparkle as Sparkles } from "@phosphor-icons/react";
 import { useSearchParams } from "next/navigation";
 import type React from "react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { resetPassword } from "../client";
+import { getErrorMessage } from "../error_codes";
 
 export function ChangePasswordForm({
   className,
@@ -44,9 +45,10 @@ export function ChangePasswordForm({
       token: searchParams.get("token") || "",
     });
     if (error) {
-      const errorCode = error.message;
+      setIsLoading(false);
+      const errorMessage = getErrorMessage(error.code || "", error.message);
       toast.error("Oops! Something went wrong", {
-        description: errorCode,
+        description: errorMessage.userMessage,
       });
       return;
     }
