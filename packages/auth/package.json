@@ -9,6 +9,7 @@
     "./server": "./server.ts",
     "./components/login": "./components/login.tsx",
     "./components/register": "./components/register.tsx",
+    "./components/change-password": "./components/change-password.tsx",
     "./components/waitlist": "./components/waitlist.tsx",
     "./components/icons": "./components/icons.tsx",
     "./types": "./types.ts",

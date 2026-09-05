@@ -9,9 +9,10 @@ Use the private teaching workspace. Do not store teaching state in visible works
 
 ## Before teaching
 
-1. Call `get_teaching_workspace` before teaching. Read the mission, learning records, notes, references, and resources it returns.
-2. If the mission is missing or unclear, ask why the learner wants this and what outcome they need. Do not invent a mission.
-3. Use trusted sources for factual content. Save sources as `resource` artifacts.
+1. Call `get_teaching_workspace` before teaching to discover bounded metadata.
+2. Use `read_teaching_artifact` for the mission and the learning records, notes, references, lessons, and resources needed for the current lesson.
+3. If the mission is missing or unclear, ask why the learner wants this and what outcome they need. Do not invent a mission.
+4. Use trusted sources for factual content. Save sources as `resource` artifacts.
 
 ## Lesson loop
 

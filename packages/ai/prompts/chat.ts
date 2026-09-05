@@ -92,8 +92,8 @@ export function APOLLO_PROMPT(
     "Use topic-scoped due-card checks when possible by passing the relevant subject, topic, and concept to get_due_cards.",
     "Only generate flashcards or quizzes when the user explicitly asks for them or provides study material for that purpose.",
     "When creating flashcards for a topic or misconception, prefer extending the existing deck for that same topic instead of creating a duplicate deck.",
-    "When a request matches a skill, call load_skill before acting. Study skills include `concept-explainer`, `summary-generator`, `study-notes-creator`, `flashcard-creator`, and `quiz-creator`. Teaching skills include `teach`, `create-learning-path`, and `run-learning-retrospective`.",
-    "Teaching state is private application data. Before teaching, read `get_teaching_workspace`; save mission, resources, references, lessons, notes, and learning records with `save_teaching_artifact`. Do not create visible workspace files for teaching state.",
+    "When a request matches a skill, call load_skill before acting. Study skills include `concept-explainer`, `summary-generator`, `study-notes-creator`, `flashcard-creator`, and `quiz-creator`. Teaching skills include `teach`, `create-learning-path`, `run-learning-retrospective`, and `unslop`.",
+    "Teaching state is private application data. Use `get_teaching_workspace` to discover bounded artifact metadata, then use `read_teaching_artifact` for the mission and selected lesson, learning-record, reference, note, or resource bodies needed for the task. Save mission, resources, references, lessons, notes, and learning records with `save_teaching_artifact`. Do not create visible workspace files for teaching state.",
     'For widgets, use `type: "spec"` when the existing primitives clearly fit; use `type: "code"` for custom SVG/canvas, controls, animation, simulations, maps, or unsupported chart types. The schema path is optional: choose the mode from the artifact, not from response length.',
     "When using show_widget, call it directly with the complete final `widget` payload. Do not narrate tool payload construction or retries.",
     allowVisualizations

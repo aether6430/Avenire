@@ -40,6 +40,7 @@ import { AnimatePresence, motion } from "motion/react";
 import type { Route } from "next";
 
 import { startTransition, useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
 import {
   HeaderActions,
   HeaderBreadcrumbs,
@@ -504,11 +505,16 @@ export function FlashcardsDashboard({
         method: "POST",
       });
 
-      if (response.ok) {
-        setSelectedMisconception(null);
-        await overviewQuery.refetch();
-        router.refresh();
+      if (!response.ok) {
+        toast.error("Unable to mark this misconception as resolved. Try again.");
+        return;
       }
+
+      setSelectedMisconception(null);
+      await overviewQuery.refetch();
+      router.refresh();
+    } catch {
+      toast.error("Unable to mark this misconception as resolved. Try again.");
     } finally {
       setResolvingMisconception(false);
     }
@@ -666,9 +672,7 @@ export function FlashcardsDashboard({
             className="h-9 flex-1 justify-center"
             disabled={resolvingMisconception}
             onClick={() => {
-              resolveMisconception(selectedMisconception).catch(
-                () => undefined
-              );
+              void resolveMisconception(selectedMisconception);
             }}
             type="button"
             variant="outline"

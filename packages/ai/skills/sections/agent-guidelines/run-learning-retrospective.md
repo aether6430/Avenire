@@ -5,7 +5,7 @@ description: Review learning progress, find blockers, and adjust the next milest
 
 # Run a learning retrospective
 
-Read the private teaching workspace with `get_teaching_workspace` first. Save the retrospective as a `learning-record` artifact, not as a visible workspace file.
+Call `get_teaching_workspace` first to discover bounded metadata. Then use `read_teaching_artifact` for the mission and relevant learning records, lessons, notes, references, and resources before writing the retrospective. Save the retrospective as a `learning-record` artifact, not as a visible workspace file.
 
 1. Compare completed work with the target outcomes.
 2. Identify recurring blockers and weak concepts from evidence, not impressions.

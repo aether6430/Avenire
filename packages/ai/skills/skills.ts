@@ -811,7 +811,7 @@ description: Build a personalized learning roadmap with milestones and practice 
 
 # Create a learning path
 
-Read the private teaching workspace with \`get_teaching_workspace\` first. Save the resulting roadmap as a \`reference\` or \`lesson\` artifact, not as a visible workspace file.
+Call \`get_teaching_workspace\` first to discover bounded metadata. Then use \`read_teaching_artifact\` for the mission and relevant existing learning records, references, lessons, notes, and resources before creating the roadmap. Save the resulting roadmap as a \`reference\` or \`lesson\` artifact, not as a visible workspace file.
 
 1. Assess the learner's baseline and target outcome.
 2. Sequence the smallest set of topics from fundamentals to applied practice.
@@ -2297,7 +2297,7 @@ description: Review learning progress, find blockers, and adjust the next milest
 
 # Run a learning retrospective
 
-Read the private teaching workspace with \`get_teaching_workspace\` first. Save the retrospective as a \`learning-record\` artifact, not as a visible workspace file.
+Call \`get_teaching_workspace\` first to discover bounded metadata. Then use \`read_teaching_artifact\` for the mission and relevant learning records, lessons, notes, references, and resources before writing the retrospective. Save the retrospective as a \`learning-record\` artifact, not as a visible workspace file.
 
 1. Compare completed work with the target outcomes.
 2. Identify recurring blockers and weak concepts from evidence, not impressions.
@@ -2979,9 +2979,10 @@ Use the private teaching workspace. Do not store teaching state in visible works
 
 ## Before teaching
 
-1. Call \`get_teaching_workspace\` before teaching. Read the mission, learning records, notes, references, and resources it returns.
-2. If the mission is missing or unclear, ask why the learner wants this and what outcome they need. Do not invent a mission.
-3. Use trusted sources for factual content. Save sources as \`resource\` artifacts.
+1. Call \`get_teaching_workspace\` before teaching to discover bounded metadata.
+2. Use \`read_teaching_artifact\` for the mission and the learning records, notes, references, lessons, and resources needed for the current lesson.
+3. If the mission is missing or unclear, ask why the learner wants this and what outcome they need. Do not invent a mission.
+4. Use trusted sources for factual content. Save sources as \`resource\` artifacts.
 
 ## Lesson loop
 

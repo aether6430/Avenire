@@ -5,7 +5,7 @@ description: Build a personalized learning roadmap with milestones and practice 
 
 # Create a learning path
 
-Read the private teaching workspace with `get_teaching_workspace` first. Save the resulting roadmap as a `reference` or `lesson` artifact, not as a visible workspace file.
+Call `get_teaching_workspace` first to discover bounded metadata. Then use `read_teaching_artifact` for the mission and relevant existing learning records, references, lessons, notes, and resources before creating the roadmap. Save the resulting roadmap as a `reference` or `lesson` artifact, not as a visible workspace file.
 
 1. Assess the learner's baseline and target outcome.
 2. Sequence the smallest set of topics from fundamentals to applied practice.

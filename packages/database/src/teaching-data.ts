@@ -28,13 +28,27 @@ export interface TeachingArtifactRecord {
   updatedAt: string;
 }
 
+type TeachingArtifactMetadataRow = Pick<
+  typeof teachingArtifact.$inferSelect,
+  "createdAt" | "id" | "kind" | "slug" | "title" | "updatedAt"
+>;
+
+const teachingArtifactMetadataSelection = {
+  createdAt: teachingArtifact.createdAt,
+  id: teachingArtifact.id,
+  kind: teachingArtifact.kind,
+  slug: teachingArtifact.slug,
+  title: teachingArtifact.title,
+  updatedAt: teachingArtifact.updatedAt,
+};
+
 export type TeachingArtifactMetadata = Omit<
   TeachingArtifactRecord,
   "content"
 >;
 
 function toMetadata(
-  row: typeof teachingArtifact.$inferSelect
+  row: TeachingArtifactMetadataRow
 ): TeachingArtifactMetadata {
   if (!isTeachingArtifactKind(row.kind)) {
     throw new Error(`Unsupported teaching artifact kind: ${row.kind}`);
@@ -66,7 +80,7 @@ export async function getTeachingArtifacts(input: {
   workspaceId: string;
 }) {
   const rows = await db
-    .select()
+    .select(teachingArtifactMetadataSelection)
     .from(teachingArtifact)
     .where(
       and(
@@ -79,7 +93,7 @@ export async function getTeachingArtifacts(input: {
     .limit(input.limit ?? 50);
 
   const [missionRow] = await db
-    .select()
+    .select(teachingArtifactMetadataSelection)
     .from(teachingArtifact)
     .where(
       and(
