@@ -19,4 +19,5 @@ export * from "./session-summary-data";
 export * from "./schema";
 export * from "./sudo-data";
 export * from "./task-data";
+export * from "./teaching-data";
 export * from "./user-settings-data";

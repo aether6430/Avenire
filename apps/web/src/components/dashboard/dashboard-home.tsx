@@ -28,6 +28,7 @@ import { cn } from "@avenire/ui/lib/utils";
 import {
   ArrowRight,
   BookOpenText as BookOpenCheck,
+  CheckCircle,
   Files,
   FileText,
   MagnifyingGlass,
@@ -41,6 +42,7 @@ import { STATIC_ASSETS } from "@/lib/static-assets";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { startTransition, useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 import { HeaderBreadcrumbs } from "@/components/dashboard/header-portal";
 import { QuickCaptureDialog } from "@/components/dashboard/quick-capture-dialog";
 import { prefetchFlashcardSet } from "@/lib/flashcard-browser-cache";
@@ -357,6 +359,35 @@ export function DashboardHome({
     if (response.ok) {
       setSelectedMisconception(null);
       router.refresh();
+    }
+  };
+
+  const [resolvingMisconception, setResolvingMisconception] = useState(false);
+
+  const resolveMisconception = async (misconception: MisconceptionRecord) => {
+    setResolvingMisconception(true);
+    try {
+      const response = await fetch("/api/misconceptions/resolve", {
+        body: JSON.stringify({
+          concept: misconception.concept,
+          subject: misconception.subject,
+          topic: misconception.topic,
+        }),
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      });
+
+      if (!response.ok) {
+        toast.error("Unable to mark this misconception as resolved. Try again.");
+        return;
+      }
+
+      setSelectedMisconception(null);
+      router.refresh();
+    } catch {
+      toast.error("Unable to mark this misconception as resolved. Try again.");
+    } finally {
+      setResolvingMisconception(false);
     }
   };
 
@@ -954,6 +985,21 @@ export function DashboardHome({
                     >
                       <BookOpenCheck className="size-4" />
                       Generate mindset
+                    </Button>
+                    <Button
+                      className="w-full justify-start"
+                      disabled={resolvingMisconception}
+                      onClick={() => {
+                        void resolveMisconception(selectedMisconception);
+                      }}
+                      type="button"
+                    >
+                      {resolvingMisconception ? (
+                        <Spinner className="size-4" />
+                      ) : (
+                        <CheckCircle className="size-4" />
+                      )}
+                      Mark as resolved
                     </Button>
                     <Button
                       className="w-full justify-start"

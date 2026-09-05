@@ -1,6 +1,10 @@
 import { type InferUITools, tool } from "ai";
 import { z } from "zod";
-import { AVAILABLE_STUDY_SKILLS, AVAILABLE_VISUAL_SKILLS } from "../skills";
+import {
+  AVAILABLE_STUDY_SKILLS,
+  AVAILABLE_TEACHING_SKILLS,
+  AVAILABLE_VISUAL_SKILLS,
+} from "../skills";
 
 const sourceTypeSchema = z
   .enum(["pdf", "image", "video", "audio", "document", "markdown", "link"])
@@ -102,6 +106,30 @@ const misconceptionScopeSchema = z.object({
   subject: z.string().min(1).optional(),
   topic: z.string().min(1).optional(),
 });
+
+const teachingArtifactKindSchema = z.enum([
+  "mission",
+  "resource",
+  "note",
+  "reference",
+  "lesson",
+  "learning-record",
+]);
+
+const teachingArtifactMetadataSchema = z.object({
+  createdAt: z.string(),
+  id: z.string(),
+  kind: teachingArtifactKindSchema,
+  slug: z.string(),
+  title: z.string(),
+  updatedAt: z.string(),
+});
+
+const teachingArtifactSchema = teachingArtifactMetadataSchema.extend({
+  content: z.string(),
+});
+
+const MAX_TEACHING_ARTIFACT_CONTENT_CHARS = 100_000;
 
 const widgetToneSchema = z
   .enum(["default", "muted", "info", "success", "warning", "danger"])
@@ -554,13 +582,49 @@ export const chatToolSchemas = {
     input: z.object({
       skills: z
         .array(
-          z.enum(AVAILABLE_STUDY_SKILLS as unknown as [string, ...string[]])
+          z.enum(
+            [...AVAILABLE_STUDY_SKILLS, ...AVAILABLE_TEACHING_SKILLS] as unknown as [
+              string,
+              ...string[],
+            ]
+          )
         )
         .min(1),
     }),
     output: z.object({
       content: z.string(),
       skills: z.array(z.string()),
+    }),
+  },
+  get_teaching_workspace: {
+    input: z.object({
+      kind: teachingArtifactKindSchema.optional(),
+      limit: z.number().int().min(1).max(50).optional(),
+    }),
+    output: z.object({
+      artifacts: z.array(teachingArtifactMetadataSchema),
+      mission: teachingArtifactMetadataSchema.nullable(),
+    }),
+  },
+  read_teaching_artifact: {
+    input: z.object({
+      kind: teachingArtifactKindSchema,
+      slug: z.string().min(1),
+    }),
+    output: z.object({
+      artifact: teachingArtifactSchema,
+    }),
+  },
+  save_teaching_artifact: {
+    input: z.object({
+      content: z.string().min(1).max(MAX_TEACHING_ARTIFACT_CONTENT_CHARS),
+      kind: teachingArtifactKindSchema,
+      slug: z.string().min(1),
+      title: z.string().min(1),
+    }),
+    output: z.object({
+      artifact: teachingArtifactSchema,
+      summary: z.string(),
     }),
   },
   visualize_read_me: {
@@ -762,6 +826,18 @@ export const chatTools = {
   load_skill: tool({
     inputSchema: chatToolSchemas.load_skill.input,
     outputSchema: chatToolSchemas.load_skill.output,
+  }),
+  get_teaching_workspace: tool({
+    inputSchema: chatToolSchemas.get_teaching_workspace.input,
+    outputSchema: chatToolSchemas.get_teaching_workspace.output,
+  }),
+  read_teaching_artifact: tool({
+    inputSchema: chatToolSchemas.read_teaching_artifact.input,
+    outputSchema: chatToolSchemas.read_teaching_artifact.output,
+  }),
+  save_teaching_artifact: tool({
+    inputSchema: chatToolSchemas.save_teaching_artifact.input,
+    outputSchema: chatToolSchemas.save_teaching_artifact.output,
   }),
   visualize_read_me: tool({
     inputSchema: chatToolSchemas.visualize_read_me.input,

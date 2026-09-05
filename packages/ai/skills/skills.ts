@@ -1,7 +1,10 @@
 // This file is generated. Do not edit by hand.
 // Run: bun packages/ai/skills/scripts/generator.ts
 
-export type SkillSection = "study-guidelines" | "visual-guidelines";
+export type SkillSection =
+  | "agent-guidelines"
+  | "study-guidelines"
+  | "visual-guidelines";
 
 export type SkillDefinition = {
   id: string;
@@ -793,6 +796,30 @@ Create a visual when it materially improves understanding or decision-making. Le
 - Are controls necessary, native, labeled, and keyboard accessible?
 - Does it fit from 736px to 320px without clipping or scrolling?
 - Does it remain correct during streaming, theme changes, resize, and reduced motion?
+`,
+  },
+  "create-learning-path": {
+    id: "create-learning-path",
+    title: "Create a learning path",
+    description: "Build a personalized learning roadmap with milestones and practice checkpoints.",
+    section: "agent-guidelines",
+    path: "sections/agent-guidelines/create-learning-path.md",
+    content: `---
+name: create-learning-path
+description: Build a personalized learning roadmap with milestones and practice checkpoints.
+---
+
+# Create a learning path
+
+Call \`get_teaching_workspace\` first to discover bounded metadata. Then use \`read_teaching_artifact\` for the mission and relevant existing learning records, references, lessons, notes, and resources before creating the roadmap. Save the resulting roadmap as a \`reference\` or \`lesson\` artifact, not as a visible workspace file.
+
+1. Assess the learner's baseline and target outcome.
+2. Sequence the smallest set of topics from fundamentals to applied practice.
+3. Define achievable milestones, practice tasks, feedback criteria, and time-boxed checkpoints.
+4. Include reflection in every phase and limit the resource list.
+5. End with a measurable next milestone.
+
+Completion means the roadmap names the target, order, practice, feedback, timing, and next checkpoint.
 `,
   },
   "dashboard": {
@@ -2257,6 +2284,30 @@ C) [Explanation why correct and why others are wrong]
 - [ ] Formulas and equations are rendered inline with \`$...$\` or display with \`$$...$$\`, never fenced as \`\`\`latex
 `,
   },
+  "run-learning-retrospective": {
+    id: "run-learning-retrospective",
+    title: "Run a learning retrospective",
+    description: "Review learning progress, find blockers, and adjust the next milestone.",
+    section: "agent-guidelines",
+    path: "sections/agent-guidelines/run-learning-retrospective.md",
+    content: `---
+name: run-learning-retrospective
+description: Review learning progress, find blockers, and adjust the next milestone.
+---
+
+# Run a learning retrospective
+
+Call \`get_teaching_workspace\` first to discover bounded metadata. Then use \`read_teaching_artifact\` for the mission and relevant learning records, lessons, notes, references, and resources before writing the retrospective. Save the retrospective as a \`learning-record\` artifact, not as a visible workspace file.
+
+1. Compare completed work with the target outcomes.
+2. Identify recurring blockers and weak concepts from evidence, not impressions.
+3. Decide what to reinforce, what to defer, and why.
+4. Adjust pacing and practice tasks.
+5. Set one next milestone with a measurable checkpoint.
+
+Completion means the retrospective records progress, blockers, changes, and the next checkpoint.
+`,
+  },
   "smartphone-layer-anatomy-example": {
     id: "smartphone-layer-anatomy-example",
     title: "Smartphone Layer Anatomy",
@@ -2911,6 +2962,40 @@ Before placing text in a box, check: does (text width + 2×padding) fit the cont
 **No rotated text**. \`<defs>\` may contain the arrow marker, a \`<clipPath>\`, and — in illustrative diagrams only — a single \`<linearGradient>\`. Nothing else: no filters, no patterns, no extra markers.
 `,
   },
+  "teach": {
+    id: "teach",
+    title: "Teach",
+    description: "Teach a user a skill or concept across sessions with short lessons and practice. Use when the user asks to learn.",
+    section: "agent-guidelines",
+    path: "sections/agent-guidelines/teach.md",
+    content: `---
+name: teach
+description: Teach a user a skill or concept across sessions with short lessons and practice. Use when the user asks to learn.
+---
+
+# Teach
+
+Use the private teaching workspace. Do not store teaching state in visible workspace files.
+
+## Before teaching
+
+1. Call \`get_teaching_workspace\` before teaching to discover bounded metadata.
+2. Use \`read_teaching_artifact\` for the mission and the learning records, notes, references, lessons, and resources needed for the current lesson.
+3. If the mission is missing or unclear, ask why the learner wants this and what outcome they need. Do not invent a mission.
+4. Use trusted sources for factual content. Save sources as \`resource\` artifacts.
+
+## Lesson loop
+
+1. Teach only the knowledge needed for one narrowly scoped skill.
+2. Make the learner retrieve, apply, and receive feedback. Prefer a short interactive exercise.
+3. Save the lesson as a \`lesson\` artifact with a stable slug and complete HTML content.
+4. Save durable facts as \`reference\` artifacts and non-obvious progress as \`learning-record\` artifacts.
+5. Save mission changes only after the learner confirms them. Use the \`mission\` artifact for the current mission.
+6. End with a concrete next step and a way to ask follow-up questions.
+
+Keep lessons short enough to finish quickly. Favor storage strength over a smooth explanation: recall, spacing, and interleaving matter more than immediate fluency.
+`,
+  },
   "ui-components": {
     id: "ui-components",
     title: "Ui Components",
@@ -2948,6 +3033,47 @@ Use host utilities for geometry, surfaces, controls, typography, and interaction
 For concrete compositions, load the relevant examples from \`examples/\` only when needed. Do not copy incidental spacing or content from an example when the user’s artifact differs.
 `,
   },
+  "unslop": {
+    id: "unslop",
+    title: "Unslop",
+    description: "Rewrite plans and documentation in direct, specific language. Use when removing generic AI prose.",
+    section: "agent-guidelines",
+    path: "sections/agent-guidelines/unslop.md",
+    content: `---
+name: unslop
+description: Rewrite plans and documentation in direct, specific language. Use when removing generic AI prose.
+---
+
+# Unslop
+
+Rewrite text so it sounds specific, direct, and human. Preserve meaning and the intended tone.
+
+## Process
+
+1. Scan for puffery, vague claims, filler, repetition, over-structured prose, and generic conclusions.
+2. Replace each with a concrete fact, instruction, decision, example, or number.
+3. Prefer active voice, plain words, varied sentence length, and sentence-case headings.
+4. Keep the author's point of view when it helps. Do not add enthusiasm or marketing language.
+5. Read the result once as a skeptical editor. Remove anything that could appear unchanged in another project's docs.
+
+## Remove
+
+- Puffery and promotion: "pivotal", "groundbreaking", "vibrant", "stunning", "must-visit", "testament".
+- Vague attribution: name the source or remove the claim.
+- Abstract metaphor jargon: "landscape", "flywheel", "north star", "bedrock", "scaffolding", "harness".
+- Fancy verbs: use "is", "has", "use", and "help" instead of "serves as", "boasts", "leverage", and "facilitate".
+- "Not just X, but Y", forced groups of three, synonym cycling, and false "from X to Y" ranges.
+- Filler such as "in order to", "it is important to note", and excessive hedging.
+- Chatbot phrases, sycophancy, decorative emojis, curly quotes, and em dashes.
+
+## Keep
+
+- One idea per sentence when a sentence becomes hard to parse.
+- A single source of truth for each rule.
+- Steps in execution order. End each step with a checkable completion condition.
+- Reference material behind a clear pointer when only one branch needs it.
+`,
+  },
   "when-nothing-fits": {
     id: "when-nothing-fits",
     title: "When Nothing Fits",
@@ -2966,6 +3092,8 @@ Pick the closest use case below and adapt. When nothing fits cleanly:
 export type SkillId = keyof typeof SKILL_MAP;
 
 export const AVAILABLE_STUDY_SKILLS = ["auto-llm-example","concept-explainer","electricity-grid-flow-example","flashcard-creator","quiz-creator","smartphone-layer-anatomy-example","sn2-reaction-mechanism-example","study-notes-creator","summary-generator"] as const;
+
+export const AVAILABLE_TEACHING_SKILLS = ["create-learning-path","run-learning-retrospective","teach","unslop"] as const;
 
 export const AVAILABLE_VISUAL_SKILLS = ["art","chart","diagram","interactive","mockup","physics"] as const;
 

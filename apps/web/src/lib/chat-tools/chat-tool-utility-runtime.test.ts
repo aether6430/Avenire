@@ -7,6 +7,7 @@ const { loadSkillsMock, searchMock } = vi.hoisted(() => ({
 
 vi.mock("@avenire/ai/skills", () => ({
   AVAILABLE_STUDY_SKILLS: ["explain", "summarize"],
+  AVAILABLE_TEACHING_SKILLS: [],
   AVAILABLE_VISUAL_SKILLS: ["diagram", "chart"],
   loadSkills: loadSkillsMock,
 }));

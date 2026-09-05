@@ -32,6 +32,9 @@ import {
 } from "@/lib/chat-tools/chat-tool-study-runtime";
 import {
   executeLoadSkill,
+  executeGetTeachingWorkspace,
+  executeReadTeachingArtifact,
+  executeSaveTeachingArtifact,
   executeShowWidgetWithOptions,
   executeVisualizeReadMe,
   runWebSearch,
@@ -247,10 +250,31 @@ export function createChatTools(ctx: ChatToolContext): ToolSet {
     }),
     load_skill: tool({
       description:
-        "Load a study-guideline skill into context. Use this before acting on structured study tasks like explanations, summaries, notes, mindset cards, or quizzes.",
+        "Load a study or teaching skill into context before acting on a matching task.",
       inputSchema: toolSchema(chatToolSchemas.load_skill.input),
       outputSchema: toolSchema(chatToolSchemas.load_skill.output),
       execute: async (input) => executeLoadSkill(input),
+    }),
+    get_teaching_workspace: tool({
+      description:
+        "Read the private teaching workspace for this user and workspace. Use it before teaching, planning a learning path, or running a learning retrospective. This state is not a visible workspace file.",
+      inputSchema: toolSchema(chatToolSchemas.get_teaching_workspace.input),
+      outputSchema: toolSchema(chatToolSchemas.get_teaching_workspace.output),
+      execute: async (input) => executeGetTeachingWorkspace(ctx, input),
+    }),
+    read_teaching_artifact: tool({
+      description:
+        "Read one full teaching artifact (mission, resource, note, reference, lesson, or learning-record) by kind and slug after get_teaching_workspace identifies it. Use for targeted content reads.",
+      inputSchema: toolSchema(chatToolSchemas.read_teaching_artifact.input),
+      outputSchema: toolSchema(chatToolSchemas.read_teaching_artifact.output),
+      execute: async (input) => executeReadTeachingArtifact(ctx, input),
+    }),
+    save_teaching_artifact: tool({
+      description:
+        "Save mission, resource, note, reference, lesson, or learning-record content to the private teaching workspace. Use explicit complete content; do not create visible workspace files for teaching state.",
+      inputSchema: toolSchema(chatToolSchemas.save_teaching_artifact.input),
+      outputSchema: toolSchema(chatToolSchemas.save_teaching_artifact.output),
+      execute: async (input) => executeSaveTeachingArtifact(ctx, input),
     }),
     visualize_read_me: tool({
       description:

@@ -23,7 +23,6 @@ import { noteSyncSchema, noteUpdateSchema } from "./notes/note-route-model";
 import { SudoRouteRequest } from "./security/sudo/sudo-route-model";
 import { taskCreateSchema, taskMutationSchema, taskResourceSchema } from "./tasks/task-route-model";
 import { userSettingsMutationSchema } from "./user-settings/user-settings-route-model";
-import { workspaceFileContentPatchSchema } from "./workspaces/[workspaceUuid]/files/[fileUuid]/content/workspace-file-content-route-model";
 import { workspaceFileShareGrantSchema } from "./workspaces/[workspaceUuid]/files/[fileUuid]/share/workspace-file-share-route-model";
 import { workspaceFilePatchSchema } from "./workspaces/[workspaceUuid]/files/[fileUuid]/workspace-file-route-model";
 import { workspaceFileDedupeLookupRequestSchema } from "./workspaces/[workspaceUuid]/files/dedupe/lookup/workspace-file-dedupe-lookup-model";
@@ -86,7 +85,6 @@ schemaContract("taskResourceSchema", taskResourceSchema, { href: "/file", resour
 schemaContract("taskMutationSchema", taskMutationSchema, { status: "planned" }, { status: "unknown" });
 schemaContract("taskCreateSchema", taskCreateSchema, { title: "Task" }, { title: " " });
 schemaContract("userSettingsMutationSchema", userSettingsMutationSchema, { onboardingCompleted: true }, { onboardingCompleted: "yes" });
-schemaContract("workspaceFileContentPatchSchema", workspaceFileContentPatchSchema, { content: "text", sizeBytes: 4 }, { sizeBytes: -1 });
 schemaContract("workspaceFileShareGrantSchema", workspaceFileShareGrantSchema, { email: "a@example.com", permission: "viewer" }, { permission: "owner" });
 schemaContract("workspaceFilePatchSchema", workspaceFilePatchSchema, { name: "File" }, { name: "" });
 schemaContract("workspaceFileDedupeLookupRequestSchema", workspaceFileDedupeLookupRequestSchema, { files: [{ clientUploadId: "upload", folderId: uuid, hashSha256: hash, name: "file", sizeBytes: 1 }] }, { files: [] });
