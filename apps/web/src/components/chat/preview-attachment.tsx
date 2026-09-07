@@ -2,11 +2,11 @@
 
 import { Button } from "@avenire/ui/components/button";
 import {
-  Drawer,
-  DrawerContent,
-  DrawerHeader,
-  DrawerTitle,
-} from "@avenire/ui/components/drawer";
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@avenire/ui/components/dialog";
 import { Spinner } from "@avenire/ui/components/spinner";
 import {
   Tooltip,
@@ -33,7 +33,6 @@ import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import type { Attachment } from "@/components/chat/attachment";
-import { useIsMobile } from "@/hooks/use-mobile";
 import {
   primeMediaPlayback,
   releaseMediaPlaybackPrime,
@@ -52,7 +51,7 @@ const MAX_SCALE = 5;
 const ZOOM_STEP = 0.5;
 const DOUBLE_TAP_ZOOM = 2.5;
 
-function AttachmentPreviewDrawer({
+function AttachmentPreviewModal({
   children,
   fileSize,
   isMediaPreview,
@@ -69,40 +68,37 @@ function AttachmentPreviewDrawer({
   open: boolean;
   thumbnail: React.ReactNode;
 }) {
-  const isMobile = useIsMobile();
-
   return (
-    <Drawer
-      direction={isMobile ? "bottom" : "right"}
-      onOpenChange={onOpenChange}
-      open={open}
-    >
-      <DrawerContent className="data-[vaul-drawer-direction=bottom]:max-h-[86dvh] data-[vaul-drawer-direction=right]:w-[min(58rem,92vw)] data-[vaul-drawer-direction=right]:max-w-none">
-        <div className="flex h-full max-h-[inherit] min-h-0 flex-col overflow-hidden">
-          <DrawerHeader className="border-border/60 border-b px-4 py-3 text-left">
-            <DrawerTitle className="flex min-w-0 items-center gap-2">
-              {thumbnail}
-              <span className="min-w-0 flex-1 truncate">
-                {name ?? "Attachment"}
+    <Dialog onOpenChange={onOpenChange} open={open}>
+      <DialogContent
+        className={cn(
+          "flex h-[min(86dvh,52rem)] max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-[min(58rem,92vw)]",
+          isMediaPreview ? "bg-black" : ""
+        )}
+      >
+        <DialogHeader className="shrink-0 border-border/60 border-b px-4 py-3 text-left">
+          <DialogTitle className="flex min-w-0 items-center gap-2">
+            {thumbnail}
+            <span className="min-w-0 flex-1 truncate">
+              {name ?? "Attachment"}
+            </span>
+            {fileSize ? (
+              <span className="shrink-0 text-muted-foreground text-xs">
+                {fileSize}
               </span>
-              {fileSize ? (
-                <span className="shrink-0 text-muted-foreground text-xs">
-                  {fileSize}
-                </span>
-              ) : null}
-            </DrawerTitle>
-          </DrawerHeader>
-          <div
-            className={cn(
-              "min-h-0 flex-1",
-              isMediaPreview ? "overflow-hidden" : "overflow-auto p-4 sm:p-6"
-            )}
-          >
-            {children}
-          </div>
+            ) : null}
+          </DialogTitle>
+        </DialogHeader>
+        <div
+          className={cn(
+            "min-h-0 flex-1",
+            isMediaPreview ? "overflow-hidden" : "overflow-auto p-4 sm:p-6"
+          )}
+        >
+          {children}
         </div>
-      </DrawerContent>
-    </Drawer>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -777,7 +773,7 @@ export function PreviewAttachment({
 
   const renderThumbnail = (size: "default" | "composer" = "default") => {
     const thumbnailClassName =
-      size === "composer" ? "h-20 w-20 rounded-lg" : "h-12 w-12 rounded-md";
+      size === "composer" ? "h-20 w-20 rounded-[28px]" : "h-12 w-12 rounded-md";
     const imageSize = size === "composer" ? 80 : 48;
     const iconClassName = size === "composer" ? "h-8 w-8" : "h-6 w-6";
     const thumbnailPreviewUrl = previewUrl || url;
@@ -1046,8 +1042,8 @@ export function PreviewAttachment({
     );
   };
 
-  const previewDrawer = (
-    <AttachmentPreviewDrawer
+  const previewModal = (
+    <AttachmentPreviewModal
       fileSize={fileSize}
       isMediaPreview={isImagePreview || isVideoPreview}
       name={name}
@@ -1061,10 +1057,10 @@ export function PreviewAttachment({
       thumbnail={renderThumbnail()}
     >
       {renderModalContent()}
-    </AttachmentPreviewDrawer>
+    </AttachmentPreviewModal>
   );
 
-  if (variant === "composer") {
+  if (variant === "composer" || variant === "default") {
     return (
       <TooltipProvider delay={280}>
         <motion.div
@@ -1081,7 +1077,7 @@ export function PreviewAttachment({
                 <Button
                   aria-label={name ?? "Attachment"}
                   className={cn(
-                    "relative h-20 w-20 overflow-hidden rounded-lg border border-border/80 bg-background p-0 text-left transition-colors hover:bg-muted"
+                    "relative h-20 w-20 overflow-hidden rounded-[28px] border border-border/80 bg-background p-0 text-left transition-colors hover:bg-muted"
                   )}
                   onBlur={() => setIsHovered(false)}
                   onClick={() => {
@@ -1138,7 +1134,7 @@ export function PreviewAttachment({
             </TooltipContent>
           </Tooltip>
 
-          {previewDrawer}
+          {previewModal}
         </motion.div>
       </TooltipProvider>
     );
@@ -1184,7 +1180,7 @@ export function PreviewAttachment({
           </Button>
         ) : null}
 
-        {previewDrawer}
+        {previewModal}
       </motion.div>
     );
   }
@@ -1260,7 +1256,7 @@ export function PreviewAttachment({
           </TooltipContent>
         </Tooltip>
 
-        {previewDrawer}
+        {previewModal}
       </motion.div>
     </TooltipProvider>
   );
